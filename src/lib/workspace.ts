@@ -1,6 +1,7 @@
 import {normalizeNetwork,DEFAULT_NETWORK} from '../chains';
 import {z} from 'zod';
 import {client} from './supabase';
+import {fetchBalances} from './balances.functions';
 const address=z.string().regex(/^0x[a-fA-F0-9]{40}$/,'Enter a valid EVM address.').refine(v=>!/^0x0{40}$/i.test(v),'The zero address cannot be used.');
 const network=z.enum(['robinhood','ethereum','arbitrum']);
 export async function workspaceApi(data?:Record<string,unknown>){
