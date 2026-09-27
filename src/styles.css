@@ -343,7 +343,7 @@ main h1:focus{outline:none}
 .explorer-link{border-color:#cfa3ff30}.explorer-link:hover{background:#b16fff0c}
 .premium-workspace [data-slot=switch][data-state=checked],.ping-dialog [data-slot=checkbox][data-state=checked]{background:#a24af1;color:#fff;border-color:#a24af1}
 .workspace-select [data-slot=select-item][data-highlighted]{background:#a24af112;color:#dfbaff}
-.network-label-robinhood{display:inline-flex;align-items:center;background:#000;padding:6px 9px;border-radius:5px;flex-shrink:0}
+.network-label-robinhood{display:inline-flex;align-items:center;background:transparent;padding:0;flex-shrink:0}
 .network-label-robinhood img{display:block;width:153px;height:20px;object-fit:contain;max-width:none}
 .network-select{min-width:200px}.network-name{gap:9px}
 @media(max-width:767px){.dashboard-header>div{gap:6px}.dashboard-header>div:first-child strong{max-width:78px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.network-name{padding:2px;border:0;background:transparent}.dashboard-header .avatar{width:30px;height:30px}.network-label-robinhood{padding:5px 6px}.card-top{gap:12px;flex-wrap:wrap}.card-top>span{font-size:12px}.balance-card-bottom{gap:8px}.dashboard-header>div:first-child>svg{display:none}}
