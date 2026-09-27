@@ -13,7 +13,7 @@
 @media(min-width:701px) and (max-width:1100px){.dashboard-main{padding:28px}.dashboard-header{padding:0 28px}.overview-grid,.dashboard-two-column{grid-template-columns:1.2fr 1fr}.dashboard-title>.connection-status{display:none}.card{padding:20px}.balance-number{font-size:40px}.contact-grid{grid-template-columns:1fr 1fr}.balance-card-bottom .non-custodial{display:none}.empty-row>a{display:none}}
 @media(max-width:767px){.dashboard-main{padding:26px 18px}.dashboard-header{height:70px;padding:0 18px}.dashboard-header [data-slot=sidebar-trigger]{display:inline-flex}.dashboard-header>div{gap:8px}.dashboard-header>div>span:first-of-type{display:none}.dashboard-title{align-items:flex-start;flex-wrap:wrap;margin-bottom:25px}.dashboard-title h1{font-size:26px;max-width:330px}.dashboard-title>.connection-status{font-size:10px}.overview-grid,.dashboard-two-column,.send-grid,.settings-grid{grid-template-columns:1fr}.card{padding:23px}.balance-card{padding:24px}.balance-number{font-size:44px}.balance-card-bottom .non-custodial{font-size:9px}.quick-send>p{max-width:none}.empty-row{align-items:flex-start;flex-wrap:wrap}.empty-row>a{margin-left:53px}.empty-row p{line-height:1.5;max-width:200px}.dashboard-bottom-line{flex-wrap:wrap;font-size:9px;line-height:1.5}.contact-grid{grid-template-columns:1fr}.toolbar{flex-wrap:wrap;gap:15px}.toolbar .input-icon{width:100%}.send-note{padding:30px 12px}.dashboard-main td,.dashboard-main th{font-size:11px}.settings-buttons{gap:20px}.error-panel{padding:30px}.error-panel h2{font-size:27px}.empty-state{padding:50px 15px}.empty-state h2{font-size:22px}.notice{flex-direction:column}.network-name{font-size:11px}}
 .site-header{position:fixed;transition:background .25s,color .25s}.site-header.scrolled{background:#1b171ded;backdrop-filter:blur(14px)}.site-header.light-header{background:#f6f4f7ed;color:#2b2033}.site-header.light-header .button{background:#29202f;color:#fff}.site-header.light-header nav a:hover,.site-header.light-header nav button:hover{color:#9452bc}.mega-menu{position:fixed}.site-header nav a,.site-header nav button{min-height:44px;display:flex;align-items:center}
-/* Shared navigation motion: a short dissolve, with the surrounding chrome held steady. */
+/* Shared navigation motion: directional page turns between pages, logo entrance between areas. */
 :root{--page-ease:cubic-bezier(.22,1,.36,1)}
 main{transition:opacity 160ms ease,transform 240ms var(--page-ease)}
 .site-header{view-transition-name:ping-header}
@@ -21,14 +21,26 @@ main{transition:opacity 160ms ease,transform 240ms var(--page-ease)}
 .dashboard-header{view-transition-name:ping-dashboard-header}
 ::view-transition-group(*){animation-duration:520ms;animation-timing-function:var(--page-ease)}
 ::view-transition-image-pair(root){perspective:1200px;transform-style:preserve-3d}
-::view-transition-old(root){animation:page-flip-out 300ms ease-in both;backface-visibility:hidden;transform-origin:left center}
-::view-transition-new(root){animation:page-flip-in 520ms var(--page-ease) both;backface-visibility:hidden;transform-origin:right center}
+::view-transition-old(root){animation:page-flip-left-out 300ms ease-in both;backface-visibility:hidden;transform-origin:left center}
+::view-transition-new(root){animation:page-flip-left-in 520ms var(--page-ease) both;backface-visibility:hidden;transform-origin:right center}
+[data-flip-direction=right]::view-transition-old(root){animation-name:page-flip-right-out;transform-origin:right center}
+[data-flip-direction=right]::view-transition-new(root){animation-name:page-flip-right-in;transform-origin:left center}
+[data-flip-direction=up]::view-transition-old(root){animation-name:page-flip-up-out;transform-origin:center top}
+[data-flip-direction=up]::view-transition-new(root){animation-name:page-flip-up-in;transform-origin:center bottom}
+[data-flip-direction=down]::view-transition-old(root){animation-name:page-flip-down-out;transform-origin:center bottom}
+[data-flip-direction=down]::view-transition-new(root){animation-name:page-flip-down-in;transform-origin:center top}
 ::view-transition-old(ping-header),::view-transition-old(ping-sidebar),::view-transition-old(ping-dashboard-header){animation:none;opacity:0}
 ::view-transition-new(ping-header),::view-transition-new(ping-sidebar),::view-transition-new(ping-dashboard-header){animation:none}
 [data-route-pending] main{opacity:.5;transform:perspective(1200px) rotateY(-4deg)}
 main h1:focus{outline:none}
-@keyframes page-flip-out{from{opacity:1;transform:rotateY(0)}to{opacity:0;transform:rotateY(-65deg)}}
-@keyframes page-flip-in{from{opacity:0;transform:rotateY(65deg)}to{opacity:1;transform:rotateY(0)}}
+@keyframes page-flip-left-out{from{opacity:1;transform:rotateY(0)}to{opacity:0;transform:rotateY(-65deg)}}
+@keyframes page-flip-left-in{from{opacity:0;transform:rotateY(65deg)}to{opacity:1;transform:rotateY(0)}}
+@keyframes page-flip-right-out{from{opacity:1;transform:rotateY(0)}to{opacity:0;transform:rotateY(65deg)}}
+@keyframes page-flip-right-in{from{opacity:0;transform:rotateY(-65deg)}to{opacity:1;transform:rotateY(0)}}
+@keyframes page-flip-up-out{from{opacity:1;transform:rotateX(0)}to{opacity:0;transform:rotateX(65deg)}}
+@keyframes page-flip-up-in{from{opacity:0;transform:rotateX(-65deg)}to{opacity:1;transform:rotateX(0)}}
+@keyframes page-flip-down-out{from{opacity:1;transform:rotateX(0)}to{opacity:0;transform:rotateX(-65deg)}}
+@keyframes page-flip-down-in{from{opacity:0;transform:rotateX(65deg)}to{opacity:1;transform:rotateX(0)}}
 .brand-entrance{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:var(--background);color:var(--foreground);animation:brand-screen-out 500ms 1.38s ease-in-out both;pointer-events:auto}
 .brand-entrance--done{display:none}
 .brand-entrance__identity{display:flex;flex-direction:column;align-items:center;gap:12px;min-width:200px}

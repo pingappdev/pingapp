@@ -32,7 +32,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!ready || session) return;
+    if (!ready || session || !pathname.startsWith("/dashboard")) return;
     const search = params.toString();
     const returnTo = pathname + (search ? "?" + search : "");
     void navigate({ to: "/login", search: { returnTo }, replace: true });
