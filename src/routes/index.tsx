@@ -1,24 +1,27 @@
 import { createFileRoute } from "@tanstack/react-router";
+import Marketing from "@/marketing";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
-  component: Index,
+  head: () => ({
+    meta: [
+      { title: "PingApp — Send Crypto Like a Text" },
+      {
+        name: "description",
+        content:
+          "PingApp connects the phone number you already have to the wallet you already control. No address to copy, no QR to scan.",
+      },
+      { property: "og:title", content: "PingApp — Send Crypto Like a Text" },
+      {
+        property: "og:description",
+        content: "Your number. Your wallet. A phone-to-wallet directory built around familiar contacts.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
+  component: Home,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
-function Index() {
-  return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
-  );
+function Home() {
+  return <Marketing page="home" />;
 }
