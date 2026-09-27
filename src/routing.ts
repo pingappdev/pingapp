@@ -19,7 +19,9 @@ export function useRouter() {
         if (options?.scroll !== false) window.scrollTo({ top: 0, left: 0, behavior: "instant" });
       },
       prefetch: (href: string) => {
-        void router.preloadRoute({ href }).catch(() => {});
+        void Promise.resolve(
+          router.preloadRoute({ href } as Parameters<typeof router.preloadRoute>[0]),
+        ).catch(() => {});
       },
     }),
     [router],
