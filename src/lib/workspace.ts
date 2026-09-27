@@ -19,4 +19,4 @@ export async function workspaceApi(data?:Record<string,unknown>){
  }else throw new Error('Unknown action.');
  return workspaceApi();
 }
-export async function readBalances(address:string,network:string){const {data,error}=await client().functions.invoke('balances',{body:{address,network}});if(error||data?.error)throw new Error(data?.error??'This network is not responding. Try refreshing shortly.');return data as {eth:string,usdc:string|null,updated:number}}
+export async function readBalances(address:string,network:string){const data=await fetchBalances({data:{address,network}});return data as {eth:string,usdc:string|null,updated:number}}
