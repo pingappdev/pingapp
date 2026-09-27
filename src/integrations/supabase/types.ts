@@ -14,7 +14,87 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      activity: {
+        Row: {
+          address: string
+          amount: string
+          created: number
+          hash: string
+          id: string
+          network: string
+          user_id: string
+        }
+        Insert: {
+          address: string
+          amount: string
+          created?: number
+          hash: string
+          id?: string
+          network: string
+          user_id: string
+        }
+        Update: {
+          address?: string
+          amount?: string
+          created?: number
+          hash?: string
+          id?: string
+          network?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      contacts: {
+        Row: {
+          address: string
+          created: number
+          id: string
+          name: string
+          phone: string
+          user_id: string
+        }
+        Insert: {
+          address: string
+          created?: number
+          id?: string
+          name: string
+          phone: string
+          user_id: string
+        }
+        Update: {
+          address?: string
+          created?: number
+          id?: string
+          name?: string
+          phone?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          confirm_transfers: number
+          display_name: string
+          network: string
+          user_id: string
+          wallet: string
+        }
+        Insert: {
+          confirm_transfers?: number
+          display_name?: string
+          network?: string
+          user_id: string
+          wallet?: string
+        }
+        Update: {
+          confirm_transfers?: number
+          display_name?: string
+          network?: string
+          user_id?: string
+          wallet?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
