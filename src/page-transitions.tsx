@@ -11,15 +11,15 @@ const flipDirections=['left','up','right','down'] as const;
 
 export default function PageTransitions({children}:{children:React.ReactNode}){
  const router=useRouter(),pathname=usePathname(),params=useSearchParams();
- const [entrance,setEntrance]=useState(true);
+ const [entrance,setEntrance]=useState(true),[entranceRun,setEntranceRun]=useState(0);
  const route=pathname+'?'+params.toString();
  const routerRef=useRef(router);routerRef.current=router;
  const settled=useRef<null|(()=>void)>(null),active=useRef<Transition|null>(null),pending=useRef(false),generation=useRef(0);
- const previous=useRef(route),prefetched=useRef(new Set<string>()),flipIndex=useRef(0);
+ const previous=useRef(route),prefetched=useRef(new Set<string>()),flipIndex=useRef(0),entranceTimer=useRef<number|null>(null);
  useEffect(()=>{
   if(window.matchMedia('(prefers-reduced-motion: reduce)').matches){setEntrance(false);return}
-  const timer=window.setTimeout(()=>setEntrance(false),1900);
-  return()=>window.clearTimeout(timer);
+  entranceTimer.current=window.setTimeout(()=>setEntrance(false),1900);
+  return()=>{if(entranceTimer.current!==null)window.clearTimeout(entranceTimer.current)};
  },[]);
  useLayoutEffect(()=>{
   if(previous.current===route)return;
@@ -44,8 +44,9 @@ export default function PageTransitions({children}:{children:React.ReactNode}){
    const enteringArea=isDashboard(url.pathname)!==isDashboard(location.pathname);
    const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
    if(enteringArea&&!reduced){
-    flushSync(()=>setEntrance(true));
-    window.setTimeout(()=>{if(current===generation.current)setEntrance(false)},1900);
+    if(entranceTimer.current!==null)window.clearTimeout(entranceTimer.current);
+    flushSync(()=>{setEntrance(true);setEntranceRun(run=>run+1)});
+    entranceTimer.current=window.setTimeout(()=>{if(current===generation.current)setEntrance(false)},1900);
    }
    flushSync(()=>window.dispatchEvent(new Event('pingapp:navigation-start')));
    const direction=flipDirections[flipIndex.current++%flipDirections.length];
@@ -81,7 +82,7 @@ export default function PageTransitions({children}:{children:React.ReactNode}){
  },[]);
  return <>
   {children}
-  <div className={`brand-entrance${entrance?'':' brand-entrance--done'}`} aria-hidden="true">
+  <div key={entranceRun} className={`brand-entrance${entrance?'':' brand-entrance--done'}`} aria-hidden="true">
    <div className="brand-entrance__identity">
     <div className="brand-entrance__mark">
      <img className="brand-entrance__piece brand-entrance__piece--one" src="/assets/pingapp-mark-transparent.png" alt="" />
