@@ -14,6 +14,7 @@ import { Route as SplatRouteImport } from './routes/$'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LogoutRouteImport } from './routes/logout'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
+import { Route as DashboardViewRouteImport } from './routes/dashboard.$view'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,12 +41,18 @@ const DashboardIndexRoute = DashboardIndexRouteImport.update({
   path: '/dashboard/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardViewRoute = DashboardViewRouteImport.update({
+  id: '/dashboard/$view',
+  path: '/dashboard/$view',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
+  '/dashboard/$view': typeof DashboardViewRoute
   '/dashboard/': typeof DashboardIndexRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +60,7 @@ export interface FileRoutesByTo {
   '/$': typeof SplatRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
+  '/dashboard/$view': typeof DashboardViewRoute
   '/dashboard': typeof DashboardIndexRoute
 }
 export interface FileRoutesById {
@@ -61,14 +69,23 @@ export interface FileRoutesById {
   '/$': typeof SplatRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
+  '/dashboard/$view': typeof DashboardViewRoute
   '/dashboard/': typeof DashboardIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$' | '/login' | '/logout' | '/dashboard/'
+  fullPaths:
+    '/' | '/$' | '/login' | '/logout' | '/dashboard/$view' | '/dashboard/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$' | '/login' | '/logout' | '/dashboard'
-  id: '__root__' | '/' | '/$' | '/login' | '/logout' | '/dashboard/'
+  to: '/' | '/$' | '/login' | '/logout' | '/dashboard/$view' | '/dashboard'
+  id:
+    | '__root__'
+    | '/'
+    | '/$'
+    | '/login'
+    | '/logout'
+    | '/dashboard/$view'
+    | '/dashboard/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -76,6 +93,7 @@ export interface RootRouteChildren {
   SplatRoute: typeof SplatRoute
   LoginRoute: typeof LoginRoute
   LogoutRoute: typeof LogoutRoute
+  DashboardViewRoute: typeof DashboardViewRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
 }
 
@@ -116,6 +134,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard/$view': {
+      id: '/dashboard/$view'
+      path: '/dashboard/$view'
+      fullPath: '/dashboard/$view'
+      preLoaderRoute: typeof DashboardViewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -124,6 +149,7 @@ const rootRouteChildren: RootRouteChildren = {
   SplatRoute: SplatRoute,
   LoginRoute: LoginRoute,
   LogoutRoute: LogoutRoute,
+  DashboardViewRoute: DashboardViewRoute,
   DashboardIndexRoute: DashboardIndexRoute,
 }
 export const routeTree = rootRouteImport
