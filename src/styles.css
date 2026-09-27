@@ -19,23 +19,41 @@ main{transition:opacity 160ms ease,transform 240ms var(--page-ease)}
 .site-header{view-transition-name:ping-header}
 .ping-sidebar{view-transition-name:ping-sidebar}
 .dashboard-header{view-transition-name:ping-dashboard-header}
-::view-transition-group(*){animation-duration:280ms;animation-timing-function:var(--page-ease)}
-::view-transition-old(root){animation:route-out 160ms ease both}
-::view-transition-new(root){animation:page-arrive 280ms var(--page-ease) both}
+::view-transition-group(*){animation-duration:520ms;animation-timing-function:var(--page-ease)}
+::view-transition-image-pair(root){perspective:1200px;transform-style:preserve-3d}
+::view-transition-old(root){animation:page-flip-out 300ms ease-in both;backface-visibility:hidden;transform-origin:left center}
+::view-transition-new(root){animation:page-flip-in 520ms var(--page-ease) both;backface-visibility:hidden;transform-origin:right center}
 ::view-transition-old(ping-header),::view-transition-old(ping-sidebar),::view-transition-old(ping-dashboard-header){animation:none;opacity:0}
 ::view-transition-new(ping-header),::view-transition-new(ping-sidebar),::view-transition-new(ping-dashboard-header){animation:none}
-[data-route-pending] main{opacity:.5;transform:translateY(-2px)}
+[data-route-pending] main{opacity:.5;transform:perspective(1200px) rotateY(-4deg)}
 main h1:focus{outline:none}
-@keyframes route-out{to{opacity:0}}
-@keyframes route-in{from{opacity:0}to{opacity:1}}
-@keyframes page-arrive{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes page-flip-out{from{opacity:1;transform:rotateY(0)}to{opacity:0;transform:rotateY(-65deg)}}
+@keyframes page-flip-in{from{opacity:0;transform:rotateY(65deg)}to{opacity:1;transform:rotateY(0)}}
+.brand-entrance{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:var(--background);color:var(--foreground);animation:brand-screen-out 500ms 1.38s ease-in-out both;pointer-events:auto}
+.brand-entrance--done{display:none}
+.brand-entrance__identity{display:flex;flex-direction:column;align-items:center;gap:12px;min-width:200px}
+.brand-entrance__mark{position:relative;width:112px;height:112px;filter:drop-shadow(0 0 22px color-mix(in srgb,var(--primary) 25%,transparent));animation:brand-mark-settle 500ms .9s var(--page-ease) both}
+.brand-entrance__piece{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.brand-entrance__piece--one{clip-path:inset(0 50% 50% 0);animation:brand-piece-one 780ms .12s var(--page-ease) both}
+.brand-entrance__piece--two{clip-path:inset(0 0 45% 50%);animation:brand-piece-two 780ms .18s var(--page-ease) both}
+.brand-entrance__piece--three{clip-path:inset(50% 0 0 0);animation:brand-piece-three 780ms .23s var(--page-ease) both}
+.brand-entrance__name{font-size:28px;font-weight:600;line-height:1.2;animation:brand-name-in 520ms .8s ease-out both}
+.brand-entrance__name span{font-size:10px;vertical-align:super;margin-left:3px}
+.brand-entrance__rule{width:124px;height:1px;background:var(--primary);transform-origin:left;animation:brand-rule-in 700ms .83s var(--page-ease) both}
+@keyframes brand-piece-one{from{opacity:0;transform:translate(-55px,-30px) rotate(-26deg)}to{opacity:1;transform:none}}
+@keyframes brand-piece-two{from{opacity:0;transform:translate(55px,-28px) rotate(30deg)}to{opacity:1;transform:none}}
+@keyframes brand-piece-three{from{opacity:0;transform:translateY(54px) rotate(20deg)}to{opacity:1;transform:none}}
+@keyframes brand-mark-settle{from{transform:scale(.92)}to{transform:scale(1)}}
+@keyframes brand-name-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes brand-rule-in{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes brand-screen-out{from{opacity:1;transform:perspective(1200px) rotateY(0)}to{opacity:0;transform:perspective(1200px) rotateY(-25deg);visibility:hidden}}
 .dashboard-main [data-slot=table-row],.dashboard-main .contact-card,.dashboard-main .icon-button,.dashboard-main .avatar,.dashboard-main .wallet-choice,.dashboard-main [data-slot=sidebar-menu-button],.socials button{transition:background-color 180ms ease,color 180ms ease,border-color 180ms ease,box-shadow 180ms ease}
 [data-slot=dialog-overlay][data-state=open],[data-slot=alert-dialog-overlay][data-state=open]{animation-duration:180ms;animation-timing-function:ease-out}
 [data-slot=dialog-overlay][data-state=closed],[data-slot=alert-dialog-overlay][data-state=closed]{animation-duration:140ms;animation-timing-function:ease-in}
 [data-slot=dialog-content][data-state=open],[data-slot=alert-dialog-content][data-state=open]{animation-duration:220ms;animation-timing-function:var(--page-ease)}
 [data-slot=dialog-content][data-state=closed],[data-slot=alert-dialog-content][data-state=closed]{animation-duration:140ms;animation-timing-function:ease-in}
 [data-slot=select-content]{animation-duration:160ms;animation-timing-function:var(--page-ease)}
-@media(prefers-reduced-motion:reduce){::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}main,[data-route-pending] main{opacity:1!important;transform:none!important}}
+@media(prefers-reduced-motion:reduce){::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}main,[data-route-pending] main{opacity:1!important;transform:none!important}.brand-entrance{display:none!important}}
 
 /* Dashboard foundations: neutral surfaces and legible account data. */
 .premium-workspace,.ping-dialog,.workspace-alert,.workspace-select{--background:#131313;--foreground:#f5f5f5;--card:#1c1c1c;--muted:#292929;--muted-foreground:#aaaaaa;--border:#ffffff12;--input:#ffffff1c;--accent:#2c2c2c;--accent-foreground:#f2f2f2;--ring:#c2c2c2;font-family:Inter,Arial,Helvetica,sans-serif;color:#f5f5f5;font-feature-settings:"cv11","ss01"}

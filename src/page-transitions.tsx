@@ -1,5 +1,5 @@
 'use client';
-import {useEffect,useLayoutEffect,useRef} from 'react';
+import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {usePathname,useRouter,useSearchParams} from './routing';
 import {flushSync} from 'react-dom';
 
@@ -9,10 +9,16 @@ const reserved=(path:string)=>/^\/(signin-with-chatgpt|signout-with-chatgpt|call
 
 export default function PageTransitions({children}:{children:React.ReactNode}){
  const router=useRouter(),pathname=usePathname(),params=useSearchParams();
+ const [entrance,setEntrance]=useState(true);
  const route=pathname+'?'+params.toString();
  const routerRef=useRef(router);routerRef.current=router;
  const settled=useRef<null|(()=>void)>(null),active=useRef<Transition|null>(null),pending=useRef(false),generation=useRef(0);
  const previous=useRef(route),prefetched=useRef(new Set<string>());
+ useEffect(()=>{
+  if(window.matchMedia('(prefers-reduced-motion: reduce)').matches){setEntrance(false);return}
+  const timer=window.setTimeout(()=>setEntrance(false),1900);
+  return()=>window.clearTimeout(timer);
+ },[]);
  useLayoutEffect(()=>{
   if(previous.current===route)return;
   previous.current=route;
@@ -21,8 +27,8 @@ export default function PageTransitions({children}:{children:React.ReactNode}){
    if(finish&&!location.hash)window.scrollTo({top:0,left:0,behavior:'instant'});
    finish?.();pending.current=false;
    document.documentElement.removeAttribute('data-route-pending');
-   if(!active.current&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
-    document.querySelector('main')?.animate([{opacity:.55,transform:'translateY(5px)'},{opacity:1,transform:'translateY(0)'}],{duration:240,easing:'cubic-bezier(.22,1,.36,1)'});
+    if(!active.current&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+     document.querySelector('main')?.animate([{opacity:0,transform:'perspective(1200px) rotateY(12deg)'},{opacity:1,transform:'perspective(1200px) rotateY(0deg)'}],{duration:420,easing:'cubic-bezier(.22,1,.36,1)'});
    }
    const heading=document.querySelector<HTMLElement>('main h1');
    if(heading){heading.tabIndex=-1;heading.focus({preventScroll:true})}
@@ -67,5 +73,18 @@ export default function PageTransitions({children}:{children:React.ReactNode}){
   window.addEventListener('pingapp:navigate',programmatic);
   return()=>{document.removeEventListener('click',clicked,{capture:true});document.removeEventListener('pointerover',warm);document.removeEventListener('focusin',warm);window.removeEventListener('pingapp:navigate',programmatic);settled.current?.();active.current?.skipTransition();document.documentElement.removeAttribute('data-route-pending')};
  },[]);
- return <>{children}</>;
+ return <>
+  {children}
+  <div className={`brand-entrance${entrance?'':' brand-entrance--done'}`} aria-hidden="true">
+   <div className="brand-entrance__identity">
+    <div className="brand-entrance__mark">
+     <img className="brand-entrance__piece brand-entrance__piece--one" src="/assets/pingapp-mark-transparent.png" alt="" />
+     <img className="brand-entrance__piece brand-entrance__piece--two" src="/assets/pingapp-mark-transparent.png" alt="" />
+     <img className="brand-entrance__piece brand-entrance__piece--three" src="/assets/pingapp-mark-transparent.png" alt="" />
+    </div>
+    <span className="brand-entrance__name">PingApp<span>®</span></span>
+    <span className="brand-entrance__rule" />
+   </div>
+  </div>
+ </>;
 }
