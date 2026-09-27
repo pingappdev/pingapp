@@ -15,12 +15,12 @@ export function useRouter() {
   return useMemo(
     () => ({
       push: (href: string, options?: { scroll?: boolean }) => {
-        void router.navigate({ href });
+        void (router.navigate as (opts: { href: string }) => unknown)({ href });
         if (options?.scroll !== false) window.scrollTo({ top: 0, left: 0, behavior: "instant" });
       },
       prefetch: (href: string) => {
         void Promise.resolve(
-          router.preloadRoute({ href } as Parameters<typeof router.preloadRoute>[0]),
+          (router.preloadRoute as (opts: { href: string }) => unknown)({ href }),
         ).catch(() => {});
       },
     }),
