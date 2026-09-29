@@ -10,14 +10,14 @@ import { randomCode, randomToken, sha256Hex } from '../../lib/crypto.js';
 import { AppError, errors } from '../../lib/errors.js';
 import { logger } from '../../lib/logger.js';
 import { redis } from '../../lib/redis.js';
+import { RpcError } from '../../lib/rpcPool.js';
 import { publicClient } from '../../lib/viem.js';
+import { LOGIN_STATEMENT } from './constants.js';
+export { LOGIN_STATEMENT, REAUTH_STATEMENT } from './constants.js';
 
 const INVALID_MESSAGE = 'We could not verify your wallet signature. Please try again.';
 const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
 const FRESH_MS = 10 * 60 * 1000;
-
-export const LOGIN_STATEMENT = 'Sign in to PingApp. This only proves you own this wallet. It costs no gas and moves no funds.';
-export const REAUTH_STATEMENT = 'Confirm a sensitive PingApp action.';
 
 export type SiweDependencies = {
   consumeNonce: (nonce: string) => Promise<number>;
@@ -40,6 +40,17 @@ const liveDependencies: SiweDependencies = {
 function invalid(check: string): never {
   logger.warn({ check }, 'SIWE verification rejected');
   throw new AppError('SIWE_INVALID', 401, INVALID_MESSAGE);
+}
+
+function isRpcFailure(error: unknown): boolean {
+  let current = error;
+  for (let depth = 0; depth < 5; depth += 1) {
+    if (current instanceof RpcError ||
+        (current instanceof AppError && current.code === 'UPSTREAM_UNAVAILABLE')) return true;
+    if (!current || typeof current !== 'object' || !('cause' in current)) return false;
+    current = current.cause;
+  }
+  return false;
 }
 
 export async function createNonce(): Promise<string> {
@@ -78,7 +89,7 @@ export async function verifySiwe(
   if (!dependencies.allowedOrigins.includes(origin)) invalid('uri_origin');
   if (parsed.chainId !== dependencies.chainId) invalid('chain');
   if (parsed.version !== '1') invalid('version');
-  if (options.expectedStatement !== undefined && parsed.statement !== options.expectedStatement) invalid('statement');
+  if (parsed.statement !== (options.expectedStatement ?? LOGIN_STATEMENT)) invalid('statement');
 
   const nowMs = dependencies.now().getTime();
   const issuedMs = parsed.issuedAt.getTime();
@@ -95,8 +106,11 @@ export async function verifySiwe(
   try {
     verified = await dependencies.verifySignature(message, signature);
   } catch (error) {
-    logger.error({ err: error }, 'SIWE signature verifier unavailable');
-    throw errors.upstreamUnavailable();
+    if (isRpcFailure(error)) {
+      logger.warn({ check: 'signature_rpc' }, 'SIWE verification unavailable');
+      throw errors.upstreamUnavailable();
+    }
+    invalid('signature_error');
   }
   if (!verified) invalid('signature');
   if (options.expectedAddress && parsed.address.toLowerCase() !== options.expectedAddress.toLowerCase()) invalid('expected_address');

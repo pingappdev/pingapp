@@ -3,6 +3,7 @@ import { verifyMessage } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { createSiweMessage } from 'viem/siwe';
 import { LOGIN_STATEMENT, verifySiwe, type SiweDependencies } from '../src/modules/auth/service.js';
+import { RpcError } from '../src/lib/rpcPool.js';
 
 const account = privateKeyToAccount('0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef');
 const now = new Date('2026-09-29T12:00:00.000Z');
@@ -75,6 +76,11 @@ describe('SIWE verification', () => {
     await expect(verifySiwe(message, signature, {}, dependencies())).rejects.toMatchObject({ code: 'SIWE_INVALID' });
   });
 
+  it('rejects a statement that does not describe the login', async () => {
+    const { message, signature } = await signedMessage({ statement: 'Approve a payment.' });
+    await expect(verifySiwe(message, signature, {}, dependencies())).rejects.toMatchObject({ code: 'SIWE_INVALID' });
+  });
+
   it('rejects an otherwise valid signature from a different wallet during reauth', async () => {
     const { message, signature } = await signedMessage();
     await expect(verifySiwe(message, signature, { expectedAddress: '0x0000000000000000000000000000000000000001' }, dependencies()))
@@ -89,5 +95,13 @@ describe('SIWE verification', () => {
     await expect(verifySiwe(message, signature, {}, dependencies(consumeNonce)))
       .rejects.toMatchObject({ code: 'SIWE_INVALID' });
     expect(consumeNonce).toHaveBeenCalledOnce();
+  });
+
+  it('reports an RPC failure from the signature verifier as upstream unavailable', async () => {
+    const { message, signature } = await signedMessage();
+    const deps = dependencies();
+    deps.verifySignature = async () => { throw new RpcError(-32000, 'RPC failed'); };
+    await expect(verifySiwe(message, signature, {}, deps))
+      .rejects.toMatchObject({ code: 'UPSTREAM_UNAVAILABLE', status: 503 });
   });
 });

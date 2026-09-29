@@ -3,7 +3,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { createSiweMessage } from 'viem/siwe';
 import { config } from '../config.js';
 import { chain } from '../lib/chain.js';
-import { LOGIN_STATEMENT } from '../modules/auth/service.js';
+import { LOGIN_STATEMENT } from '../modules/auth/constants.js';
 
 if (config.NODE_ENV === 'production') {
   throw new Error('The dev login command is unavailable in production.');
@@ -13,7 +13,8 @@ const domain = config.SIWE_ALLOWED_DOMAINS[0];
 const origin = config.CORS_ORIGINS[0];
 if (!domain || !origin) throw new Error('SIWE_ALLOWED_DOMAINS and CORS_ORIGINS must be configured.');
 
-const inputKey = process.argv[2];
+const args = process.argv.slice(2);
+const inputKey = args.find((argument) => !argument.startsWith('--api-url='));
 const privateKey = inputKey
   ? (inputKey.startsWith('0x') ? inputKey : `0x${inputKey}`)
   : `0x${randomBytes(32).toString('hex')}`;
@@ -21,7 +22,10 @@ if (!/^0x[0-9a-fA-F]{64}$/.test(privateKey)) {
   throw new Error('Expected a 32-byte hex private key.');
 }
 const account = privateKeyToAccount(privateKey as `0x${string}`);
-const baseUrl = 'http://localhost:8080';
+// `make sh` uses localhost; one-off Make targets can reach the API by its
+// Compose service name with --api-url=http://api:8080.
+const baseUrl = args.find((argument) => argument.startsWith('--api-url='))?.slice('--api-url='.length)
+  || 'http://localhost:8080';
 
 async function jsonResponse(url: string, init?: RequestInit): Promise<{ response: Response; data: unknown }> {
   const response = await fetch(url, init);
