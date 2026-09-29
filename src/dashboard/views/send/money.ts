@@ -17,7 +17,7 @@ export function usdForRaw(raw: bigint, token: Token): string | null {
   if (!price || !/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(price)) return null;
   const fraction = price.split(".")[1]?.length ?? 0;
   const priceInteger = BigInt(price.replace(".", ""));
-  return formatUnits((raw * priceInteger) / 10n ** BigInt(token.decimals), fraction);
+  return formatUnits(raw * priceInteger, token.decimals + fraction);
 }
 
 export function sendMinimum(token: Token, minSendUsd: string): string {

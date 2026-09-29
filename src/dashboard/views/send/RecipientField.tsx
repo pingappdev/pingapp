@@ -28,10 +28,11 @@ export default function RecipientField({
   const [open, setOpen] = useState(false);
   const search = value.toLowerCase();
   const digits = search.replace(/\D/g, "");
-  const matches = contacts.filter((contact) =>
-    contact.name.toLowerCase().includes(search) ||
-    (digits && contact.phone?.replace(/\D/g, "").includes(digits)) ||
-    contact.address?.toLowerCase().includes(search),
+  const matches = contacts.filter(
+    (contact) =>
+      contact.name.toLowerCase().includes(search) ||
+      (digits && contact.phone?.replace(/\D/g, "").includes(digits)) ||
+      contact.address?.toLowerCase().includes(search),
   );
   return (
     <div className="send-recipient-field">
@@ -56,7 +57,11 @@ export default function RecipientField({
                 Contacts <ChevronsUpDown size={14} />
               </button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="send-contact-menu p-0" onOpenAutoFocus={(event) => event.preventDefault()}>
+            <PopoverContent
+              align="end"
+              className="send-contact-menu p-0"
+              onOpenAutoFocus={(event) => event.preventDefault()}
+            >
               <Command shouldFilter={false}>
                 <CommandList>
                   <CommandEmpty>No saved contacts match.</CommandEmpty>
