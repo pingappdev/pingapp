@@ -14,8 +14,14 @@ import { useRouter, useSearchParams } from "../../routing";
 import ActivityTable from "../components/ActivityTable";
 import Empty from "../components/Empty";
 import { activityDirection } from "./activityDirection";
+import SelectedTransfer from "./activity/SelectedTransfer";
 
 export default function Activity() {
+  const transferId = useSearchParams().get("transfer");
+  return transferId ? <SelectedTransfer id={transferId} /> : <TransferHistory />;
+}
+
+function TransferHistory() {
   const { me } = useAuth();
   const router = useRouter();
   const params = useSearchParams();
