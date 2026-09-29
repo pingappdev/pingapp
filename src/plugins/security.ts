@@ -3,6 +3,7 @@ import fp from 'fastify-plugin';
 import type { FastifyPluginAsync } from 'fastify';
 import { config } from '../config.js';
 import { errors } from '../lib/errors.js';
+import { consume, limits } from '../lib/rateLimit.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -19,6 +20,14 @@ const security: FastifyPluginAsync = async (app) => {
     const ip = typeof cloudflareIp === 'string' ? cloudflareIp : request.ip;
     request.clientIp = ip;
     request.ipHash = createHash('sha256').update(config.IP_HASH_SALT + ip).digest('hex');
+
+    if (request.url.split('?', 1)[0] !== '/health') {
+      const session = request.cookies?.pa_session;
+      const identity = session
+        ? createHash('sha256').update(session).digest('hex')
+        : request.ipHash;
+      await consume(limits.general, identity);
+    }
 
     if (['GET', 'HEAD', 'OPTIONS'].includes(request.method)) return;
     if (request.headers['x-pingapp'] !== '1' ||

@@ -43,7 +43,13 @@ export const errors = {
   claimPending: () => error('CLAIM_PENDING', 409, 'A claim is already under review for this number.'),
   conflict: (message: string, details?: Details) => error('CONFLICT', 409, message, details),
   intentNotOpen: () => error('INTENT_NOT_OPEN', 409, 'This pending send is no longer open.'),
-  rateLimited: (retryAfterSec: number) => error('RATE_LIMITED', 429, 'Too many attempts. Please try again later.', { retryAfterSec }),
+  rateLimited: (retryAfterSec: number) => {
+    const isSeconds = retryAfterSec < 60;
+    const amount = isSeconds ? retryAfterSec : Math.ceil(retryAfterSec / 60);
+    const unit = isSeconds ? (amount === 1 ? 'second' : 'seconds') : (amount === 1 ? 'minute' : 'minutes');
+    const interval = `${amount} ${unit}`;
+    return error('RATE_LIMITED', 429, `Too many attempts. Try again in ${interval}.`, { retryAfterSec });
+  },
   smsUnavailable: () => error('SMS_UNAVAILABLE', 503, 'SMS is unavailable. Please try again later.'),
   upstreamUnavailable: () => error('UPSTREAM_UNAVAILABLE', 503, 'Service temporarily unavailable. Please try again.'),
   internal: () => error('INTERNAL', 500, 'Something went wrong. Please try again.'),
