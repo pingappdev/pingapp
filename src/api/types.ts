@@ -184,11 +184,9 @@ export type ApiRequestOptions = { signal?: AbortSignal };
 export type TransferDirection = "all" | "sent" | "received";
 export type IntentStatusFilter = "open" | "all";
 
-export type ContactCreateInput = {
-  name: string;
-  phone?: string | null;
-  address?: string | null;
-};
+export type ContactCreateInput =
+  | { name: string; phone: string; address?: string | null }
+  | { name: string; phone?: string | null; address: string };
 export type ContactUpdateInput = Partial<ContactCreateInput>;
 
 export type TransferCreateInput = {
