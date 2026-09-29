@@ -24,7 +24,7 @@ const envSchema = z.object({
   COOKIE_DOMAIN: z.string().default(''),
   COOKIE_SECURE: boolean(false),
   APP_URL: z.string().url(),
-  SUPPORT_CONTACT: z.string().min(1),
+  SUPPORT_CONTACT: z.string().trim().default(''),
   SMS_DRIVER: z.enum(['log', 'seven']).default('log'),
   SMS_ENABLED: boolean(true),
   SEVEN_API_KEY: z.string().default(''),

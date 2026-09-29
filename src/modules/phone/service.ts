@@ -26,8 +26,11 @@ function otpExpired(message = 'This code has expired. Request a new one.'): AppE
 }
 
 function claimBlocked(claimId: string): AppError {
+  const contact = config.SUPPORT_CONTACT
+    ? ` Contact ${config.SUPPORT_CONTACT} to complete the move.`
+    : ' An operator will review your request.';
   return new AppError('PHONE_LINKED_ELSEWHERE', 409,
-    `This number is linked to another PingApp wallet. For your safety we've opened a manual review. Contact ${config.SUPPORT_CONTACT} to complete the move.`,
+    `This number is linked to another PingApp wallet. For your safety we've opened a manual review.${contact}`,
     { claimId, support: config.SUPPORT_CONTACT });
 }
 
