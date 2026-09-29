@@ -14,6 +14,35 @@ function rawInteger(raw: bigint | string): bigint {
   return typeof raw === 'bigint' ? raw : BigInt(raw);
 }
 
+const DECIMAL_SCALE = 1_000_000_000_000_000_000n;
+
+function decimal18(value: string): bigint {
+  if (!/^\d+(?:\.\d{1,18})?$/.test(value)) {
+    throw new TypeError('Decimal value must be a non-negative decimal with at most 18 fraction digits.');
+  }
+  const [whole, fraction = ''] = value.split('.');
+  return BigInt(whole) * DECIMAL_SCALE + BigInt((fraction + '0'.repeat(18)).slice(0, 18));
+}
+
+function formatScaled(value: bigint, decimals: number): string {
+  if (decimals === 0) return value.toString();
+  const scale = 10n ** BigInt(decimals);
+  const whole = value / scale;
+  const fraction = (value % scale).toString().padStart(decimals, '0').replace(/0+$/, '');
+  return fraction.length > 0 ? `${whole}.${fraction}` : whole.toString();
+}
+
+/** Multiply two non-negative decimal strings without converting money to floating point. */
+export function mulDecimalStrings(a: string, b: string, outDp: number): string {
+  if (!Number.isSafeInteger(outDp) || outDp < 0 || outDp > 18) {
+    throw new RangeError('Output decimals must be an integer from 0 through 18.');
+  }
+  const product18 = (decimal18(a) * decimal18(b)) / DECIMAL_SCALE;
+  const outputScale = 10n ** BigInt(outDp);
+  const scaledOutput = (product18 * outputScale) / DECIMAL_SCALE;
+  return formatScaled(scaledOutput, outDp);
+}
+
 export function parseAmount(decimal: string, decimals: number): bigint {
   assertDecimals(decimals);
   if (!/^\d+(?:\.\d+)?$/.test(decimal)) {
