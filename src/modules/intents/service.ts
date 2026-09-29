@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gt, inArray, isNull, lt, or } from 'drizzle-orm';
+import { and, count, desc, eq, gt, inArray, or } from 'drizzle-orm';
 import { config } from '../../config.js';
 import { audit } from '../../db/audit.js';
 import { db } from '../../db/client.js';
@@ -53,10 +53,24 @@ export type IntentDto = {
   completedAt: string | null;
 };
 
-type IntentWithToken = { intent: Intent; token: Token };
-type IntentWithParty = IntentWithToken & {
-  recipientAddress: string | null;
-  recipientName: string | null;
+export type IncomingIntentDto = {
+  id: string;
+  status: 'ready' | 'completed';
+  sender: { address: `0x${string}`; displayName: string };
+  token: TokenDto;
+  amount: string;
+  note: string | null;
+  createdAt: string;
+};
+
+export type PublicClaimDto = {
+  status: Intent['status'];
+  senderDisplayName: string;
+  token: { symbol: string; name: string; logoUrl: string | null; decimals: number };
+  amount: string;
+  note: string | null;
+  recipientPhoneMasked: string;
+  expiresAt: string;
 };
 
 function cleanNote(value: string | undefined): string | null {
@@ -299,4 +313,145 @@ export async function createIntent(
   });
 
   return toIntentDto({ ...created.intent, smsStatus }, token);
+}
+
+export async function listIntents(senderId: string, status: 'open' | 'all' = 'open'): Promise<IntentDto[]> {
+  const now = new Date();
+  const rows = await db.select({
+    intent: intents,
+    token: tokens,
+    recipientAddress: users.address,
+    recipientName: users.displayName,
+  }).from(intents)
+    .innerJoin(tokens, eq(tokens.address, intents.tokenAddress))
+    .leftJoin(users, eq(users.id, intents.recipientUserId))
+    .where(and(
+      eq(intents.senderUserId, senderId),
+      status === 'open' ? and(inArray(intents.status, [...OPEN_STATUSES]), gt(intents.expiresAt, now)) : undefined,
+    ))
+    .orderBy(desc(intents.createdAt), desc(intents.id))
+    .limit(INTENT_LIST_LIMIT);
+  if (!rows.length) return [];
+
+  const prices = await getPrices();
+  return Promise.all(rows.map((row) => toIntentDto(
+    row.intent,
+    row.token,
+    row.intent.recipientUserId ? recipientDto(row.recipientAddress, row.recipientName) : null,
+    prices,
+  )));
+}
+
+export async function cancelIntent(senderId: string, intentId: string, ipHash: string): Promise<IntentDto> {
+  const joined = await db.transaction(async (tx) => {
+    await lockPhoneMutation(tx);
+    const now = new Date();
+    const [cancelled] = await tx.update(intents).set({ status: 'cancelled' })
+      .where(and(
+        eq(intents.id, intentId),
+        eq(intents.senderUserId, senderId),
+        inArray(intents.status, [...OPEN_STATUSES]),
+        gt(intents.expiresAt, now),
+      )).returning({ id: intents.id });
+    if (!cancelled) throw errors.intentNotOpen();
+
+    const [row] = await tx.select({
+      intent: intents,
+      token: tokens,
+      recipientAddress: users.address,
+      recipientName: users.displayName,
+    }).from(intents)
+      .innerJoin(tokens, eq(tokens.address, intents.tokenAddress))
+      .leftJoin(users, eq(users.id, intents.recipientUserId))
+      .where(eq(intents.id, cancelled.id)).limit(1);
+    if (!row) throw new Error('Cancelled intent details are missing.');
+    await audit('intent_cancelled', {
+      userId: senderId,
+      data: {
+        intentId: row.intent.id,
+        phoneMasked: row.intent.recipientPhoneMasked,
+        symbol: row.token.symbol,
+      },
+      ipHash,
+    }, tx);
+    return row;
+  });
+
+  return toIntentDto(
+    joined.intent,
+    joined.token,
+    joined.intent.recipientUserId ? recipientDto(joined.recipientAddress, joined.recipientName) : null,
+  );
+}
+
+export async function listIncoming(recipientId: string): Promise<IncomingIntentDto[]> {
+  const [recipient] = await db.select({ phoneHmac: users.phoneHmac }).from(users)
+    .where(eq(users.id, recipientId)).limit(1);
+  if (!recipient?.phoneHmac) return [];
+
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - RECENT_COMPLETED_MS);
+  const rows = await db.select({
+    intent: intents,
+    token: tokens,
+    senderAddress: users.address,
+    senderName: users.displayName,
+  }).from(intents)
+    .innerJoin(tokens, eq(tokens.address, intents.tokenAddress))
+    .innerJoin(users, eq(users.id, intents.senderUserId))
+    .where(and(
+      eq(intents.recipientUserId, recipientId),
+      eq(intents.recipientPhoneHmac, recipient.phoneHmac),
+      or(
+        and(eq(intents.status, 'ready'), gt(intents.expiresAt, now)),
+        and(eq(intents.status, 'completed'), gt(intents.completedAt, cutoff)),
+      ),
+    ))
+    .orderBy(desc(intents.createdAt), desc(intents.id))
+    .limit(INTENT_LIST_LIMIT);
+  if (!rows.length) return [];
+
+  const prices = await getPrices();
+  return Promise.all(rows.map(async (row) => ({
+    id: row.intent.id,
+    status: row.intent.status as 'ready' | 'completed',
+    sender: {
+      address: checksum(row.senderAddress),
+      displayName: row.senderName || `${row.senderAddress.slice(0, 6)}…${row.senderAddress.slice(-4)}`,
+    },
+    token: await tokenDto(row.token, prices),
+    amount: formatAmount(row.intent.amountRaw, row.token.decimals),
+    note: row.intent.note,
+    createdAt: row.intent.createdAt.toISOString(),
+  })));
+}
+
+export async function getClaim(code: string): Promise<PublicClaimDto> {
+  if (!BASE62_CODE.test(code)) throw errors.notFound();
+  const [row] = await db.select({
+    intent: intents,
+    token: tokens,
+    senderAddress: users.address,
+    senderName: users.displayName,
+  }).from(intents)
+    .innerJoin(tokens, eq(tokens.address, intents.tokenAddress))
+    .innerJoin(users, eq(users.id, intents.senderUserId))
+    .where(eq(intents.code, code)).limit(1);
+  if (!row) throw errors.notFound();
+
+  const status = effectiveStatus(row.intent);
+  return {
+    status,
+    senderDisplayName: row.senderName || `${row.senderAddress.slice(0, 6)}…${row.senderAddress.slice(-4)}`,
+    token: {
+      symbol: row.token.symbol,
+      name: row.token.name,
+      logoUrl: row.token.logoUrl,
+      decimals: row.token.decimals,
+    },
+    amount: formatAmount(row.intent.amountRaw, row.token.decimals),
+    note: row.intent.note,
+    recipientPhoneMasked: row.intent.recipientPhoneMasked,
+    expiresAt: row.intent.expiresAt.toISOString(),
+  };
 }
