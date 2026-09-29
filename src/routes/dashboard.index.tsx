@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import AuthGate from "@/auth-gate";
 import Dashboard from "@/dashboard-client";
 
 export const Route = createFileRoute("/dashboard/")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Overview — PingApp Dashboard" },
@@ -14,9 +14,5 @@ export const Route = createFileRoute("/dashboard/")({
       { name: "robots", content: "noindex" },
     ],
   }),
-  component: () => (
-    <AuthGate>
-      <Dashboard view="overview" />
-    </AuthGate>
-  ),
+  component: () => <Dashboard view="overview" />,
 });

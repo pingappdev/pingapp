@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import AuthGate from "@/auth-gate";
 import Dashboard from "@/dashboard-client";
 
 const views: Record<string, { title: string; description: string }> = {
@@ -26,6 +25,7 @@ const views: Record<string, { title: string; description: string }> = {
 };
 
 export const Route = createFileRoute("/dashboard/$view")({
+  ssr: false,
   head: ({ params }) => {
     const info = views[params.view] ?? {
       title: "Page not found — PingApp",
@@ -58,9 +58,5 @@ function DashboardView() {
         </a>
       </main>
     );
-  return (
-    <AuthGate>
-      <Dashboard view={view} />
-    </AuthGate>
-  );
+  return <Dashboard view={view} />;
 }
