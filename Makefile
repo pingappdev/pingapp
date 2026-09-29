@@ -27,4 +27,4 @@ lint:
 	$(COMPOSE) run --rm web bun run lint
 
 build:
-	$(COMPOSE) run --rm web bun run build
+	$(COMPOSE) run --rm $(if $(VERCEL),-e VERCEL=$(VERCEL)) web bun run build
