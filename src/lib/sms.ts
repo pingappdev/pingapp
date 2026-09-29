@@ -254,6 +254,7 @@ export async function sendSms(input: SmsInput): Promise<{ ok: true; providerMsgI
   }
 
   if (!Array.isArray(reservation)) {
+    await releaseReservation(countKey, reservationKey);
     await writeRejectedAttempt(input, 'reservation_failed');
     throw temporaryUnavailable();
   }
