@@ -1,7 +1,8 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { db } from '../../db/client.js';
+import { audit } from '../../db/audit.js';
 import { sessions } from '../../db/schema.js';
 import { consume, limiter } from '../../lib/rateLimit.js';
 import { clearSessionCookie, requireAuth, setSessionCookie } from '../../plugins/auth.js';
@@ -48,8 +49,19 @@ const routes: FastifyPluginAsync = async (app) => {
   });
 
   app.post('/auth/logout', async (request, reply) => {
-    if (request.session) {
-      await db.delete(sessions).where(eq(sessions.id, request.session.id));
+    if (request.session && request.user) {
+      await db.transaction(async (tx) => {
+        const [deleted] = await tx.delete(sessions)
+          .where(and(eq(sessions.id, request.session!.id), eq(sessions.userId, request.user!.id)))
+          .returning({ id: sessions.id });
+        if (deleted) {
+          await audit('session_revoked', {
+            userId: request.user!.id,
+            data: { sessionId: deleted.id, reason: 'logout' },
+            ipHash: request.ipHash,
+          }, tx);
+        }
+      });
     }
     clearSessionCookie(reply);
     return reply.code(204).send();

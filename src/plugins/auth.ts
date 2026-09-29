@@ -23,7 +23,7 @@ declare module 'fastify' {
 const auth: FastifyPluginAsync = async (app) => {
   app.decorateRequest('user', null);
   app.decorateRequest('session', null);
-  app.addHook('onRequest', async (request) => {
+  app.addHook('onRequest', async (request, reply) => {
     const token = request.cookies.pa_session;
     if (!token) return;
 
@@ -40,16 +40,23 @@ const auth: FastifyPluginAsync = async (app) => {
     request.user = row.user;
     request.session = { id: row.session.id, freshUntil: row.session.freshUntil };
 
-    if (row.session.lastSeenAt.getTime() < now.getTime() - SEEN_INTERVAL_MS) {
-      await db.update(sessions).set({
+    const path = request.url.split('?', 1)[0];
+    if (row.session.lastSeenAt.getTime() < now.getTime() - SEEN_INTERVAL_MS &&
+        path !== '/v1/auth/logout' && path !== '/v1/auth/verify') {
+      const [renewed] = await db.update(sessions).set({
         lastSeenAt: now,
         expiresAt: new Date(now.getTime() + SESSION_SECONDS * 1000),
       }).where(and(
         eq(sessions.id, row.session.id),
         gt(sessions.expiresAt, now),
         lt(sessions.lastSeenAt, new Date(now.getTime() - SEEN_INTERVAL_MS)),
-      ));
+      )).returning({ id: sessions.id });
+      if (renewed) setSessionCookie(reply, token);
     }
+  });
+  app.addHook('onSend', async (request, reply, payload) => {
+    if (request.user) reply.header('cache-control', 'private, no-store');
+    return payload;
   });
 };
 
@@ -69,6 +76,7 @@ export async function requireFreshAuth(request: FastifyRequest): Promise<void> {
 }
 
 export function setSessionCookie(reply: FastifyReply, token: string): void {
+  reply.header('cache-control', 'private, no-store');
   reply.setCookie('pa_session', token, {
     httpOnly: true,
     secure: config.COOKIE_SECURE,
@@ -80,6 +88,7 @@ export function setSessionCookie(reply: FastifyReply, token: string): void {
 }
 
 export function clearSessionCookie(reply: FastifyReply): void {
+  reply.header('cache-control', 'private, no-store');
   reply.clearCookie('pa_session', {
     httpOnly: true,
     secure: config.COOKIE_SECURE,
