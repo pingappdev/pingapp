@@ -32,4 +32,11 @@ describe('normalizePhone', () => {
   it('rejects garbage', () => {
     expect(() => normalizePhone('+not a phone')).toThrow(AppError);
   });
+
+  it.each([
+    '+12025550142abc',
+    '+1 202 555 0142 ext. 123',
+  ])('rejects text or extensions after a phone number: %s', (input) => {
+    expect(() => normalizePhone(input)).toThrow(AppError);
+  });
 });

@@ -3,7 +3,7 @@ import { AppError } from './errors.js';
 
 export type NormalizedPhone = { e164: string; country: string | null; masked: string };
 
-const formatCharacters = /[\s().-]/g;
+const formatCharacters = /[ ().-]/g;
 const rejectedTypes = new Set(['FIXED_LINE', 'TOLL_FREE', 'PREMIUM_RATE', 'SHARED_COST']);
 
 function invalidPhone(message: string): AppError {
@@ -17,9 +17,13 @@ export function normalizePhone(input: string): NormalizedPhone {
     throw invalidPhone('Enter the number in international format, starting with + and the country code.');
   }
 
+  if (!/^\+\d+$/.test(normalizedInput)) {
+    throw invalidPhone('Enter a valid mobile phone number.');
+  }
+
   let phone;
   try {
-    phone = parsePhoneNumberWithError(normalizedInput);
+    phone = parsePhoneNumberWithError(normalizedInput, { extract: false });
   } catch {
     throw invalidPhone('Enter a valid mobile phone number.');
   }
