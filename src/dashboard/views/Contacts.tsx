@@ -116,12 +116,18 @@ export default function Contacts({
                     PingApp wallet.
                   </p>
                 )}
-                <a
-                  href={`/dashboard/send?contact=${encodeURIComponent(contact.id)}`}
-                  className="button outline"
-                >
-                  Send <ArrowUpRight size={16} />
-                </a>
+                {contact.phone ? (
+                  <a
+                    href={`/dashboard/send?contact=${encodeURIComponent(contact.id)}`}
+                    className="button outline"
+                  >
+                    Send <ArrowUpRight size={16} />
+                  </a>
+                ) : (
+                  <button className="button outline" type="button" onClick={() => onEdit(contact)}>
+                    Add phone number <Pencil size={16} />
+                  </button>
+                )}
               </section>
             );
           })}

@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from "react";
-import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
-import { ArrowDownLeft, ArrowUpRight, Lock, Phone, RefreshCw, Send } from "lucide-react";
-import { isAddress } from "viem";
+import { isValidPhoneNumber } from "libphonenumber-js";
+import { ArrowDownLeft, ArrowUpRight, Lock, RefreshCw, Send } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { sessionRevision, useBalances, qk } from "../../../api/hooks";
 import type { Me } from "../../../api/types";
@@ -11,21 +10,8 @@ import { navigateTo } from "../../../navigation";
 import AddressText from "../../components/AddressText";
 import Amount from "../../components/Amount";
 import Usd from "../../components/Usd";
+import PhoneInput from "../../components/PhoneInput";
 import { Skeleton } from "@/components/ui/skeleton";
-
-function defaultCountry(): CountryCode {
-  if (typeof navigator === "undefined") return "US";
-  const region = navigator.language.split(/[-_]/)[1]?.toUpperCase();
-  return region && /^[A-Z]{2}$/.test(region) ? (region as CountryCode) : "US";
-}
-
-function normalizeRecipient(value: string): string {
-  const recipient = value.trim();
-  if (!recipient || recipient.startsWith("+") || isAddress(recipient)) return recipient;
-
-  const parsed = parsePhoneNumberFromString(recipient, defaultCountry());
-  return parsed?.isPossible() ? parsed.number : recipient;
-}
 
 export default function OverviewBalance() {
   const { me } = useAuth();
@@ -34,6 +20,7 @@ export default function OverviewBalance() {
   const balances = useBalances();
   const refreshBalances = useBalances({ refresh: true, enabled: false });
   const [recipient, setRecipient] = useState("");
+  const validRecipient = /^\+\d+$/.test(recipient) && isValidPhoneNumber(recipient);
   const [refreshError, setRefreshError] = useState<Error | null>(null);
 
   const eth = balances.data?.items.find((asset) => asset.token.symbol === "ETH");
@@ -73,9 +60,8 @@ export default function OverviewBalance() {
 
   function continueToSend(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const target = normalizeRecipient(recipient);
-    const path = target ? `/dashboard/send?to=${encodeURIComponent(target)}` : "/dashboard/send";
-    navigateTo(path);
+    if (!validRecipient) return;
+    navigateTo(`/dashboard/send?to=${encodeURIComponent(recipient)}`);
   }
 
   return (
@@ -141,19 +127,17 @@ export default function OverviewBalance() {
               <Send size={17} />
             </span>
           </div>
-          <p>Send to a phone number or wallet address.</p>
+          <p>Send to a phone number linked to a wallet.</p>
           <form onSubmit={continueToSend}>
-            <label className="input-icon">
-              <Phone size={17} />
-              <input
-                aria-label="Recipient phone or wallet"
-                placeholder="Phone number or 0x address"
-                value={recipient}
-                onChange={(event) => setRecipient(event.target.value)}
-                autoComplete="off"
-              />
+            <label className="sr-only" htmlFor="quick-send-phone">
+              Recipient phone number
             </label>
-            <button type="submit" className="button light-button">
+            <PhoneInput
+              id="quick-send-phone"
+              value={recipient}
+              onChange={(value) => setRecipient(value ?? "")}
+            />
+            <button type="submit" className="button light-button" disabled={!validRecipient}>
               Continue <ArrowUpRight size={16} />
             </button>
           </form>

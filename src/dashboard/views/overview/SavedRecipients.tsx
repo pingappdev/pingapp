@@ -19,12 +19,12 @@ function PingAppIndicator() {
 }
 
 function contactSubtitle(contact: Contact): string {
-  return contact.phoneMasked ?? contact.phone ?? contact.address ?? "Saved recipient";
+  return contact.phoneMasked ?? contact.phone ?? "Saved recipient";
 }
 
 export default function SavedRecipients() {
   const contacts = useContacts();
-  const recipients = contacts.data?.slice(0, 3) ?? [];
+  const recipients = contacts.data?.filter((contact) => contact.phone).slice(0, 3) ?? [];
 
   return (
     <section className="card contacts-preview">
@@ -75,7 +75,7 @@ export default function SavedRecipients() {
           {contacts.error && <p role="alert">{errorText(contacts.error)}</p>}
           <Users size={26} />
           <h3>Your address book</h3>
-          <p>Save recipients for quicker transfers.</p>
+          <p>Save contacts with phone numbers for quicker transfers.</p>
           <a className="text-link" href="/dashboard/contacts">
             Manage contacts <ArrowUpRight size={15} />
           </a>
