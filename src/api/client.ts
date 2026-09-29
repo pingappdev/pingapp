@@ -29,12 +29,7 @@ export class ApiError extends Error {
   readonly status: number;
   readonly details?: Record<string, unknown>;
 
-  constructor(
-    code: string,
-    status: number,
-    message: string,
-    details?: Record<string, unknown>,
-  ) {
+  constructor(code: string, status: number, message: string, details?: Record<string, unknown>) {
     super(message);
     this.name = "ApiError";
     this.code = code;
@@ -74,9 +69,7 @@ export async function api<T>(path: string, opts: ApiOptions = {}): Promise<T> {
       method,
       credentials: "include",
       headers,
-      ...(method === "GET"
-        ? {}
-        : { body: JSON.stringify(opts.body ?? {}) }),
+      ...(method === "GET" ? {} : { body: JSON.stringify(opts.body ?? {}) }),
       ...(opts.signal === undefined ? {} : { signal: opts.signal }),
     });
   } catch (error) {
