@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, inArray, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, ne, sql } from 'drizzle-orm';
 import { audit } from '../../db/audit.js';
 import { db } from '../../db/client.js';
 import { intents, phoneClaims, sessions, users } from '../../db/schema.js';
@@ -11,6 +11,12 @@ const DISALLOWED_NAME_PARTS = [
   'http', 'www', '.com', 'pingapp', 'robinhood', 'support', 'admin', 'official',
 ];
 const USER_AGENT_LIMIT = 200;
+
+async function lockSessionMutations(tx: DbTransaction, userId: string): Promise<void> {
+  await tx.execute(sql`select pg_advisory_xact_lock(
+    hashtextextended('pingapp:user-session-mutation:' || ${userId}, 0)
+  )`);
+}
 
 export function normalizeDisplayName(value: string): string {
   return value.trim().replace(/\s+/gu, ' ');
@@ -61,6 +67,7 @@ export async function listSessions(userId: string, currentSessionId: string) {
 
 export async function revokeSession(userId: string, sessionId: string, ipHash: string): Promise<void> {
   await db.transaction(async (tx) => {
+    await lockSessionMutations(tx, userId);
     const [deleted] = await tx.delete(sessions).where(and(
       eq(sessions.id, sessionId), eq(sessions.userId, userId),
     )).returning({ id: sessions.id });
@@ -89,6 +96,7 @@ export async function revokeOtherSessions(
   userId: string, currentSessionId: string, ipHash: string,
 ): Promise<void> {
   await db.transaction(async (tx) => {
+    await lockSessionMutations(tx, userId);
     await requireFreshSession(tx, userId, currentSessionId);
     const revoked = await tx.delete(sessions).where(and(
       eq(sessions.userId, userId), ne(sessions.id, currentSessionId),
@@ -106,7 +114,21 @@ export async function deleteAccount(userId: string, currentSessionId: string, ip
     // This global lock must be acquired before touching any user, claim, or
     // intent rows so deletion follows the BE-11 phone mutation lock order.
     await lockPhoneMutation(tx);
-    await requireFreshSession(tx, userId, currentSessionId);
+    await lockSessionMutations(tx, userId);
+
+    // Lock every session before the user row. Auth logout deletes a session
+    // before inserting its audit event (which checks the user's FK), so this
+    // order lets an in-flight logout finish before account deletion locks the
+    // user and cascades its remaining sessions.
+    const lockedSessions = await tx.select({
+      id: sessions.id,
+      expiresAt: sessions.expiresAt,
+      freshUntil: sessions.freshUntil,
+    }).from(sessions).where(eq(sessions.userId, userId))
+      .orderBy(asc(sessions.id)).for('update');
+    const currentSession = lockedSessions.find(({ id }) => id === currentSessionId);
+    if (!currentSession || currentSession.expiresAt <= new Date()) throw errors.unauthenticated();
+    if (!currentSession.freshUntil || currentSession.freshUntil <= new Date()) throw errors.reauthRequired();
 
     const [user] = await tx.select({ address: users.address }).from(users)
       .where(eq(users.id, userId)).for('update').limit(1);
