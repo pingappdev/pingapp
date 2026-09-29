@@ -221,6 +221,7 @@ export async function unlinkPhone(userId: string, sessionId: string, ipHash: str
 
 export async function cancelClaim(userId: string, ipHash: string): Promise<void> {
   await db.transaction(async (tx) => {
+    await lockKey(tx, `user:${userId}`);
     const rows = await tx.update(phoneClaims).set({ status: 'cancelled', resolvedAt: new Date() })
       .where(and(eq(phoneClaims.claimantUserId, userId), eq(phoneClaims.status, 'pending_review')))
       .returning({ id: phoneClaims.id, phoneMasked: phoneClaims.phoneMasked });
