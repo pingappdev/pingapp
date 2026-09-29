@@ -16,7 +16,6 @@ import { sql } from 'drizzle-orm';
 
 const id = () => uuid('id').defaultRandom().primaryKey();
 const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
-const addressPattern = '^0x[0-9a-f]{40}$';
 
 export const users = pgTable('users', {
   id: id(),
@@ -30,7 +29,7 @@ export const users = pgTable('users', {
   createdAt: createdAt(),
   lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
 }, (table) => [
-  check('users_address_format_check', sql`${table.address} ~ ${addressPattern}`),
+  check('users_address_format_check', sql`${table.address} ~ '^0x[0-9a-f]{40}$'`),
   check('users_display_name_length_check', sql`char_length(${table.displayName}) <= 40`),
   check('users_phone_country_format_check', sql`${table.phoneCountry} is null or ${table.phoneCountry} ~ '^[A-Z]{2}$'`),
 ]);
@@ -81,7 +80,7 @@ export const contacts = pgTable('contacts', {
 }, (table) => [
   check('contacts_name_length_check', sql`char_length(${table.name}) between 1 and 80`),
   check('contacts_phone_or_address_check', sql`${table.phoneHmac} is not null or ${table.address} is not null`),
-  check('contacts_address_format_check', sql`${table.address} is null or ${table.address} ~ ${addressPattern}`),
+  check('contacts_address_format_check', sql`${table.address} is null or ${table.address} ~ '^0x[0-9a-f]{40}$'`),
   uniqueIndex('contacts_user_phone_hmac_unique_idx')
     .on(table.userId, table.phoneHmac)
     .where(sql`${table.phoneHmac} is not null`),
@@ -105,7 +104,7 @@ export const tokens = pgTable('tokens', {
   sort: integer('sort').notNull().default(1000),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
-  check('tokens_address_format_check', sql`${table.address} ~ ${addressPattern}`),
+  check('tokens_address_format_check', sql`${table.address} ~ '^0x[0-9a-f]{40}$'`),
   check('tokens_kind_check', sql`${table.kind} in ('native', 'stable', 'wrapped', 'stock')`),
 ]);
 
@@ -127,8 +126,8 @@ export const transfers = pgTable('transfers', {
   createdAt: createdAt(),
   confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
 }, (table) => [
-  check('transfers_sender_address_format_check', sql`${table.senderAddress} ~ ${addressPattern}`),
-  check('transfers_recipient_address_format_check', sql`${table.recipientAddress} ~ ${addressPattern}`),
+  check('transfers_sender_address_format_check', sql`${table.senderAddress} ~ '^0x[0-9a-f]{40}$'`),
+  check('transfers_recipient_address_format_check', sql`${table.recipientAddress} ~ '^0x[0-9a-f]{40}$'`),
   check('transfers_status_check', sql`${table.status} in ('submitted', 'confirmed', 'failed', 'unverified', 'not_found')`),
   index('transfers_sender_created_at_idx').on(table.senderUserId, table.createdAt.desc()),
   index('transfers_recipient_created_at_idx').on(table.recipientUserId, table.createdAt.desc()),
