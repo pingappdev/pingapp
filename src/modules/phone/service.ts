@@ -1,4 +1,4 @@
-import { and, eq, gt, sql } from 'drizzle-orm';
+import { and, eq, gt } from 'drizzle-orm';
 import { config } from '../../config.js';
 import { audit } from '../../db/audit.js';
 import { db } from '../../db/client.js';
@@ -13,7 +13,10 @@ import { redis } from '../../lib/redis.js';
 import { sendSms } from '../../lib/sms.js';
 import { markIntentsReady } from '../intents/ready.js';
 import { serializeMe } from '../me/serialize.js';
+import { lockPhoneMutation } from './lock.js';
 import { checkOtp, type OtpState } from './otp.js';
+
+export { lockPhoneMutation } from './lock.js';
 
 const OTP_TTL_SEC = 600;
 const otpKey = (userId: string) => `otp:${userId}`;
@@ -26,10 +29,6 @@ function claimBlocked(claimId: string): AppError {
   return new AppError('PHONE_LINKED_ELSEWHERE', 409,
     `This number is linked to another PingApp wallet. For your safety we've opened a manual review. Contact ${config.SUPPORT_CONTACT} to complete the move.`,
     { claimId, support: config.SUPPORT_CONTACT });
-}
-
-async function lockKey(tx: DbTransaction, value: string): Promise<void> {
-  await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${value}, 0))`);
 }
 
 async function ensureFresh(sessionId: string, userId: string, tx: DbTransaction | typeof db = db): Promise<void> {
@@ -92,7 +91,9 @@ export type LinkPhoneResult =
   | { kind: 'claimed'; claimId: string };
 
 /**
- * Caller must commit the supplied transaction even for `claimed`. Only after
+ * Caller must acquire lockPhoneMutation before ANY row lock in its transaction;
+ * this function acquires it as well for direct callers. Caller must commit
+ * the supplied transaction even for `claimed`. Only after
  * commit should an HTTP caller turn that sentinel into PHONE_LINKED_ELSEWHERE.
  * BE-17 may call this without sessionId after its own admin authorization.
  */
@@ -100,15 +101,9 @@ export async function linkPhoneToUser(
   tx: DbTransaction, userId: string, p: NormalizedPhone, meta: LinkPhoneMeta = {},
 ): Promise<LinkPhoneResult> {
   const h = phoneHmac(p.e164);
-  // This order is shared with unlink: serialize one user's edits, then each
-  // phone key. The advisory key covers absent-owner races before the unique
-  // constraint can fire. The user row is locked before its old value is read.
-  await lockKey(tx, `user:${userId}`);
+  await lockPhoneMutation(tx);
   const [me] = await tx.select().from(users).where(eq(users.id, userId)).for('update').limit(1);
   if (!me) throw errors.unauthenticated();
-  for (const key of [...new Set([h, me.phoneHmac].filter((x): x is string => !!x))].sort()) {
-    await lockKey(tx, `phone:${key}`);
-  }
   if (me.phoneHmac === h) throw errors.conflict('This number is already linked to your wallet.');
   if (me.phoneHmac && meta.sessionId) await ensureFresh(meta.sessionId, userId, tx);
 
@@ -204,12 +199,11 @@ export async function verifyOtp(userId: string, sessionId: string, rawPhone: str
 
 export async function unlinkPhone(userId: string, sessionId: string, ipHash: string): Promise<void> {
   await db.transaction(async (tx) => {
-    await lockKey(tx, `user:${userId}`);
+    await lockPhoneMutation(tx);
     const [me] = await tx.select().from(users).where(eq(users.id, userId)).for('update').limit(1);
     if (!me) throw errors.unauthenticated();
     await ensureFresh(sessionId, userId, tx);
     if (!me.phoneHmac) return;
-    await lockKey(tx, `phone:${me.phoneHmac}`);
     await tx.update(users).set({ phoneHmac: null, phoneEnc: null, phoneCountry: null,
       phoneMasked: null, phoneLinkedAt: null }).where(eq(users.id, userId));
     await tx.update(intents).set({ status: 'pending', recipientUserId: null, readyAt: null })
@@ -221,7 +215,7 @@ export async function unlinkPhone(userId: string, sessionId: string, ipHash: str
 
 export async function cancelClaim(userId: string, ipHash: string): Promise<void> {
   await db.transaction(async (tx) => {
-    await lockKey(tx, `user:${userId}`);
+    await lockPhoneMutation(tx);
     const rows = await tx.update(phoneClaims).set({ status: 'cancelled', resolvedAt: new Date() })
       .where(and(eq(phoneClaims.claimantUserId, userId), eq(phoneClaims.status, 'pending_review')))
       .returning({ id: phoneClaims.id, phoneMasked: phoneClaims.phoneMasked });
@@ -229,4 +223,26 @@ export async function cancelClaim(userId: string, ipHash: string): Promise<void>
       await audit('phone_claim_cancelled', { userId, data: { claimId: row.id, phoneMasked: row.phoneMasked }, ipHash }, tx);
     }
   });
+}
+
+/**
+ * For BE-17 approval or support unlink. The caller must acquire
+ * lockPhoneMutation before locking the claim or any user row. Never clear a
+ * former owner's new phone: the expected HMAC is part of the UPDATE predicate.
+ * The caller owns any operation-specific audit event or notification.
+ */
+export async function clearPhoneIfOwned(
+  tx: DbTransaction, ownerId: string, expectedPhoneHmac: string,
+): Promise<boolean> {
+  await lockPhoneMutation(tx);
+  const [cleared] = await tx.update(users).set({
+    phoneHmac: null, phoneEnc: null, phoneCountry: null,
+    phoneMasked: null, phoneLinkedAt: null,
+  }).where(and(eq(users.id, ownerId), eq(users.phoneHmac, expectedPhoneHmac)))
+    .returning({ id: users.id });
+  if (!cleared) return false;
+  await tx.update(intents).set({ status: 'pending', recipientUserId: null, readyAt: null })
+    .where(and(eq(intents.recipientUserId, ownerId),
+      eq(intents.recipientPhoneHmac, expectedPhoneHmac), eq(intents.status, 'ready')));
+  return true;
 }
