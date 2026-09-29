@@ -95,15 +95,13 @@ export default function ContactDialog({
             disabled={busy}
             required
           />
-          <label>
-            Phone number (optional)
-            <PhoneInput
-              value={phone || undefined}
-              onChange={(value) => setPhone(value ?? "")}
-              disabled={busy}
-              placeholder="+60 12 345 6789"
-            />
-          </label>
+          <label htmlFor="contact-phone">Phone number (optional)</label>
+          <PhoneInput
+            id="contact-phone"
+            value={phone || undefined}
+            onChange={(value) => setPhone(value ?? "")}
+            disabled={busy}
+          />
           <label htmlFor="contact-address">Wallet address (optional)</label>
           <input
             id="contact-address"
@@ -114,7 +112,9 @@ export default function ContactDialog({
             placeholder="0x…"
             disabled={busy}
           />
-          <p className="field-help">Add a phone number, a wallet address, or both.</p>
+          <p className="field-help">
+            Add a phone number to send to this contact. Wallet addresses can be saved for reference.
+          </p>
           {error && (
             <p className="field-help contact-form-error" role="alert">
               {error}
