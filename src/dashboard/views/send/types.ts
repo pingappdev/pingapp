@@ -1,7 +1,7 @@
 import type { Address, ResolveResponse } from "../../../api/types";
 
 export type Recipient = {
-  kind: "phone" | "address" | "intent";
+  kind: "phone" | "intent";
   address: Address;
   name: string;
   phone?: string;

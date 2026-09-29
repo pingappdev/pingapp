@@ -4,11 +4,13 @@ import {
   Command,
   CommandEmpty,
   CommandGroup,
+  CommandInput,
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { Contact } from "../../../api/types";
+import PhoneInput from "../../components/PhoneInput";
 
 export default function RecipientField({
   value,
@@ -26,32 +28,28 @@ export default function RecipientField({
   locked?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const search = value.toLowerCase();
+  const [search, setSearch] = useState("");
   const digits = search.replace(/\D/g, "");
   const matches = contacts.filter(
     (contact) =>
-      contact.name.toLowerCase().includes(search) ||
-      (digits && contact.phone?.replace(/\D/g, "").includes(digits)) ||
-      contact.address?.toLowerCase().includes(search),
+      contact.phone &&
+      (contact.name.toLowerCase().includes(search.toLowerCase()) ||
+        (digits && contact.phone.replace(/\D/g, "").includes(digits))),
   );
+  const phoneContacts = contacts.some((contact) => !!contact.phone);
+
   return (
     <div className="send-recipient-field">
-      <label htmlFor="send-recipient">Recipient</label>
+      <label htmlFor="send-recipient">Recipient phone number</label>
       <div className="send-recipient-input">
-        <input
+        <PhoneInput
           id="send-recipient"
-          type="text"
-          autoComplete="off"
           value={value}
+          onChange={(next) => onChange(next ?? "")}
           disabled={locked}
-          onChange={(event) => {
-            onChange(event.target.value);
-            setOpen(true);
-          }}
-          placeholder="+60 12 345 6789 or 0x…"
         />
-        {!locked && contacts.length > 0 && (
-          <Popover open={open && matches.length > 0} onOpenChange={setOpen}>
+        {!locked && phoneContacts && (
+          <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
               <button type="button" className="button outline" aria-label="Choose a saved contact">
                 Contacts <ChevronsUpDown size={14} />
@@ -63,23 +61,33 @@ export default function RecipientField({
               onOpenAutoFocus={(event) => event.preventDefault()}
             >
               <Command shouldFilter={false}>
+                <CommandInput
+                  value={search}
+                  onValueChange={setSearch}
+                  placeholder="Search contacts by name or phone"
+                  aria-label="Search phone contacts"
+                />
                 <CommandList>
-                  <CommandEmpty>No saved contacts match.</CommandEmpty>
-                  <CommandGroup heading="Saved contacts">
-                    {matches.map((contact) => (
-                      <CommandItem
-                        key={contact.id}
-                        value={contact.id}
-                        onSelect={() => {
-                          onContact(contact);
-                          setOpen(false);
-                        }}
-                      >
-                        <span>{contact.name}</span>
-                        <small>{contact.phoneMasked ?? contact.phone ?? contact.address}</small>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
+                  {matches.length === 0 ? (
+                    <CommandEmpty>No phone contacts match.</CommandEmpty>
+                  ) : (
+                    <CommandGroup heading="Saved contacts">
+                      {matches.map((contact) => (
+                        <CommandItem
+                          key={contact.id}
+                          value={contact.id}
+                          onSelect={() => {
+                            onContact(contact);
+                            setSearch("");
+                            setOpen(false);
+                          }}
+                        >
+                          <span>{contact.name}</span>
+                          <small>{contact.phoneMasked ?? contact.phone}</small>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  )}
                 </CommandList>
               </Command>
             </PopoverContent>

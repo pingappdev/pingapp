@@ -207,6 +207,8 @@ export function useSendTransaction(
         throw new Error("Connect the wallet you signed in with.");
 
       if (review.intentId) {
+        if (review.recipient.kind !== "intent")
+          throw new Error("This pending send changed. Review it again from Requests.");
         const { items } = await endpoints.intents.list("open");
         if (!currentAccount(me, expectedRevision)) throw new Error(sessionChangedMessage);
         const fresh: Intent | undefined = items.find((item) => item.id === review.intentId);
@@ -223,7 +225,9 @@ export function useSendTransaction(
           onChangedRecipient(null);
           throw new Error("This pending send changed or expired. Review it again from Requests.");
         }
-      } else if (review.recipient.kind === "phone" && review.recipient.phone) {
+      } else {
+        if (review.recipient.kind !== "phone" || !review.recipient.phone)
+          throw new Error("Enter and verify a recipient phone number before sending.");
         const response = await endpoints.resolve(review.recipient.phone);
         if (!currentAccount(me, expectedRevision)) throw new Error(sessionChangedMessage);
         if (response.status !== "registered") {

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight, Link2, ShieldCheck, Wallet } from "lucide-react";
 import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
-import { isAddress, zeroAddress } from "viem";
 import { useAccount } from "wagmi";
 import { ApiError } from "../../api/client";
 import { useBalances, useConfig, useContacts, useIntents, useResolve } from "../../api/hooks";
@@ -59,8 +58,10 @@ function SendSession({ me }: { me: Me | null }) {
   const [input, setInput] = useState("");
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [resolution, setResolution] = useState<ResolveResponse | null>(null);
+  const [resolutionPhone, setResolutionPhone] = useState<string | null>(null);
   const [resolving, setResolving] = useState(false);
   const [recipientError, setRecipientError] = useState("");
+  const [prefillError, setPrefillError] = useState("");
   const [freshRecipient, setFreshRecipient] = useState<Recipient | null>(null);
   const [tokenAddress, setTokenAddress] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
@@ -78,8 +79,13 @@ function SendSession({ me }: { me: Me | null }) {
     if (updated) {
       setResolution(updated);
       const phoneKey = requestedPhone ?? next?.phone;
+      setResolutionPhone(phoneKey ?? null);
+      setRecipientError("");
       if (phoneKey) cache.current.set(phoneKey, updated);
-    } else if (!next) setResolution(null);
+    } else if (!next) {
+      setResolution(null);
+      setResolutionPhone(null);
+    }
     setReview(null);
     setReviewOpen(false);
   };
@@ -92,18 +98,41 @@ function SendSession({ me }: { me: Me | null }) {
     const contactId = params.get("contact");
     if (contactId && !contacts.data) return;
     prefilled.current = key;
+    setInput("");
+    setSelectedContact(null);
+    setResolution(null);
+    setResolutionPhone(null);
+    setFreshRecipient(null);
+    setRecipientError("");
+    setPrefillError("");
+    setReview(null);
+    setReviewOpen(false);
     const contact = contacts.data?.find((item) => item.id === contactId);
     if (contact) {
-      setSelectedContact(contact);
-      setInput(contact.phone ?? contact.address ?? "");
+      if (contact.phone) {
+        setSelectedContact(contact);
+        setInput(contact.phone);
+      } else {
+        setPrefillError("This contact needs a phone number before you can send crypto.");
+      }
     } else if (params.get("to")) {
-      setInput(params.get("to")!);
-      setSelectedContact(null);
+      const to = params.get("to")!.trim();
+      if (/^0x/i.test(to)) {
+        setPrefillError("Send by phone number only. Enter the recipient's phone number.");
+      } else {
+        try {
+          const parsed = parsePhoneNumberFromString(to, defaultCountry());
+          if (parsed?.isValid()) setInput(parsed.number);
+          else setPrefillError("Enter a valid recipient phone number.");
+        } catch {
+          setPrefillError("Enter a valid recipient phone number.");
+        }
+      }
     }
   }, [contacts.data, locked, params]);
 
   const phone = useMemo(() => {
-    if (!input.trim() || input.trim().toLowerCase().startsWith("0x")) return null;
+    if (!input.trim()) return null;
     try {
       const parsed = parsePhoneNumberFromString(input, defaultCountry());
       return parsed?.isValid() ? parsed : null;
@@ -112,11 +141,11 @@ function SendSession({ me }: { me: Me | null }) {
     }
   }, [input]);
   const e164 = phone?.number;
-  const addressMode = input.trim().toLowerCase().startsWith("0x");
 
   useEffect(() => {
-    if (locked || addressMode || !e164) {
+    if (locked || !e164) {
       setResolution(null);
+      setResolutionPhone(null);
       setResolving(false);
       return;
     }
@@ -124,6 +153,7 @@ function SendSession({ me }: { me: Me | null }) {
     const saved = cache.current.get(e164);
     if (saved) {
       setResolution(saved);
+      setResolutionPhone(e164);
       setResolving(false);
       setRecipientError("");
       return () => {
@@ -131,13 +161,17 @@ function SendSession({ me }: { me: Me | null }) {
       };
     }
     setResolution(null);
+    setResolutionPhone(null);
     setResolving(true);
     setRecipientError("");
     const timer = window.setTimeout(() => {
       void resolvePhone(e164)
         .then((result) => {
           cache.current.set(e164, result);
-          if (active) setResolution(result);
+          if (active) {
+            setResolution(result);
+            setResolutionPhone(e164);
+          }
         })
         .catch((error: unknown) => {
           if (active) setRecipientError(resolveError(error));
@@ -150,7 +184,8 @@ function SendSession({ me }: { me: Me | null }) {
       active = false;
       window.clearTimeout(timer);
     };
-  }, [addressMode, e164, locked, resolvePhone]);
+  }, [e164, locked, resolvePhone]);
+  const currentResolution = e164 && resolutionPhone === e164 ? resolution : null;
 
   const assets = balances.data?.items ?? [];
   const eth = assets.find((asset) => asset.token.kind === "native");
@@ -213,30 +248,11 @@ function SendSession({ me }: { me: Me | null }) {
         phoneMasked: intent.recipientPhoneMasked,
       };
     }
-  } else if (addressMode) {
-    if (!isAddress(input.trim()) || input.trim().toLowerCase() === zeroAddress.toLowerCase())
-      immediateError = "Enter a valid non-zero wallet address.";
-    else if (input.trim().toLowerCase() === me?.address.toLowerCase())
-      immediateError = "That's your own wallet.";
-    else {
-      const match =
-        selectedContact?.address?.toLowerCase() === input.trim().toLowerCase()
-          ? selectedContact
-          : contacts.data?.find(
-              (item) => item.address?.toLowerCase() === input.trim().toLowerCase(),
-            );
-      recipient = {
-        kind: "address",
-        address: input.trim() as `0x${string}`,
-        name: match?.name ?? "Wallet address",
-        contactId: match?.id,
-      };
-    }
-  } else if (e164 && resolution?.status === "registered") {
+  } else if (e164 && currentResolution?.status === "registered") {
     recipient =
       freshRecipient?.phone === e164
         ? freshRecipient
-        : fromResolved(resolution, e164, selectedContact?.id);
+        : fromResolved(currentResolution, e164, selectedContact?.id);
   } else if (input.trim() && !e164) immediateError = "Enter a valid phone number.";
 
   const pendingUrl = e164
@@ -255,14 +271,17 @@ function SendSession({ me }: { me: Me | null }) {
     setInput(value);
     setSelectedContact(null);
     setResolution(null);
+    setResolutionPhone(null);
     setRecipientError("");
+    setPrefillError("");
     setFreshRecipient(null);
     setReview(null);
     setReviewOpen(false);
   }
 
   function selectContact(contact: Contact) {
-    changeInput(contact.phone ?? contact.address ?? "");
+    if (!contact.phone) return;
+    changeInput(contact.phone);
     setSelectedContact(contact);
   }
 
@@ -283,7 +302,9 @@ function SendSession({ me }: { me: Me | null }) {
     setInput("");
     setSelectedContact(null);
     setResolution(null);
+    setResolutionPhone(null);
     setFreshRecipient(null);
+    setPrefillError("");
     setAmount("");
     setTokenAddress(null);
     setReview(null);
@@ -295,7 +316,7 @@ function SendSession({ me }: { me: Me | null }) {
     <div className="send-grid">
       <section className="card send-form">
         <h2>Transfer details</h2>
-        <p>Choose a phone number, saved contact, or wallet address.</p>
+        <p>Enter a phone number or choose a saved phone contact.</p>
         {intentId &&
           (intents.isPending ? (
             <p className="field-help">Loading pending send…</p>
@@ -328,9 +349,9 @@ function SendSession({ me }: { me: Me | null }) {
                 />
                 <RecipientCard
                   recipient={recipient}
-                  resolution={resolution}
+                  resolution={currentResolution}
                   resolving={resolving}
-                  error={recipientError || immediateError}
+                  error={recipientError || prefillError || immediateError}
                   pendingUrl={pendingUrl}
                 />
               </>

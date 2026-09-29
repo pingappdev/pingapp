@@ -51,20 +51,10 @@ export default function RecipientCard({
   const warnings = recipientWarnings(recipient);
   return (
     <div className="recipient-match send-recipient-card">
-      <span className="send-recipient-avatar">
-        {recipient.kind === "address" ? (
-          <UserRound size={18} />
-        ) : (
-          recipient.name.charAt(0).toUpperCase()
-        )}
-      </span>
+      <span className="send-recipient-avatar">{recipient.name.charAt(0).toUpperCase()}</span>
       <div>
         <strong>{recipient.name}</strong>
-        <small>
-          {recipient.kind === "address"
-            ? "Wallet address"
-            : (recipient.phoneMasked ?? "On PingApp")}
-        </small>
+        <small>{recipient.phoneMasked ?? "On PingApp"}</small>
         <AddressText value={recipient.address} full />
         {recipient.linkedAt && (
           <small>On PingApp since {new Date(recipient.linkedAt).toLocaleDateString()}</small>
