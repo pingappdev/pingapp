@@ -1,0 +1,15 @@
+name: pingapp-fe-dev
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      - .:/app
+    env_file:
+      - ../docs/deploy/frontend.env.dev
+    command: bun run dev --host 0.0.0.0 --port 7400
+    ports:
+      - "127.0.0.1:7400:7400"
+    restart: unless-stopped
