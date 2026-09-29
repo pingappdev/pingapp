@@ -9,6 +9,7 @@ import { config } from './config.js';
 import { AppError, errors } from './lib/errors.js';
 import { logger } from './lib/logger.js';
 import { loadRouteModules } from './lib/modules.js';
+import auth from './plugins/auth.js';
 import security from './plugins/security.js';
 
 export async function buildApp() {
@@ -46,6 +47,7 @@ export async function buildApp() {
     maxAge: 600,
   });
   await app.register(security);
+  await app.register(auth);
   await loadRouteModules(app);
   await app.ready();
   return app;
