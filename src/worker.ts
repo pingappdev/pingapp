@@ -1,5 +1,6 @@
 import { Worker, type Job } from 'bullmq';
-import type { Logger } from 'pino';
+import type { Redis } from 'ioredis';
+import { sql } from './db/client.js';
 import { loadJobModules, type WorkerCtx } from './lib/modules.js';
 import { closeQueues, getQueue, QUEUES, type QueueName } from './lib/queue.js';
 import { logger } from './lib/logger.js';
@@ -8,6 +9,7 @@ import { createRedis, redis } from './lib/redis.js';
 type Processor = (job: Job) => Promise<unknown>;
 const processors = new Map<QueueName, Map<string, Processor>>();
 const workers: Worker[] = [];
+const workerConnections: Redis[] = [];
 
 const ctx: WorkerCtx = {
   logger,
@@ -31,11 +33,13 @@ async function start(): Promise<void> {
   await loadJobModules(ctx);
 
   for (const [queueName, handlers] of processors) {
+    const connection = createRedis();
+    workerConnections.push(connection);
     const worker = new Worker(QUEUES[queueName], async (job) => {
       const handler = handlers.get(job.name);
       if (!handler) throw new Error(`No processor registered for ${queueName}:${job.name}`);
       return handler(job);
-    }, { connection: createRedis(), concurrency: 5 });
+    }, { connection, concurrency: 5 });
     worker.on('failed', (job, error) => {
       logger.error({ jobName: job?.name, jobId: job?.id, error: error.message }, 'queue job failed');
     });
@@ -53,11 +57,11 @@ let closing = false;
 async function shutdown() {
   if (closing) return;
   closing = true;
-  const results = await Promise.allSettled([
-    ...workers.map((worker) => worker.close()),
-    closeQueues(),
-    redis.quit(),
-  ]);
+  const results: PromiseSettledResult<unknown>[] = [];
+  results.push(...await Promise.allSettled(workers.map((worker) => worker.close())));
+  results.push(...await Promise.allSettled([closeQueues()]));
+  results.push(...await Promise.allSettled(workerConnections.map((connection) => connection.quit())));
+  results.push(...await Promise.allSettled([sql.end(), redis.quit()]));
   const failure = results.find((result) => result.status === 'rejected');
   if (failure?.status === 'rejected') {
     logger.error({ err: failure.reason }, 'worker shutdown failed');
