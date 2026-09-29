@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../auth/useAuth";
 import { WalletProvider } from "./appkit";
 
@@ -13,14 +13,36 @@ export default function ClientLogout() {
 function LogoutContent() {
   const { signOut } = useAuth();
   const started = useRef(false);
+  const [busy, setBusy] = useState(true);
+  const [error, setError] = useState("");
+  const attemptLogout = useCallback(async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await signOut();
+      window.location.replace("/");
+    } catch (reason) {
+      setError((reason as Error).message || "Could not sign out. Please try again.");
+      setBusy(false);
+    }
+  }, [signOut]);
+
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    void signOut().finally(() => window.location.replace("/"));
-  }, [signOut]);
+    void attemptLogout();
+  }, [attemptLogout]);
   return (
     <main className="contact-page section">
-      <div className="workspace-loading">Signing out…</div>
+      <div className="card settings-card" style={{ maxWidth: 460, margin: "60px auto" }}>
+        <h1>Sign out</h1>
+        {busy ? <p>Signing out…</p> : <p role="alert">{error}</p>}
+        {!busy && (
+          <button className="button accent" onClick={() => void attemptLogout()}>
+            Try again
+          </button>
+        )}
+      </div>
     </main>
   );
 }

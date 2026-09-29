@@ -11,8 +11,8 @@ export default function ClientLogin({ returnTo }: { returnTo?: string }) {
 }
 
 function LoginContent({ returnTo }: { returnTo?: string }) {
-  const { status, signIn, signOut } = useAuth();
-  const [error, setError] = useState("");
+  const { status, error: sessionError, retrySession, signIn, signOut } = useAuth();
+  const [actionError, setActionError] = useState("");
   useEffect(() => {
     if (status === "signed-in") window.location.replace(safeReturnTo(returnTo));
   }, [status, returnTo]);
@@ -31,22 +31,30 @@ function LoginContent({ returnTo }: { returnTo?: string }) {
             to continue.
           </p>
         )}
-        {error && <p role="alert">{error}</p>}
+        {status === "error" && (
+          <div role="alert">
+            <p>{sessionError?.message ?? "We couldn’t check your session."}</p>
+            <button className="button outline" onClick={() => void retrySession()}>
+              Try again
+            </button>
+          </div>
+        )}
+        {actionError && <p role="alert">{actionError}</p>}
         <button
           className="button accent"
           onClick={
             status === "mismatch"
               ? () => {
-                  setError("");
+                  setActionError("");
                   void signOut()
                     .then(signIn)
                     .catch((reason: unknown) =>
-                      setError((reason as Error).message || "Could not sign out. Try again."),
+                      setActionError((reason as Error).message || "Could not sign out. Try again."),
                     );
                 }
               : signIn
           }
-          disabled={status === "loading" || status === "signed-in"}
+          disabled={status === "loading" || status === "signed-in" || status === "error"}
           style={{ marginTop: 22, width: "100%", justifyContent: "center" }}
         >
           {status === "loading" || status === "signed-in"

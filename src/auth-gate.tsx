@@ -6,7 +6,7 @@ import { useAccount, useSwitchChain } from "wagmi";
 import { chain } from "./config";
 
 export default function AuthGate({ children }: { children: ReactNode }) {
-  const { status, me, address, signIn, signOut } = useAuth();
+  const { status, me, address, error: sessionError, retrySession, signIn, signOut } = useAuth();
   const [busy, setBusy] = useState(false);
   const [switching, setSwitching] = useState(false);
   const [error, setError] = useState("");
@@ -25,6 +25,27 @@ export default function AuthGate({ children }: { children: ReactNode }) {
         <div className="workspace-loading">
           <RefreshCw className="spin" />
           Opening your workspace…
+        </div>
+      </main>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <main className="premium-workspace contact-page section">
+        <div className="card settings-card" style={{ maxWidth: 540, margin: "60px auto" }}>
+          <h1>We couldn’t check your session.</h1>
+          <p role="alert">{sessionError?.message ?? "Check your connection and try again."}</p>
+          <button
+            className="button accent"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              void retrySession().finally(() => setBusy(false));
+            }}
+          >
+            Try again
+          </button>
         </div>
       </main>
     );

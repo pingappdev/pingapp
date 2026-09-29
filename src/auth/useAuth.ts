@@ -3,26 +3,22 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createSiweMessage } from "viem/siwe";
 import { useAccount, useDisconnect, useSignMessage, useSwitchChain } from "wagmi";
 import { ApiError, endpoints } from "../api/client";
-import { qk, useSession } from "../api/hooks";
+import { qk, transitionSession, useSession } from "../api/hooks";
 import type { Me } from "../api/types";
 import { chain } from "../config";
 import { openConnect } from "../wallet/appkit";
+import { safeReturnTo } from "./return-to";
 
-export type AuthStatus = "loading" | "signed-out" | "signed-in" | "mismatch";
+export { safeReturnTo } from "./return-to";
 
-export function safeReturnTo(value: string | undefined): string {
-  if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\"))
-    return "/dashboard";
-  const path = value.split(/[?#]/, 1)[0];
-  return path === "/dashboard" || path.startsWith("/dashboard/") || path.startsWith("/claim/")
-    ? value
-    : "/dashboard";
-}
+export type AuthStatus = "loading" | "error" | "signed-out" | "signed-in" | "mismatch";
 
 export function useAuth(): {
   status: AuthStatus;
   me: Me | null;
+  error: Error | null;
   address?: string;
+  retrySession: () => Promise<void>;
   signIn: () => void;
   signOut: () => Promise<void>;
   reauth: () => Promise<void>;
@@ -35,17 +31,19 @@ export function useAuth(): {
   const { signMessageAsync } = useSignMessage();
   const { switchChainAsync } = useSwitchChain();
   const me = session.data ?? null;
+  const error = session.error instanceof Error ? session.error : null;
   const address = account.isConnected ? account.address : undefined;
+  const refetchSession = session.refetch;
 
   const signOut = useCallback(async () => {
-    try {
-      await endpoints.auth.logout();
-    } finally {
-      queryClient.clear();
-      queryClient.setQueryData(qk.session, null);
-      if (account.isConnected) await disconnectAsync();
-    }
+    await endpoints.auth.logout();
+    await transitionSession(queryClient, null, { cancelSessionQuery: true });
+    if (account.isConnected) await disconnectAsync();
   }, [account.isConnected, disconnectAsync, queryClient]);
+
+  const retrySession = useCallback(async () => {
+    await refetchSession();
+  }, [refetchSession]);
 
   const signIn = useCallback(() => {
     void openConnect();
@@ -88,15 +86,15 @@ export function useAuth(): {
 
   useEffect(() => {
     const unauthenticated = () => {
-      queryClient.clear();
-      queryClient.setQueryData(qk.session, null);
-      if (
-        window.location.pathname.startsWith("/dashboard") ||
-        window.location.pathname.startsWith("/claim/")
-      ) {
-        const returnTo = window.location.pathname + window.location.search;
-        window.location.replace(`/login?returnTo=${encodeURIComponent(safeReturnTo(returnTo))}`);
-      }
+      void transitionSession(queryClient, null, { cancelSessionQuery: true }).then(() => {
+        const returnTo = safeReturnTo(window.location.pathname + window.location.search);
+        if (
+          window.location.pathname === "/dashboard" ||
+          window.location.pathname.startsWith("/dashboard/") ||
+          window.location.pathname.startsWith("/claim/")
+        )
+          window.location.replace(`/login?returnTo=${encodeURIComponent(returnTo)}`);
+      });
     };
     window.addEventListener("pingapp:unauthenticated", unauthenticated);
     return () => window.removeEventListener("pingapp:unauthenticated", unauthenticated);
@@ -104,11 +102,13 @@ export function useAuth(): {
 
   const status: AuthStatus = session.isPending
     ? "loading"
-    : !me
-      ? "signed-out"
-      : address && address.toLowerCase() !== me.address.toLowerCase()
-        ? "mismatch"
-        : "signed-in";
+    : session.isError
+      ? "error"
+      : !me
+        ? "signed-out"
+        : address && address.toLowerCase() !== me.address.toLowerCase()
+          ? "mismatch"
+          : "signed-in";
 
-  return { status, me, address, signIn, signOut, reauth, withReauth };
+  return { status, me, error, address, retrySession, signIn, signOut, reauth, withReauth };
 }
