@@ -164,6 +164,7 @@ export function usePhoneLinkFlow(onLinked?: (res: { readyIntents: number }) => v
     void navigator.credentials
       .get(options)
       .then((credential) => {
+        if (controller.signal.aborted) return;
         const receivedCode = (credential as WebOtpCredential | null)?.code;
         if (typeof receivedCode === "string" && /^\d{6}$/.test(receivedCode)) {
           setCode(receivedCode);
