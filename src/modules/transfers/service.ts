@@ -19,6 +19,7 @@ import { assertMinAmount, getMinAmountRaw } from '../tokens/minimum.js';
 import { getPrices } from '../tokens/prices.js';
 import { getToken } from '../tokens/registry.js';
 import { toTokenDto, type TokenDto } from '../tokens/routes.js';
+import { lockPhoneMutation } from '../phone/lock.js';
 
 const HASH = /^0x[0-9a-fA-F]{64}$/;
 const RAW_AMOUNT = /^[1-9]\d{0,77}$/;
@@ -66,8 +67,13 @@ export async function recordTransfer(user: Sender, body: TransferBody): Promise<
   const recipientPhoneHmac = phone ? phoneHmac(phone.e164) : null;
 
   const result = await db.transaction(async (tx) => {
-    // Locking the recipient first matches phone-linking's update order. It prevents
-    // recording a stale phone or intent binding while that account changes phone.
+    // Phone linking, intent readiness and account deletion use this global lock
+    // first. Hold it through the binding checks and insert, without RPC calls.
+    await lockPhoneMutation(tx);
+    const [sender] = await tx.select({ id: users.id }).from(users)
+      .where(and(eq(users.id, user.id), eq(users.address, normAddress(user.address))))
+      .limit(1).for('update');
+    if (!sender) throw errors.unauthenticated();
     const [recipient] = await tx.select().from(users)
       .where(eq(users.address, toAddress)).limit(1).for('update');
     if (recipientPhoneHmac && recipient?.phoneHmac !== recipientPhoneHmac) {
@@ -181,34 +187,41 @@ async function finalizeMined(row: Transfer, receipt: TransactionReceipt, verifie
   const amount = formatAmount(row.amountRaw, tokenRow.decimals);
 
   const changed = await db.transaction(async (tx) => {
+    await lockPhoneMutation(tx);
     const [updated] = await tx.update(transfers).set({
       status, blockNumber: receipt.blockNumber, confirmedAt: new Date(),
     }).where(and(eq(transfers.id, row.id), eq(transfers.status, 'submitted')))
-      .returning({ id: transfers.id });
+      .returning({
+        id: transfers.id,
+        senderUserId: transfers.senderUserId,
+        recipientUserId: transfers.recipientUserId,
+      });
     if (!updated) return false;
 
-    if (status === 'failed' && row.senderUserId) {
-      await notify(row.senderUserId, 'transfer_failed', { transferId: row.id, amount, symbol: tokenRow.symbol }, tx);
+    if (status === 'failed' && updated.senderUserId) {
+      await notify(updated.senderUserId, 'transfer_failed', { transferId: row.id, amount, symbol: tokenRow.symbol }, tx);
     }
     if (status === 'confirmed') {
-      if (row.recipientUserId) {
-        const [sender] = await tx.select({ name: users.displayName }).from(users)
-          .where(eq(users.id, row.senderUserId ?? '')).limit(1);
-        await notify(row.recipientUserId, 'transfer_received', {
+      if (updated.recipientUserId) {
+        const [sender] = updated.senderUserId
+          ? await tx.select({ name: users.displayName }).from(users)
+            .where(eq(users.id, updated.senderUserId)).limit(1)
+          : [];
+        await notify(updated.recipientUserId, 'transfer_received', {
           transferId: row.id,
           senderDisplayName: displayName(sender?.name, row.senderAddress),
           amount, symbol: tokenRow.symbol,
         }, tx);
       }
-      if (row.intentId && row.recipientUserId) {
+      if (row.intentId && updated.recipientUserId) {
         // Phone changes reset ready intents. The extra current-binding and expiry
         // guards prevent a late receipt from completing a stale intent.
         const [recipient] = await tx.select({ phoneHmac: users.phoneHmac }).from(users)
-          .where(eq(users.id, row.recipientUserId)).limit(1);
+          .where(eq(users.id, updated.recipientUserId)).limit(1);
         if (recipient?.phoneHmac) {
           await tx.update(intents).set({ status: 'completed', transferId: row.id, completedAt: new Date() })
             .where(and(eq(intents.id, row.intentId), eq(intents.status, 'ready'),
-              eq(intents.recipientUserId, row.recipientUserId),
+              eq(intents.recipientUserId, updated.recipientUserId),
               eq(intents.recipientPhoneHmac, recipient.phoneHmac),
               gt(intents.expiresAt, new Date())));
         }
