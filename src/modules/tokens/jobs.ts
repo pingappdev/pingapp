@@ -10,5 +10,9 @@ export default async function registerJobs(ctx: WorkerCtx): Promise<void> {
     await syncStockTokens();
   });
   await ctx.schedule('tokens', 'sync', SIX_HOURS_MS);
-  await enqueue('tokens', 'sync', { source: 'boot' }, { jobId: 'tokens-sync-boot' });
+  await enqueue('tokens', 'sync', { source: 'boot' }, {
+    jobId: 'tokens-sync-boot',
+    removeOnComplete: true,
+    removeOnFail: true,
+  });
 }
