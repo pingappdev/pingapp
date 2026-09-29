@@ -116,10 +116,8 @@ export async function deleteAccount(userId: string, currentSessionId: string, ip
     await lockPhoneMutation(tx);
     await lockSessionMutations(tx, userId);
 
-    // Lock every session before the user row. Auth logout deletes a session
-    // before inserting its audit event (which checks the user's FK), so this
-    // order lets an in-flight logout finish before account deletion locks the
-    // user and cascades its remaining sessions.
+    // Lock sessions in a stable order, then recheck freshness in the same
+    // transaction before deleting the user and cascading remaining sessions.
     const lockedSessions = await tx.select({
       id: sessions.id,
       expiresAt: sessions.expiresAt,
