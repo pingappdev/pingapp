@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LogoutRouteImport } from './routes/logout'
+import { Route as ClaimCodeRouteImport } from './routes/claim.$code'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
 import { Route as DashboardViewRouteImport } from './routes/dashboard.$view'
 
@@ -36,6 +37,11 @@ const LogoutRoute = LogoutRouteImport.update({
   path: '/logout',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ClaimCodeRoute = ClaimCodeRouteImport.update({
+  id: '/claim/$code',
+  path: '/claim/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardIndexRoute = DashboardIndexRouteImport.update({
   id: '/dashboard/',
   path: '/dashboard/',
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/$': typeof SplatRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
+  '/claim/$code': typeof ClaimCodeRoute
   '/dashboard/$view': typeof DashboardViewRoute
   '/dashboard/': typeof DashboardIndexRoute
 }
@@ -60,6 +67,7 @@ export interface FileRoutesByTo {
   '/$': typeof SplatRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
+  '/claim/$code': typeof ClaimCodeRoute
   '/dashboard/$view': typeof DashboardViewRoute
   '/dashboard': typeof DashboardIndexRoute
 }
@@ -69,21 +77,36 @@ export interface FileRoutesById {
   '/$': typeof SplatRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
+  '/claim/$code': typeof ClaimCodeRoute
   '/dashboard/$view': typeof DashboardViewRoute
   '/dashboard/': typeof DashboardIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/$' | '/login' | '/logout' | '/dashboard/$view' | '/dashboard/'
+    | '/'
+    | '/$'
+    | '/login'
+    | '/logout'
+    | '/claim/$code'
+    | '/dashboard/$view'
+    | '/dashboard/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$' | '/login' | '/logout' | '/dashboard/$view' | '/dashboard'
+  to:
+    | '/'
+    | '/$'
+    | '/login'
+    | '/logout'
+    | '/claim/$code'
+    | '/dashboard/$view'
+    | '/dashboard'
   id:
     | '__root__'
     | '/'
     | '/$'
     | '/login'
     | '/logout'
+    | '/claim/$code'
     | '/dashboard/$view'
     | '/dashboard/'
   fileRoutesById: FileRoutesById
@@ -93,6 +116,7 @@ export interface RootRouteChildren {
   SplatRoute: typeof SplatRoute
   LoginRoute: typeof LoginRoute
   LogoutRoute: typeof LogoutRoute
+  ClaimCodeRoute: typeof ClaimCodeRoute
   DashboardViewRoute: typeof DashboardViewRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
 }
@@ -127,6 +151,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LogoutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/claim/$code': {
+      id: '/claim/$code'
+      path: '/claim/$code'
+      fullPath: '/claim/$code'
+      preLoaderRoute: typeof ClaimCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard/': {
       id: '/dashboard/'
       path: '/dashboard'
@@ -149,6 +180,7 @@ const rootRouteChildren: RootRouteChildren = {
   SplatRoute: SplatRoute,
   LoginRoute: LoginRoute,
   LogoutRoute: LogoutRoute,
+  ClaimCodeRoute: ClaimCodeRoute,
   DashboardViewRoute: DashboardViewRoute,
   DashboardIndexRoute: DashboardIndexRoute,
 }
