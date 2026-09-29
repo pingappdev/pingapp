@@ -5,14 +5,19 @@ import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useEffect, type ReactNode } from "react";
 import { createSiweMessage } from "viem/siwe";
 import { WagmiProvider } from "wagmi";
-import { endpoints } from "../api/client";
-import { qk } from "../api/hooks";
+import { ApiError, endpoints } from "../api/client";
+import { qk, sessionRevision, transitionSession } from "../api/hooks";
+import type { Me } from "../api/types";
 import { chain, config } from "../config";
 
 export const SIGN_IN_STATEMENT =
   "Sign in to PingApp. This only proves you own this wallet. It costs no gas and moves no funds.";
 
 let activeQueryClient: QueryClient | undefined;
+
+function appKitSession(me: Me | null | undefined) {
+  return me ? { address: me.address, chainId: chain.id } : null;
+}
 
 function QueryClientBridge() {
   const queryClient = useQueryClient();
@@ -53,29 +58,34 @@ export const siweConfig = createSIWEConfig({
   verifyMessage: async ({ message, signature }) => {
     try {
       const { me } = await endpoints.auth.verify(message, signature as `0x${string}`);
-      activeQueryClient?.clear();
-      activeQueryClient?.setQueryData(qk.session, me);
+      if (activeQueryClient)
+        await transitionSession(activeQueryClient, me, { cancelSessionQuery: true });
       return true;
     } catch {
       return false;
     }
   },
   getSession: async () => {
+    const queryClient = activeQueryClient;
+    const expectedRevision = queryClient ? sessionRevision(queryClient) : undefined;
     try {
       const { me } = await endpoints.auth.session();
-      activeQueryClient?.setQueryData(qk.session, me);
-      return { address: me.address, chainId: chain.id };
-    } catch {
-      return null;
+      if (!queryClient) return appKitSession(me);
+      const applied = await transitionSession(queryClient, me, { expectedRevision });
+      return appKitSession(applied ? me : queryClient.getQueryData<Me | null>(qk.session));
+    } catch (error) {
+      if (error instanceof ApiError && error.code === "UNAUTHENTICATED" && queryClient)
+        await transitionSession(queryClient, null, {
+          expectedRevision,
+          cancelSessionQuery: true,
+        });
+      return appKitSession(queryClient?.getQueryData<Me | null>(qk.session));
     }
   },
   signOut: async () => {
-    try {
-      await endpoints.auth.logout();
-    } finally {
-      activeQueryClient?.clear();
-      activeQueryClient?.setQueryData(qk.session, null);
-    }
+    await endpoints.auth.logout();
+    if (activeQueryClient)
+      await transitionSession(activeQueryClient, null, { cancelSessionQuery: true });
     return true;
   },
   signOutOnDisconnect: true,

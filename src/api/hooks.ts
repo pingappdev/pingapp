@@ -29,8 +29,7 @@ export const qk = {
   balances: (refresh = false) => ["pingapp", "wallet", "balances", { refresh }] as const,
   contacts: ["pingapp", "contacts"] as const,
   transfersPrefix: ["pingapp", "transfers"] as const,
-  transfers: (direction: TransferDirection = "all") =>
-    ["pingapp", "transfers", direction] as const,
+  transfers: (direction: TransferDirection = "all") => ["pingapp", "transfers", direction] as const,
   transfer: (id: string) => ["pingapp", "transfers", "detail", id] as const,
   intentsPrefix: ["pingapp", "intents"] as const,
   intents: (status: IntentStatusFilter = "open") => ["pingapp", "intents", status] as const,
@@ -39,15 +38,45 @@ export const qk = {
   notifications: ["pingapp", "notifications"] as const,
 };
 
-function clearUserQueries(queryClient: QueryClient): void {
-  queryClient.removeQueries({
-    predicate: ({ queryKey }) => {
-      if (queryKey[0] !== qk.all[0]) return false;
-      if (queryKey[1] === "config" || queryKey[1] === "tokens") return false;
-      if (queryKey[1] === "auth" && queryKey[2] === "session") return false;
-      return true;
-    },
-  });
+function isUserQuery({ queryKey }: { queryKey: readonly unknown[] }): boolean {
+  if (queryKey[0] !== qk.all[0]) return false;
+  if (queryKey[1] === "config" || queryKey[1] === "tokens") return false;
+  return !(queryKey[1] === "auth" && queryKey[2] === "session");
+}
+
+const sessionRevisions = new WeakMap<QueryClient, number>();
+
+export function sessionRevision(queryClient: QueryClient): number {
+  return sessionRevisions.get(queryClient) ?? 0;
+}
+
+/** Cancel old private requests before publishing a new session identity. */
+export async function transitionSession(
+  queryClient: QueryClient,
+  next: Me | null,
+  options: { expectedRevision?: number; cancelSessionQuery?: boolean } = {},
+): Promise<boolean> {
+  const previousRevision = sessionRevision(queryClient);
+  if (options.expectedRevision !== undefined && options.expectedRevision !== previousRevision)
+    return false;
+
+  const previous = queryClient.getQueryData<Me | null>(qk.session);
+  const identityChanged =
+    previous === undefined ||
+    previous?.id !== next?.id ||
+    previous?.address.toLowerCase() !== next?.address.toLowerCase();
+  const nextRevision =
+    identityChanged || options.cancelSessionQuery ? previousRevision + 1 : previousRevision;
+  if (nextRevision !== previousRevision) sessionRevisions.set(queryClient, nextRevision);
+
+  if (options.cancelSessionQuery)
+    await queryClient.cancelQueries({ queryKey: qk.session, exact: true });
+  if (identityChanged) await queryClient.cancelQueries({ predicate: isUserQuery });
+  if (sessionRevision(queryClient) !== nextRevision) return false;
+
+  if (identityChanged) queryClient.removeQueries({ predicate: isUserQuery });
+  queryClient.setQueryData<Me | null>(qk.session, next);
+  return true;
 }
 
 const sessionClients = new Map<QueryClient, number>();
@@ -55,8 +84,7 @@ let authEventListenerInstalled = false;
 
 function handleUnauthenticated(): void {
   for (const queryClient of sessionClients.keys()) {
-    clearUserQueries(queryClient);
-    queryClient.setQueryData<Me | null>(qk.session, null);
+    void transitionSession(queryClient, null, { cancelSessionQuery: true });
   }
 }
 
@@ -94,17 +122,15 @@ export function useSession() {
   return useQuery({
     queryKey: qk.session,
     queryFn: async ({ signal }) => {
+      const expectedRevision = sessionRevision(queryClient);
       try {
         const { me } = await endpoints.auth.session({ signal });
-        const cachedSession = queryClient.getQueryData<Me | null>(qk.session);
-        if (cachedSession !== undefined && cachedSession?.id !== me.id) {
-          clearUserQueries(queryClient);
-        }
-        return me;
+        const applied = await transitionSession(queryClient, me, { expectedRevision });
+        return applied ? me : (queryClient.getQueryData<Me | null>(qk.session) ?? null);
       } catch (error) {
         if (error instanceof ApiError && error.code === "UNAUTHENTICATED") {
-          clearUserQueries(queryClient);
-          return null;
+          const applied = await transitionSession(queryClient, null, { expectedRevision });
+          return applied ? null : (queryClient.getQueryData<Me | null>(qk.session) ?? null);
         }
         throw error;
       }
@@ -140,8 +166,7 @@ export function useBalances(options: { refresh?: boolean; enabled?: boolean } = 
   const enabled = options.enabled ?? true;
   return useQuery({
     queryKey: qk.balances(options.refresh),
-    queryFn: ({ signal }) =>
-      endpoints.wallet.balances({ refresh: options.refresh }, { signal }),
+    queryFn: ({ signal }) => endpoints.wallet.balances({ refresh: options.refresh }, { signal }),
     enabled,
     refetchInterval: enabled ? 30_000 : false,
   });
@@ -176,8 +201,7 @@ export function useTransfer(id: string | undefined) {
       return (await endpoints.transfers.get(id, { signal })).transfer;
     },
     enabled: Boolean(id),
-    refetchInterval: (query) =>
-      query.state.data?.status === "submitted" ? 4_000 : false,
+    refetchInterval: (query) => (query.state.data?.status === "submitted" ? 4_000 : false),
   });
 }
 
@@ -288,8 +312,13 @@ export function useCreateContact() {
 export function useUpdateContact() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, input }: { id: string; input: Parameters<typeof endpoints.contacts.update>[1] }) =>
-      endpoints.contacts.update(id, input),
+    mutationFn: ({
+      id,
+      input,
+    }: {
+      id: string;
+      input: Parameters<typeof endpoints.contacts.update>[1];
+    }) => endpoints.contacts.update(id, input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.contacts }),
   });
 }
@@ -345,7 +374,9 @@ export function useRevokeSession() {
   return useMutation({
     mutationFn: (id: string) => endpoints.me.revokeSession(id),
     onSuccess: async (_data, id) => {
-      const sessions = queryClient.getQueryData<Array<{ id: string; current: boolean }>>(qk.sessions);
+      const sessions = queryClient.getQueryData<Array<{ id: string; current: boolean }>>(
+        qk.sessions,
+      );
       if (sessions?.some((session) => session.id === id && session.current)) {
         queryClient.clear();
         return;
