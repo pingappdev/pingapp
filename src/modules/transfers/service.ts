@@ -1,10 +1,12 @@
-import { and, eq, gt, inArray } from 'drizzle-orm';
+import { Readable } from 'node:stream';
+import { and, eq, gt, inArray, lt, or, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { decodeEventLog, erc20Abi, TransactionReceiptNotFoundError, type TransactionReceipt } from 'viem';
 import { db } from '../../db/client.js';
 import { audit } from '../../db/audit.js';
 import { notify } from '../../db/notify.js';
-import { contacts, intents, transfers, users, type Transfer } from '../../db/schema.js';
-import { isAddress, NATIVE_TOKEN, normAddress } from '../../lib/chain.js';
+import { contacts, intents, tokens, transfers, users, type Token, type Transfer } from '../../db/schema.js';
+import { checksum, explorerTx, isAddress, NATIVE_TOKEN, normAddress } from '../../lib/chain.js';
 import { invalidate } from '../../lib/cache.js';
 import { phoneHmac } from '../../lib/crypto.js';
 import { errors } from '../../lib/errors.js';
@@ -13,8 +15,10 @@ import { formatAmount } from '../../lib/money.js';
 import { enqueue } from '../../lib/queue.js';
 import { normalizePhone } from '../../lib/phone.js';
 import { publicClient } from '../../lib/viem.js';
-import { assertMinAmount } from '../tokens/minimum.js';
+import { assertMinAmount, getMinAmountRaw } from '../tokens/minimum.js';
+import { getPrices } from '../tokens/prices.js';
 import { getToken } from '../tokens/registry.js';
+import { toTokenDto, type TokenDto } from '../tokens/routes.js';
 
 const HASH = /^0x[0-9a-fA-F]{64}$/;
 const RAW_AMOUNT = /^[1-9]\d{0,77}$/;
@@ -265,4 +269,149 @@ export async function confirmTransfer(transferId: string, attempt: number): Prom
     verified = hasExactTransferLog(receipt, row);
   }
   await finalizeMined(row, receipt, verified);
+}
+
+export type Direction = 'all' | 'sent' | 'received';
+export type TransferDto = {
+  id: string;
+  direction: 'sent' | 'received';
+  txHash: `0x${string}`;
+  status: string;
+  token: TokenDto;
+  amountRaw: string;
+  amount: string;
+  from: { address: `0x${string}`; displayName: string | null; phoneMasked: null; isMe: boolean };
+  to: { address: `0x${string}`; displayName: string | null; phoneMasked: string | null; isMe: boolean };
+  contactName: string | null;
+  intentId: string | null;
+  explorerUrl: string;
+  createdAt: string;
+  confirmedAt: string | null;
+};
+
+const senderParty = alias(users, 'transfer_sender');
+const recipientParty = alias(users, 'transfer_recipient');
+const createdExact = sql<string>`to_char(${transfers.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
+const fields = {
+  transfer: transfers,
+  token: tokens,
+  senderName: senderParty.displayName,
+  recipientName: recipientParty.displayName,
+  createdExact,
+};
+
+type JoinedRow = {
+  transfer: Transfer;
+  token: Token;
+  senderName: string | null;
+  recipientName: string | null;
+  createdExact: string;
+};
+
+function joined() {
+  return db.select(fields).from(transfers)
+    .innerJoin(tokens, eq(tokens.address, transfers.tokenAddress))
+    .leftJoin(senderParty, eq(senderParty.id, transfers.senderUserId))
+    .leftJoin(recipientParty, eq(recipientParty.id, transfers.recipientUserId));
+}
+
+function visibleTo(userId: string, direction: Direction) {
+  if (direction === 'sent') return eq(transfers.senderUserId, userId);
+  if (direction === 'received') return eq(transfers.recipientUserId, userId);
+  return or(eq(transfers.senderUserId, userId), eq(transfers.recipientUserId, userId));
+}
+
+function parseCursor(cursor: string): { at: string; id: string } {
+  if (cursor.length > 256 || !/^[A-Za-z0-9_-]+$/.test(cursor)) throw errors.validation('Invalid cursor.');
+  const decoded = Buffer.from(cursor, 'base64url').toString('utf8');
+  if (Buffer.from(decoded).toString('base64url') !== cursor) throw errors.validation('Invalid cursor.');
+  const match = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z)\|([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/.exec(decoded);
+  if (!match || !Number.isFinite(Date.parse(match[1])) ||
+      new Date(match[1]).toISOString().slice(0, 23) !== match[1].slice(0, 23)) {
+    throw errors.validation('Invalid cursor.');
+  }
+  return { at: match[1], id: match[2] };
+}
+
+async function serialize(row: JoinedRow, userId: string, prices: Map<string, string | null>): Promise<TransferDto> {
+  const transfer = row.transfer;
+  const sent = transfer.senderUserId === userId;
+  const price = prices.get(row.token.address) ?? null;
+  const minRaw = await getMinAmountRaw(row.token, price);
+  return {
+    id: transfer.id,
+    direction: sent ? 'sent' : 'received',
+    txHash: transfer.txHash as `0x${string}`,
+    status: transfer.status,
+    token: toTokenDto(row.token, price, minRaw),
+    amountRaw: transfer.amountRaw,
+    amount: formatAmount(transfer.amountRaw, row.token.decimals),
+    from: {
+      address: checksum(transfer.senderAddress), displayName: row.senderName || null,
+      phoneMasked: null, isMe: sent,
+    },
+    to: {
+      address: checksum(transfer.recipientAddress), displayName: row.recipientName || null,
+      phoneMasked: sent ? transfer.recipientPhoneMasked : null,
+      isMe: transfer.recipientUserId === userId,
+    },
+    contactName: sent ? transfer.contactName : null,
+    intentId: transfer.intentId,
+    explorerUrl: explorerTx(transfer.txHash),
+    createdAt: row.createdExact,
+    confirmedAt: transfer.confirmedAt?.toISOString() ?? null,
+  };
+}
+
+export async function getTransfer(userId: string, id: string): Promise<TransferDto> {
+  const [row] = await joined().where(and(eq(transfers.id, id), visibleTo(userId, 'all'))).limit(1);
+  if (!row) throw errors.notFound();
+  return serialize(row, userId, await getPrices());
+}
+
+export async function listTransfers(userId: string, opts: {
+  direction: Direction; limit: number; cursor?: string;
+}): Promise<{ items: TransferDto[]; nextCursor: string | null }> {
+  const cursor = opts.cursor ? parseCursor(opts.cursor) : null;
+  const rows = await joined().where(and(
+    visibleTo(userId, opts.direction),
+    cursor ? or(
+      lt(transfers.createdAt, sql`${cursor.at}::timestamptz`),
+      and(eq(transfers.createdAt, sql`${cursor.at}::timestamptz`), lt(transfers.id, cursor.id)),
+    ) : undefined,
+  )).orderBy(sql`${transfers.createdAt} DESC`, sql`${transfers.id} DESC`).limit(opts.limit + 1);
+  const page = rows.slice(0, opts.limit);
+  const prices = page.length ? await getPrices() : new Map<string, string | null>();
+  const items = await Promise.all(page.map((row) => serialize(row, userId, prices)));
+  const last = page.at(-1);
+  return {
+    items,
+    nextCursor: rows.length > opts.limit && last
+      ? Buffer.from(`${last.createdExact}|${last.transfer.id}`).toString('base64url') : null,
+  };
+}
+
+function csvField(value: string): string {
+  // Spreadsheet applications can execute formulas even in quoted CSV cells.
+  const safe = /^[\s\uFEFF]*[=+\-@]/u.test(value) ? `'${value}` : value;
+  return `"${safe.replaceAll('"', '""')}"`;
+}
+
+export function exportCsv(userId: string, direction: Direction): Readable {
+  async function* lines() {
+    yield ['Date', 'Direction', 'Status', 'Token', 'Amount', 'From', 'To', 'Tx hash', 'Explorer URL']
+      .map(csvField).join(',') + '\r\n';
+    let cursor: string | undefined;
+    let exported = 0;
+    do {
+      const page = await listTransfers(userId, { direction, limit: Math.min(100, 5000 - exported), cursor });
+      for (const item of page.items) {
+        yield [item.createdAt, item.direction, item.status, item.token.symbol, item.amount,
+          item.from.address, item.to.address, item.txHash, item.explorerUrl].map(csvField).join(',') + '\r\n';
+      }
+      exported += page.items.length;
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor && exported < 5000);
+  }
+  return Readable.from(lines());
 }
