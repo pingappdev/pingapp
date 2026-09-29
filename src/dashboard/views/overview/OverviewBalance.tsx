@@ -3,7 +3,8 @@ import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js"
 import { ArrowDownLeft, ArrowUpRight, Lock, Phone, RefreshCw, Send } from "lucide-react";
 import { isAddress } from "viem";
 import { useQueryClient } from "@tanstack/react-query";
-import { useBalances, qk } from "../../../api/hooks";
+import { sessionRevision, useBalances, qk } from "../../../api/hooks";
+import type { Me } from "../../../api/types";
 import { useAuth } from "../../../auth/useAuth";
 import { useDashboard } from "../../state";
 import { navigateTo } from "../../../navigation";
@@ -40,8 +41,29 @@ export default function OverviewBalance() {
   const balanceError = balances.error instanceof Error ? balances.error : refreshError;
 
   async function refreshPortfolio() {
+    const expectedRevision = sessionRevision(queryClient);
+    const expectedIdentity = me ? { id: me.id, address: me.address.toLowerCase() } : null;
+    const cachedSession = queryClient.getQueryData<Me | null>(qk.session);
+    if (
+      !expectedIdentity ||
+      !cachedSession ||
+      cachedSession.id !== expectedIdentity.id ||
+      cachedSession.address.toLowerCase() !== expectedIdentity.address
+    )
+      return;
+
     setRefreshError(null);
     const result = await refreshBalances.refetch();
+
+    const currentSession = queryClient.getQueryData<Me | null>(qk.session);
+    if (
+      sessionRevision(queryClient) !== expectedRevision ||
+      !currentSession ||
+      currentSession.id !== expectedIdentity.id ||
+      currentSession.address.toLowerCase() !== expectedIdentity.address
+    )
+      return;
+
     if (result.error instanceof Error) {
       setRefreshError(result.error);
       return;
