@@ -378,7 +378,7 @@ export function useRevokeSession() {
         qk.sessions,
       );
       if (sessions?.some((session) => session.id === id && session.current)) {
-        queryClient.clear();
+        await transitionSession(queryClient, null, { cancelSessionQuery: true });
         return;
       }
       await Promise.all([
@@ -402,7 +402,9 @@ export function useDeleteAccount() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => endpoints.me.delete(),
-    onSuccess: () => queryClient.clear(),
+    onSuccess: async () => {
+      await transitionSession(queryClient, null, { cancelSessionQuery: true });
+    },
   });
 }
 
@@ -410,6 +412,8 @@ export function useLogout() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => endpoints.auth.logout(),
-    onSuccess: () => queryClient.clear(),
+    onSuccess: async () => {
+      await transitionSession(queryClient, null, { cancelSessionQuery: true });
+    },
   });
 }
