@@ -137,7 +137,6 @@ export function useSendTransaction(
 
       if (review.intentId) {
         const { items } = await endpoints.intents.list("open");
-        queryClient.setQueryData(qk.intents("open"), items);
         const fresh: Intent | undefined = items.find((item) => item.id === review.intentId);
         if (
           !fresh ||
