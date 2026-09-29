@@ -106,6 +106,12 @@ function recipientDto(address: string | null, name: string | null): IntentRecipi
   return { address: checksum(address), displayName };
 }
 
+function registeredRecipientConflict(address: string, displayName: string): AppError {
+  return errors.conflict('This number is already on PingApp. Send to them directly.', {
+    recipient: { address: checksum(address), displayName },
+  });
+}
+
 async function tokenDto(token: Token, prices?: Map<string, string | null>): Promise<TokenDto> {
   const currentPrices = prices ?? await getPrices();
   const price = currentPrices.get(token.address) ?? null;
@@ -179,8 +185,22 @@ export async function createIntent(
   input: CreateIntentInput,
   ipHash: string,
 ): Promise<IntentDto> {
+  const [profile] = await db.select({ displayName: users.displayName, phoneHmac: users.phoneHmac })
+    .from(users).where(eq(users.id, senderId)).limit(1);
+  if (!profile) throw errors.unauthenticated();
+  if (!profile.displayName) {
+    throw new AppError('DISPLAY_NAME_REQUIRED', 400,
+      'Add your name in Settings first, so the recipient knows who is sending.');
+  }
+
   const phone = normalizePhone(input.phone);
   const targetPhoneHmac = phoneHmac(phone.e164);
+  if (profile.phoneHmac === targetPhoneHmac) throw errors.selfSend();
+
+  const [alreadyRegistered] = await db.select({ address: users.address, displayName: users.displayName })
+    .from(users).where(eq(users.phoneHmac, targetPhoneHmac)).limit(1);
+  if (alreadyRegistered) throw registeredRecipientConflict(alreadyRegistered.address, alreadyRegistered.displayName);
+
   const token = await getToken(input.tokenAddress);
   if (!token) throw errors.unknownToken();
   const amountRaw = parseAmount(input.amount, token.decimals);
@@ -209,9 +229,7 @@ export async function createIntent(
       displayName: users.displayName,
     }).from(users).where(eq(users.phoneHmac, targetPhoneHmac)).limit(1);
     if (registered) {
-      throw errors.conflict('This number is already on PingApp. Send to them directly.', {
-        recipient: { address: checksum(registered.address), displayName: registered.displayName },
-      });
+      throw registeredRecipientConflict(registered.address, registered.displayName);
     }
 
     const now = new Date();
