@@ -103,12 +103,16 @@ function counterKey(day = utcDayKey()): string {
   return `sms:count:${day}`;
 }
 
-function temporaryUnavailable(): AppError {
-  return new AppError('SMS_UNAVAILABLE', 503, 'Text messages are temporarily unavailable. Please try again later.');
+function temporaryUnavailable(reason: 'disabled' | 'failed' = 'failed'): AppError {
+  return new AppError('SMS_UNAVAILABLE', 503, 'Text messages are temporarily unavailable. Please try again later.', {
+    smsReason: reason,
+  });
 }
 
 function providerUnavailable(): AppError {
-  return new AppError('SMS_UNAVAILABLE', 503, 'We could not send the text message. Please check the number and try again.');
+  return new AppError('SMS_UNAVAILABLE', 503, 'We could not send the text message. Please check the number and try again.', {
+    smsReason: 'failed',
+  });
 }
 
 function asProviderCode(value: unknown): string | null {
@@ -225,7 +229,7 @@ async function sendWithSeven(input: SmsInput, foreignId: string): Promise<{
 export async function sendSms(input: SmsInput): Promise<{ ok: true; providerMsgId: string | null }> {
   if (!config.SMS_ENABLED) {
     await writeRejectedAttempt(input, 'disabled');
-    throw temporaryUnavailable();
+    throw temporaryUnavailable('disabled');
   }
 
   const day = utcDayKey();
@@ -269,11 +273,11 @@ export async function sendSms(input: SmsInput): Promise<{ ok: true; providerMsgI
   const shouldWarn = warned === 1;
   if (status === -1) {
     await writeRejectedAttempt(input, 'disabled');
-    throw temporaryUnavailable();
+    throw temporaryUnavailable('disabled');
   }
   if (status === 0) {
     await writeRejectedAttempt(input, 'daily_cap');
-    throw temporaryUnavailable();
+    throw temporaryUnavailable('disabled');
   }
   if (status < 0) {
     await writeRejectedAttempt(input, 'reservation_failed');
@@ -304,7 +308,7 @@ export async function sendSms(input: SmsInput): Promise<{ ok: true; providerMsgI
     let result: { providerMsgId: string | null; priceEur: string | null };
     if (config.SMS_DRIVER === 'log') {
       if (config.NODE_ENV !== 'development') {
-        throw temporaryUnavailable();
+        throw temporaryUnavailable('disabled');
       }
       // This development-only log line is the sole permitted raw-number log.
       logger.warn({ purpose: input.purpose, country: input.country }, `[DEV SMS] to ${input.toE164}: ${input.text}`);
