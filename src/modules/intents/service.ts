@@ -259,38 +259,30 @@ export async function createIntent(
 
   let smsStatus: Intent['smsStatus'] = 'failed';
   try {
-    const targetLimits = await Promise.allSettled([
-      consume(limits.intentPhoneSmsDay, targetPhoneHmac),
-      consume(limits.intentPhoneSms30d, targetPhoneHmac),
-    ]);
-    if (targetLimits.some((result) => result.status === 'rejected' && limitRejected(result.reason))) {
-      smsStatus = 'skipped_rate_limit';
-    } else if (targetLimits.some((result) => result.status === 'rejected')) {
-      // If Redis is unavailable, do not risk an unbounded paid-SMS path.
+    const [stillOpen] = await db.select({ id: intents.id }).from(intents).where(and(
+      eq(intents.id, created.intent.id),
+      eq(intents.senderUserId, senderId),
+      eq(intents.status, 'pending'),
+      gt(intents.expiresAt, new Date()),
+    )).limit(1);
+    if (!stillOpen) {
       smsStatus = 'failed';
     } else {
-      const [stillOpen] = await db.select({ id: intents.id }).from(intents).where(and(
-        eq(intents.id, created.intent.id),
-        eq(intents.senderUserId, senderId),
-        eq(intents.status, 'pending'),
-        gt(intents.expiresAt, new Date()),
-      )).limit(1);
-      if (!stillOpen) {
-        smsStatus = 'failed';
-      } else {
-        const displayName = smsName(created.senderName);
-        await sendSms({
-          purpose: 'intent',
-          toE164: phone.e164,
-          phoneHmac: targetPhoneHmac,
-          country: phone.country,
-          text: `PingApp: ${displayName} wants to send you ${smsAmount(formatAmount(amountRaw, token.decimals))} ${token.symbol}. Link a wallet to receive it: ${config.APP_URL.replace(/\/$/, '')}/claim/${created.intent.code}`,
-        });
-        smsStatus = 'sent';
-      }
+      // Short-circuit in order: a daily denial must not spend a 30-day slot.
+      await consume(limits.intentPhoneSmsDay, targetPhoneHmac);
+      await consume(limits.intentPhoneSms30d, targetPhoneHmac);
+      const displayName = smsName(created.senderName);
+      await sendSms({
+        purpose: 'intent',
+        toE164: phone.e164,
+        phoneHmac: targetPhoneHmac,
+        country: phone.country,
+        text: `PingApp: ${displayName} wants to send you ${smsAmount(formatAmount(amountRaw, token.decimals))} ${token.symbol}. Link a wallet to receive it: ${config.APP_URL.replace(/\/$/, '')}/claim/${created.intent.code}`,
+      });
+      smsStatus = 'sent';
     }
   } catch (error) {
-    smsStatus = smsOutcome(error);
+    smsStatus = limitRejected(error) ? 'skipped_rate_limit' : smsOutcome(error);
     logger.warn({ intentId: created.intent.id, smsStatus }, 'invite SMS failed; pending send remains available');
   }
 
