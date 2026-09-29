@@ -6,7 +6,14 @@ import { getAccount } from "wagmi/actions";
 import { useSendTransaction as useWagmiSend, useSwitchChain, useWriteContract } from "wagmi";
 import { ApiError, endpoints } from "../../../api/client";
 import { qk, sessionRevision, useRecordTransfer } from "../../../api/hooks";
-import type { Intent, Me, ResolveResponse, TransferCreateInput, Token } from "../../../api/types";
+import type {
+  Address,
+  Intent,
+  Me,
+  ResolveResponse,
+  TransferCreateInput,
+  Token,
+} from "../../../api/types";
 import { chain } from "../../../config";
 import { openConnect, wagmiAdapter } from "../../../wallet/appkit";
 import type { Recipient } from "./types";
@@ -22,6 +29,32 @@ export type ReviewedSend = {
 
 type PendingRecord = { sender: string; input: TransferCreateInput };
 const pendingKey = (sender: string) => `pingapp:pending-transfer-record:${sender.toLowerCase()}`;
+
+function restorePending(sender: Address): PendingRecord | null {
+  try {
+    const stored = sessionStorage.getItem(pendingKey(sender));
+    if (!stored) return null;
+    const parsed = JSON.parse(stored) as Partial<PendingRecord>;
+    if (
+      parsed.sender?.toLowerCase() !== sender.toLowerCase() ||
+      !parsed.input ||
+      !/^0x[0-9a-fA-F]{64}$/.test(parsed.input.txHash)
+    )
+      return null;
+    // Older sender-keyed drafts predate the request precondition. Bind every retry to this sender.
+    const recovered = { sender, input: { ...parsed.input, expectedSenderAddress: sender } };
+    if (parsed.input.expectedSenderAddress?.toLowerCase() !== sender.toLowerCase()) {
+      try {
+        sessionStorage.setItem(pendingKey(sender), JSON.stringify(recovered));
+      } catch {
+        /* The in-memory draft still retains the hash. */
+      }
+    }
+    return recovered;
+  } catch {
+    return null;
+  }
+}
 
 function errorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
@@ -89,18 +122,7 @@ export function useSendTransaction(
 
   useEffect(() => {
     if (!me) return;
-    try {
-      const stored = sessionStorage.getItem(pendingKey(me.address));
-      const parsed = stored ? (JSON.parse(stored) as PendingRecord) : null;
-      if (
-        parsed?.sender.toLowerCase() === me.address.toLowerCase() &&
-        /^0x[0-9a-fA-F]{64}$/.test(parsed.input.txHash)
-      )
-        setPending(parsed);
-      else setPending(null);
-    } catch {
-      /* A damaged draft must not enable a wallet resend. */
-    }
+    setPending(restorePending(me.address));
   }, [me]);
 
   function persist(next: PendingRecord | null, sender?: string) {
@@ -136,7 +158,10 @@ export function useSendTransaction(
       return;
     }
     try {
-      const { transfer } = await record.mutateAsync(input);
+      const { transfer } = await record.mutateAsync({
+        ...input,
+        expectedSenderAddress: expected.address,
+      });
       if (
         transfer.from.address.toLowerCase() !== expected.address.toLowerCase() ||
         transfer.txHash.toLowerCase() !== input.txHash.toLowerCase()
@@ -163,18 +188,10 @@ export function useSendTransaction(
   async function execute(review: ReviewedSend) {
     if (actionRunning.current || busy || visiblePending || visibleTransferId || !me) return;
     const expectedRevision = sessionRevision(queryClient);
-    try {
-      const stored = sessionStorage.getItem(pendingKey(me.address));
-      const previous = stored ? (JSON.parse(stored) as PendingRecord) : null;
-      if (
-        previous?.sender.toLowerCase() === me.address.toLowerCase() &&
-        /^0x[0-9a-fA-F]{64}$/.test(previous.input.txHash)
-      ) {
-        setPending(previous);
-        return;
-      }
-    } catch {
-      /* Continue with the current page state if storage is unavailable. */
+    const previous = restorePending(me.address);
+    if (previous) {
+      setPending(previous);
+      return;
     }
     actionRunning.current = true;
     setBusy(true);
@@ -256,7 +273,11 @@ export function useSendTransaction(
               functionName: "transfer",
               args: [review.recipient.address, BigInt(review.amountRaw)],
             });
-      const input: TransferCreateInput = { ...inputBase, txHash: hash };
+      const input: TransferCreateInput = {
+        ...inputBase,
+        txHash: hash,
+        expectedSenderAddress: me.address,
+      };
       persist({ sender: me.address, input });
       if (!currentAccount(me, expectedRevision)) {
         setRecordFailure({ sender: me.address, message: sessionChangedMessage });

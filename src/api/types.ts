@@ -191,6 +191,7 @@ export type ContactUpdateInput = { name?: string; phone?: string | null; address
 
 export type TransferCreateInput = {
   txHash: `0x${string}`;
+  expectedSenderAddress: Address;
   tokenAddress: Address;
   amountRaw: string;
   toAddress: Address;
