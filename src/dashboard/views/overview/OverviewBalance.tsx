@@ -1,107 +1,151 @@
-import { ArrowDownLeft, ArrowUpRight, Copy, Lock, Phone, Send, Wallet } from "lucide-react";
-import { chain } from "../../../config";
-import { trimAddress } from "../../format";
+import { useState, type FormEvent } from "react";
+import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
+import { ArrowDownLeft, ArrowUpRight, Lock, Phone, RefreshCw, Send } from "lucide-react";
+import { isAddress } from "viem";
+import { useQueryClient } from "@tanstack/react-query";
+import { useBalances, qk } from "../../../api/hooks";
+import { useAuth } from "../../../auth/useAuth";
 import { useDashboard } from "../../state";
-import NetworkLabel from "../../components/NetworkLabel";
+import { navigateTo } from "../../../navigation";
+import AddressText from "../../components/AddressText";
+import Amount from "../../components/Amount";
+import Usd from "../../components/Usd";
+import { Skeleton } from "@/components/ui/skeleton";
+
+function defaultCountry(): CountryCode {
+  if (typeof navigator === "undefined") return "US";
+  const region = navigator.language.split(/[-_]/)[1]?.toUpperCase();
+  return region && /^[A-Z]{2}$/.test(region) ? (region as CountryCode) : "US";
+}
+
+function normalizeRecipient(value: string): string {
+  const recipient = value.trim();
+  if (!recipient || recipient.startsWith("+") || isAddress(recipient)) return recipient;
+
+  const parsed = parsePhoneNumberFromString(recipient, defaultCountry());
+  return parsed?.isPossible() ? parsed.number : recipient;
+}
 
 export default function OverviewBalance() {
-  const {
-    balance,
-    balanceLoading,
-    wallet,
-    setModal,
-    connect,
-    busy,
-    copy,
-    recipient,
-    setRecipient,
-  } = useDashboard();
+  const { me } = useAuth();
+  const { setModal } = useDashboard();
+  const queryClient = useQueryClient();
+  const balances = useBalances();
+  const refreshBalances = useBalances({ refresh: true, enabled: false });
+  const [recipient, setRecipient] = useState("");
+  const [refreshError, setRefreshError] = useState<Error | null>(null);
+
+  const eth = balances.data?.items.find((asset) => asset.token.symbol === "ETH");
+  const refreshing = refreshBalances.isFetching;
+  const balanceError = balances.error instanceof Error ? balances.error : refreshError;
+
+  async function refreshPortfolio() {
+    setRefreshError(null);
+    const result = await refreshBalances.refetch();
+    if (result.error instanceof Error) {
+      setRefreshError(result.error);
+      return;
+    }
+    if (result.data) queryClient.setQueryData(qk.balances(false), result.data);
+  }
+
+  function continueToSend(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const target = normalizeRecipient(recipient);
+    const path = target ? `/dashboard/send?to=${encodeURIComponent(target)}` : "/dashboard/send";
+    navigateTo(path);
+  }
 
   return (
-    <div className="overview-grid">
-      <section className="balance-card">
-        <div className="card-top">
-          <span>AVAILABLE BALANCE</span>
-          <div className="balance-network-label">
-            <NetworkLabel />
-            <span className={`chain-environment${chain.testnet ? " testnet" : ""}`}>
-              {chain.testnet ? "Testnet" : "Mainnet"}
+    <>
+      <div className="overview-grid">
+        <section className="balance-card">
+          <div className="card-top">
+            <span>PORTFOLIO VALUE</span>
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Refresh portfolio balances"
+              title="Refresh balances"
+              disabled={refreshing}
+              onClick={() => void refreshPortfolio()}
+            >
+              <RefreshCw size={16} className={refreshing ? "spin" : undefined} />
+            </button>
+          </div>
+          <div className="balance-number" aria-live="polite">
+            {balances.isPending && !balances.data ? (
+              <div>
+                <Skeleton className="h-12 w-52" />
+              </div>
+            ) : balances.data?.totalUsd !== null && balances.data?.totalUsd !== undefined ? (
+              <div>
+                <Usd value={balances.data.totalUsd} />
+              </div>
+            ) : eth ? (
+              <div>
+                <Amount value={eth.balance} symbol="ETH" />
+              </div>
+            ) : (
+              "—"
+            )}
+          </div>
+          <p className="balance-caption">
+            ETH {eth?.balance ?? "—"} · Read directly from Robinhood Chain
+          </p>
+          <div className="balance-actions">
+            <a href="/dashboard/send" className="button accent">
+              <ArrowUpRight size={17} />
+              Send
+            </a>
+            <button type="button" onClick={() => setModal("receive")} className="button outline">
+              <ArrowDownLeft size={17} />
+              Receive
+            </button>
+          </div>
+          <div className="balance-card-bottom">
+            {me ? <AddressText value={me.address} /> : <span>Wallet address unavailable</span>}
+            <span className="non-custodial">
+              <Lock size={12} />
+              Non-custodial
             </span>
           </div>
-        </div>
-        <div className="balance-number">
-          {balanceLoading
-            ? "···"
-            : balance
-              ? Number(balance.eth).toLocaleString(undefined, { maximumFractionDigits: 6 })
-              : "—"}
-          <span>ETH</span>
-        </div>
-        <p className="balance-caption">
-          {wallet
-            ? "Read directly from " + chain.name
-            : "Connect your wallet to see your holdings."}
-        </p>
-        <div className="balance-actions">
-          {wallet ? (
-            <>
-              <a href="/dashboard/send" className="button accent">
-                <ArrowUpRight size={17} />
-                Send
-              </a>
-              <button onClick={() => setModal("receive")} className="button outline">
-                <ArrowDownLeft size={17} />
-                Receive
-              </button>
-            </>
-          ) : (
-            <button onClick={connect} disabled={busy} className="button accent">
-              <Wallet size={18} />
-              Connect wallet
+        </section>
+
+        <section className="quick-send card">
+          <div className="panel-heading">
+            <h2>Quick transfer</h2>
+            <span className="round-icon">
+              <Send size={17} />
+            </span>
+          </div>
+          <p>Send to a phone number or wallet address.</p>
+          <form onSubmit={continueToSend}>
+            <label className="input-icon">
+              <Phone size={17} />
+              <input
+                aria-label="Recipient phone or wallet"
+                placeholder="Phone number or 0x address"
+                value={recipient}
+                onChange={(event) => setRecipient(event.target.value)}
+                autoComplete="off"
+              />
+            </label>
+            <button type="submit" className="button light-button">
+              Continue <ArrowUpRight size={16} />
             </button>
-          )}
+          </form>
+          <small>Your wallet approves every transfer.</small>
+        </section>
+      </div>
+      {balanceError && (
+        <div className="notice" role="alert">
+          <span>{balanceError.message}</span>
+          <button type="button" disabled={refreshing} onClick={() => void refreshPortfolio()}>
+            Refresh
+          </button>
         </div>
-        <div className="balance-card-bottom">
-          <span>
-            <Wallet size={14} />
-            {trimAddress(wallet)}
-          </span>
-          {wallet && (
-            <button aria-label="Copy wallet address" onClick={() => copy(wallet)}>
-              <Copy size={14} />
-            </button>
-          )}
-          <span className="non-custodial">
-            <Lock size={12} />
-            Non-custodial
-          </span>
-        </div>
-      </section>
-      <section className="quick-send card">
-        <div className="panel-heading">
-          <h2>Quick transfer</h2>
-          <span className="round-icon">
-            <Send size={17} />
-          </span>
-        </div>
-        <p>Send to an address, or choose someone from your contacts.</p>
-        <label className="input-icon">
-          <Phone size={17} />
-          <input
-            aria-label="Recipient phone or wallet"
-            placeholder="Phone number or 0x address"
-            value={recipient}
-            onChange={(event) => setRecipient(event.target.value)}
-          />
-        </label>
-        <a
-          className="button light-button"
-          href={"/dashboard/send" + (recipient ? "?to=" + encodeURIComponent(recipient) : "")}
-        >
-          Continue <ArrowUpRight size={16} />
-        </a>
-        <small>Your wallet approves every transfer.</small>
-      </section>
-    </div>
+      )}
+    </>
   );
 }

@@ -8,6 +8,7 @@ export default function Overview() {
       <OverviewBalance />
       <OverviewSummary />
       <OverviewPanels />
+      {/* FE-12: mount the onboarding checklist here. */}
     </>
   );
 }
