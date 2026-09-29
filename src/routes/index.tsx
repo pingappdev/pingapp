@@ -13,7 +13,8 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "PingApp — Send Crypto Like a Text" },
       {
         property: "og:description",
-        content: "Your number. Your wallet. A phone-to-wallet directory built around familiar contacts.",
+        content:
+          "Your number. Your wallet. A phone-to-wallet directory built around familiar contacts.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

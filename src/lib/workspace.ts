@@ -5,7 +5,14 @@ export async function workspaceApi(data?: Record<string, unknown>) {
   return {
     profile: { display_name: "", wallet: "", network: "robinhood", confirm_transfers: 1 },
     contacts: [] as { id: string; name: string; phone: string; address: string }[],
-    activity: [] as { id: string; hash: string; network: string; address: string; amount: string; created: number }[],
+    activity: [] as {
+      id: string;
+      hash: string;
+      network: string;
+      address: string;
+      amount: string;
+      created: number;
+    }[],
     user: { name: "", email: "" },
   };
 }
