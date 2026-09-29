@@ -29,13 +29,13 @@ export default async function registerJobs(ctx: WorkerCtx): Promise<void> {
     const pending = await queue.getJobs(['waiting', 'delayed', 'active', 'prioritized', 'waiting-children']);
     const queuedIds = new Set(pending.filter((job) => job.name === 'confirm')
       .map((job) => (job.data as { transferId?: unknown }).transferId).filter((id): id is string => typeof id === 'string'));
-    let lastId = '';
+    let lastId: string | null = null;
     for (;;) {
       const rows = await db.select({ id: transfers.id }).from(transfers).where(and(
         eq(transfers.status, 'submitted'),
         lt(transfers.createdAt, new Date(now - MINUTE)),
         gt(transfers.createdAt, new Date(now - 35 * MINUTE)),
-        gt(transfers.id, lastId),
+        lastId ? gt(transfers.id, lastId) : undefined,
       )).orderBy(transfers.id).limit(SWEEP_BATCH);
       if (rows.length === 0) break;
       for (const row of rows) {
