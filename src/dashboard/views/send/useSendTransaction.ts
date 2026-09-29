@@ -21,7 +21,7 @@ export type ReviewedSend = {
 };
 
 type PendingRecord = { sender: string; input: TransferCreateInput };
-const PENDING_KEY = "pingapp:pending-transfer-record";
+const pendingKey = (sender: string) => `pingapp:pending-transfer-record:${sender.toLowerCase()}`;
 
 function errorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
@@ -62,7 +62,7 @@ export function useSendTransaction(
   useEffect(() => {
     if (!me) return;
     try {
-      const stored = sessionStorage.getItem(PENDING_KEY);
+      const stored = sessionStorage.getItem(pendingKey(me.address));
       const parsed = stored ? (JSON.parse(stored) as PendingRecord) : null;
       if (
         parsed?.sender.toLowerCase() === me.address.toLowerCase() &&
@@ -78,8 +78,8 @@ export function useSendTransaction(
   function persist(next: PendingRecord | null) {
     setPending(next);
     try {
-      if (next) sessionStorage.setItem(PENDING_KEY, JSON.stringify(next));
-      else sessionStorage.removeItem(PENDING_KEY);
+      if (next) sessionStorage.setItem(pendingKey(next.sender), JSON.stringify(next));
+      else if (me) sessionStorage.removeItem(pendingKey(me.address));
     } catch {
       /* The current page still retains the transaction hash. */
     }
@@ -110,6 +110,19 @@ export function useSendTransaction(
 
   async function execute(review: ReviewedSend) {
     if (actionRunning.current || busy || pending || transferId || !me) return;
+    try {
+      const stored = sessionStorage.getItem(pendingKey(me.address));
+      const previous = stored ? (JSON.parse(stored) as PendingRecord) : null;
+      if (
+        previous?.sender.toLowerCase() === me.address.toLowerCase() &&
+        /^0x[0-9a-fA-F]{64}$/.test(previous.input.txHash)
+      ) {
+        setPending(previous);
+        return;
+      }
+    } catch {
+      /* Continue with the current page state if storage is unavailable. */
+    }
     actionRunning.current = true;
     setBusy(true);
     try {
@@ -124,11 +137,13 @@ export function useSendTransaction(
 
       if (review.intentId) {
         const { items } = await endpoints.intents.list("open");
+        queryClient.setQueryData(qk.intents("open"), items);
         const fresh: Intent | undefined = items.find((item) => item.id === review.intentId);
         if (
           !fresh ||
           fresh.status !== "ready" ||
           !fresh.recipient ||
+          !Number.isFinite(Date.parse(fresh.expiresAt)) ||
           Date.parse(fresh.expiresAt) <= Date.now() ||
           fresh.recipient.address.toLowerCase() !== review.recipient.address.toLowerCase() ||
           fresh.token.address.toLowerCase() !== review.token.address.toLowerCase() ||
