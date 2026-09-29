@@ -8,13 +8,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "PingApp connects the phone number you already have to the wallet you already control. No address to copy, no QR to scan.",
+          "Send ETH, USDG and Robinhood Stock Tokens on Robinhood Chain using verified phone numbers. Connect your own wallet and approve every transfer.",
       },
       { property: "og:title", content: "PingApp — Send Crypto Like a Text" },
       {
         property: "og:description",
         content:
-          "Your number. Your wallet. A phone-to-wallet directory built around familiar contacts.",
+          "Your number. Your wallet. Send on Robinhood Chain with verified phone links and your own wallet.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

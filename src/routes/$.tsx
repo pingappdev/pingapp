@@ -24,11 +24,12 @@ const meta: Record<string, { title: string; description: string }> = {
   },
   "what-we-do/resolve": {
     title: "Phone-to-Wallet — PingApp",
-    description: "How a familiar phone number connects to the wallet someone controls.",
+    description:
+      "Send on Robinhood Chain using a verified phone number, or invite someone with a pending send.",
   },
   "what-we-do/connect": {
     title: "Wallet Connection — PingApp",
-    description: "Connect a browser wallet or view a public address, without sharing keys.",
+    description: "Connect your wallet and sign one message. No email, no password, no seed phrase.",
   },
   "what-we-do/security": {
     title: "Security — PingApp",

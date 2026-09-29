@@ -272,8 +272,8 @@ export default function Marketing({ page = "home" }: { page?: string }) {
                   <div className="stat-overlay">
                     <span>BUILT FOR YOU</span>
                     <div>
-                      <strong>{["01", "03", "100%"][feature]}</strong>
-                      <small>{["FAMILIAR NUMBER", "EVM NETWORKS", "YOUR KEYS"][feature]}</small>
+                      <strong>{["01", "01", "100%"][feature]}</strong>
+                      <small>{["FAMILIAR NUMBER", "ROBINHOOD CHAIN", "YOUR KEYS"][feature]}</small>
                     </div>
                   </div>
                 </a>
@@ -299,8 +299,8 @@ export default function Marketing({ page = "home" }: { page?: string }) {
                   <strong>0</strong>
                 </div>
                 <div>
-                  <span>SUPPORTED EVM NETWORKS</span>
-                  <strong>3</strong>
+                  <span>SUPPORTED NETWORK</span>
+                  <strong>1</strong>
                 </div>
               </div>
             </section>
@@ -407,11 +407,11 @@ const services = [
 const features = [
   {
     title: "We Connect the Familiar",
-    body: "A phone number is the starting point. Review the destination wallet before every send, and keep the people you trust close.",
+    body: "A verified phone number points to the wallet its owner linked. Review their name, full address, and any warnings before approving in your own wallet.",
   },
   {
     title: "We Work With Your Wallet",
-    body: "Robinhood Chain, Ethereum, and Arbitrum. Connect an available browser wallet to see on-chain balances, with no need to move your assets.",
+    body: "Connect your wallet and sign one message. No email, no password, no seed phrase. See ETH, USDG and Robinhood Stock Tokens on Robinhood Chain, with no need to move your assets.",
   },
   {
     title: "We Leave You in Control",
@@ -469,15 +469,19 @@ const articlesBody: Record<string, Array<[string, string]>> = {
     ],
     [
       "A directory, not a destination",
-      "The intended phone-to-wallet flow resolves a verified number to its linked EVM address. Your wallet remains the place where you hold assets and approve transactions.",
+      "Phone-to-wallet sending resolves a verified number to the wallet its owner linked. Your wallet remains the place where you hold assets and approve transactions.",
     ],
     [
       "Always review the destination",
-      "A familiar number is a useful starting point, not a guarantee. Confirm the complete address and selected network before approving a transfer. Saved contacts in the dashboard are personal address-book entries, not verified public phone registrations.",
+      "A familiar number is a useful starting point, not a guarantee. Check the name, full address, and warnings before approving a transfer. The On PingApp badge means the contact's number is verified and linked to a wallet; your address book stays private.",
     ],
     [
-      "Built on familiar networks",
-      "PingApp focuses on Robinhood Chain, Ethereum, and Arbitrum. These EVM networks share an address format, but their balances and transactions remain separate. Select the right network for both sender and recipient.",
+      "Built on Robinhood Chain",
+      "Send ETH, USDG and Robinhood Stock Tokens on Robinhood Chain. The recipient must use the same network; assets on other networks are separate.",
+    ],
+    [
+      "Invite someone new",
+      "Friend not on PingApp yet? Create a pending send. Nothing leaves your wallet; we text them an invite and let you know when they're ready. You then review and approve the transfer in your wallet.",
     ],
   ],
   "your-keys": [
@@ -491,7 +495,7 @@ const articlesBody: Record<string, Array<[string, string]>> = {
     ],
     [
       "Read directly from the chain",
-      "The dashboard reads supported network balances from public blockchain endpoints. A read-only address can be viewed without granting signing permission.",
+      "After you sign in, the dashboard reads your wallet's Robinhood Chain balances through RPC providers. Signing in does not grant permission to spend; every transfer needs your separate wallet approval.",
     ],
     [
       "The boundaries matter",
@@ -508,8 +512,8 @@ const articlesBody: Record<string, Array<[string, string]>> = {
       "A changed wallet mapping deserves an explicit warning and an opportunity to confirm the recipient through another trusted channel.",
     ],
     [
-      "The intended verification flow",
-      "The PingApp product design calls for phone verification, change cooldowns, and carrier signals. These protections require an operational verification provider and resolver service; they should never be inferred from a saved contact alone.",
+      "Verified links and manual review",
+      "Verify your number with a one-time SMS code. Your number is stored encrypted and is only used to route transfers to your wallet. A number already linked to another wallet cannot be silently moved: a competing claim goes through manual review. Phone verification does not protect against every SIM swap, so confirm uncertain recipients directly.",
     ],
     [
       "Check what you approve",
@@ -653,11 +657,11 @@ function InnerPage({ page }: { page: string }) {
               {Array.from({ length: 3 }, (_, j) =>
                 [
                   "Robinhood Chain",
-                  "Ethereum",
-                  "Arbitrum",
+                  "Stock Tokens",
                   "MetaMask",
-                  "Rainbow",
+                  "Rabby",
                   "Coinbase Wallet",
+                  "WalletConnect",
                 ].map((n) => <span key={j + n}>{n}</span>),
               )}
             </div>
@@ -671,7 +675,7 @@ function InnerPage({ page }: { page: string }) {
             ],
             [
               "Keep Your Portfolio Close",
-              "Read ETH on Robinhood Chain, plus ETH and USDC on Ethereum and Arbitrum. Change networks without moving funds into a new wallet.",
+              "See ETH, USDG and Robinhood Stock Tokens on Robinhood Chain, with balances and USD values in one place. Your assets stay in your wallet.",
             ],
             [
               "Follow Every Connection",
@@ -766,7 +770,7 @@ function InnerPage({ page }: { page: string }) {
               ? "Built Around\nYour Connections."
               : [
                   "Know Where\nYour Crypto Goes.",
-                  "The Wallet You Trust.\nThe Networks You Use.",
+                  "The Wallet You Trust.\nOn Robinhood Chain.",
                   "A Thoughtful Pause.\nA Clear Confirmation.",
                 ][i]}
           </h2>
@@ -787,31 +791,31 @@ function InnerPage({ page }: { page: string }) {
             : i === 0
               ? [
                   {
-                    title: "Save a Familiar Contact",
-                    body: "Add a name, number, and wallet address to your private contact book.",
+                    title: "Verify Your Number",
+                    body: "Verify your number with a one-time SMS code. Your number is stored encrypted and is only used to route transfers to your wallet.",
                   },
                   {
                     title: "Review the Destination",
-                    body: "Confirm the full address and the selected network before continuing.",
+                    body: "A verified number resolves to its owner's linked wallet. Check the name, full address and warnings before continuing.",
                   },
                   {
                     title: "Approve in Your Wallet",
                     body: "Your wallet presents the final request. You decide whether to send.",
+                  },
+                  {
+                    title: "Invite Someone New",
+                    body: "Friend not on PingApp yet? Create a pending send. Nothing leaves your wallet; we text them an invite and let you know when they're ready.",
                   },
                 ]
               : i === 1
                 ? [
                     {
                       title: "Robinhood Chain",
-                      body: "View native ETH on Robinhood Chain and approve transfers in your own wallet.",
+                      body: "See ETH, USDG and Robinhood Stock Tokens on Robinhood Chain. Approve each transfer in your own wallet.",
                     },
                     {
-                      title: "Ethereum",
-                      body: "Connect to the Ethereum network with your existing wallet.",
-                    },
-                    {
-                      title: "Arbitrum",
-                      body: "Keep your Arbitrum assets visible alongside your other supported networks.",
+                      title: "Stock Tokens",
+                      body: "Send tokenized stocks like any other token, straight from your wallet. Availability and transfer eligibility are set by the issuer.",
                     },
                   ]
                 : [
@@ -824,8 +828,8 @@ function InnerPage({ page }: { page: string }) {
                       body: "Every transaction is reviewed and signed inside your own wallet.",
                     },
                     {
-                      title: "Honest Signals",
-                      body: "Saved contacts are not automatically phone verified. Verification status is shown clearly.",
+                      title: "Manual Review",
+                      body: "Numbers already linked cannot be silently moved to another wallet. Competing claims go through manual review. Numbers can still be reassigned or SIM-swapped: confirm the recipient and full address before sending.",
                     },
                   ]
           ).map((f, j) => (
