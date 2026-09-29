@@ -3,7 +3,6 @@ import { useDashboard } from "../state";
 import ContactDialog from "./ContactDialog";
 import ReceiveDialog from "./ReceiveDialog";
 import RemoveContactDialog from "./RemoveContactDialog";
-import ReviewDialog from "./ReviewDialog";
 
 export default function DashboardDialogs() {
   const { modal, busy, setModal } = useDashboard();
@@ -29,7 +28,6 @@ export default function DashboardDialogs() {
           {modal === "receive" && <ReceiveDialog />}
         </DialogContent>
       </Dialog>
-      <ReviewDialog />
       <RemoveContactDialog />
     </>
   );
