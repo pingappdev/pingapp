@@ -1,68 +1,97 @@
 import { ArrowUpRight, Check, Wallet } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { useDashboard } from "../state";
-import Connection from "../components/Connection";
+import { ApiError } from "../../api/client";
+import { useUpdateMe } from "../../api/hooks";
 import { useAuth } from "../../auth/useAuth";
+import { explorerAddress } from "../../config";
+import AddressText from "../components/AddressText";
+import Connection from "../components/Connection";
 import { openAccount } from "../../wallet/appkit";
 
 export default function Settings() {
-  const { name, setName, confirm, setConfirm, busy, setBusy, saveProfile, wallet } = useDashboard();
   const { me } = useAuth();
+  const updateMe = useUpdateMe();
+  const [name, setName] = useState(me?.displayName ?? "");
+  const [nameError, setNameError] = useState("");
+
+  useEffect(() => {
+    if (me) setName(me.displayName);
+  }, [me?.displayName]);
+
+  if (!me) return null;
 
   return (
     <div className="settings-grid">
       <section className="card settings-card">
         <h2>Your profile</h2>
-        <p>Your account details and transfer preferences.</p>
+        <p>Manage the name people see when they send to your number.</p>
         <form
           onSubmit={async (event) => {
             event.preventDefault();
-            setBusy(true);
+            setNameError("");
             try {
-              await saveProfile({ display_name: name, confirm_transfers: confirm ? 1 : 0 });
-              toast.success("Settings saved");
+              await updateMe.mutateAsync({ displayName: name.trim() });
+              toast.success("Profile updated");
             } catch (error) {
-              toast.error((error as Error).message);
-            } finally {
-              setBusy(false);
+              if (error instanceof ApiError && error.code === "VALIDATION") {
+                setNameError(error.message);
+              } else {
+                toast.error((error as Error).message || "Could not save your profile.");
+              }
             }
           }}
         >
           <label>
             Display name
             <input
-              maxLength={80}
+              className="auth-input"
+              maxLength={40}
               value={name}
-              onChange={(event) => setName(event.target.value)}
+              onChange={(event) => {
+                setName(event.target.value);
+                setNameError("");
+              }}
               placeholder="Your name"
             />
           </label>
-          <div className="setting-switch">
-            <span>
-              <strong>Keep transfer reminders visible</strong>
-              <small>A reminder to check the recipient before sending.</small>
-            </span>
-            <Switch
-              checked={confirm}
-              onCheckedChange={setConfirm}
-              aria-label="Transfer reminders"
-            />
-          </div>
-          <button disabled={busy} className="button accent">
-            {busy ? "Saving…" : "Save changes"}
+          <p className="field-help">
+            Shown to people who send to your number, and in SMS invites you send.
+          </p>
+          {nameError && (
+            <p className="field-help" role="alert">
+              {nameError}
+            </p>
+          )}
+          <button disabled={updateMe.isPending} className="button accent">
+            {updateMe.isPending ? "Saving…" : "Save changes"}
             <Check size={16} />
           </button>
         </form>
+
+        <div style={{ marginTop: 28 }}>
+          <h3 style={{ fontSize: 13, fontWeight: 500, marginBottom: 12 }}>Wallet address</h3>
+          <div className="settings-address">
+            <AddressText value={me.address} full />
+          </div>
+          <a
+            className="text-link"
+            href={explorerAddress(me.address)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            View on explorer <ArrowUpRight size={15} />
+          </a>
+        </div>
       </section>
+
       <div>
         <section className="card settings-card">
           <h2>Wallet connection</h2>
           <p>Your address is public. Your keys stay private.</p>
-          <div className="settings-address">{me?.address || wallet}</div>
           <Connection />
           <div className="settings-buttons">
-            <button className="button outline" disabled={busy} onClick={() => void openAccount()}>
+            <button className="button outline" onClick={() => void openAccount()}>
               Manage wallet
               <Wallet size={15} />
             </button>
