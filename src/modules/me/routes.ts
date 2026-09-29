@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { serializeMe } from './serialize.js';
 import {
+  deleteAccount,
   listSessions,
   revokeOtherSessions,
   revokeSession,
@@ -39,6 +40,12 @@ const routes: FastifyPluginAsync = async (app) => {
 
   app.post('/me/sessions/revoke-others', { preHandler: requireFreshAuth }, async (request, reply) => {
     await revokeOtherSessions(request.user!.id, request.session!.id, request.ipHash);
+    return reply.code(204).send();
+  });
+
+  app.delete('/me', { preHandler: requireFreshAuth }, async (request, reply) => {
+    await deleteAccount(request.user!.id, request.session!.id, request.ipHash);
+    clearSessionCookie(reply);
     return reply.code(204).send();
   });
 };

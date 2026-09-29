@@ -1,9 +1,11 @@
-import { and, desc, eq, gt, ne } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, ne } from 'drizzle-orm';
 import { audit } from '../../db/audit.js';
 import { db } from '../../db/client.js';
-import { sessions, users } from '../../db/schema.js';
+import { intents, phoneClaims, sessions, users } from '../../db/schema.js';
 import type { DbTransaction } from '../../db/tx.js';
+import { sha256Hex } from '../../lib/crypto.js';
 import { errors } from '../../lib/errors.js';
+import { lockPhoneMutation } from '../phone/lock.js';
 
 const DISALLOWED_NAME_PARTS = [
   'http', 'www', '.com', 'pingapp', 'robinhood', 'support', 'admin', 'official',
@@ -72,14 +74,13 @@ export async function revokeSession(userId: string, sessionId: string, ipHash: s
 }
 
 async function requireFreshSession(
-  tx: DbTransaction, userId: string, sessionId: string, options: { lock?: boolean } = {},
+  tx: DbTransaction, userId: string, sessionId: string,
 ): Promise<void> {
   const where = and(
     eq(sessions.id, sessionId), eq(sessions.userId, userId), gt(sessions.expiresAt, new Date()),
   );
-  const [session] = options.lock
-    ? await tx.select({ freshUntil: sessions.freshUntil }).from(sessions).where(where).for('update').limit(1)
-    : await tx.select({ freshUntil: sessions.freshUntil }).from(sessions).where(where).limit(1);
+  const [session] = await tx.select({ freshUntil: sessions.freshUntil }).from(sessions)
+    .where(where).for('update').limit(1);
   if (!session) throw errors.unauthenticated();
   if (!session.freshUntil || session.freshUntil <= new Date()) throw errors.reauthRequired();
 }
@@ -88,13 +89,43 @@ export async function revokeOtherSessions(
   userId: string, currentSessionId: string, ipHash: string,
 ): Promise<void> {
   await db.transaction(async (tx) => {
-    await requireFreshSession(tx, userId, currentSessionId, { lock: true });
+    await requireFreshSession(tx, userId, currentSessionId);
     const revoked = await tx.delete(sessions).where(and(
       eq(sessions.userId, userId), ne(sessions.id, currentSessionId),
     )).returning({ id: sessions.id });
     await audit('session_revoked', {
       userId,
       data: { reason: 'revoke_others', count: revoked.length, sessionIds: revoked.map(({ id }) => id) },
+      ipHash,
+    }, tx);
+  });
+}
+
+export async function deleteAccount(userId: string, currentSessionId: string, ipHash: string): Promise<void> {
+  await db.transaction(async (tx) => {
+    // This global lock must be acquired before touching any user, claim, or
+    // intent rows so deletion follows the BE-11 phone mutation lock order.
+    await lockPhoneMutation(tx);
+    await requireFreshSession(tx, userId, currentSessionId);
+
+    const [user] = await tx.select({ address: users.address }).from(users)
+      .where(eq(users.id, userId)).for('update').limit(1);
+    if (!user) throw errors.unauthenticated();
+
+    await tx.update(intents).set({ status: 'cancelled' }).where(and(
+      eq(intents.senderUserId, userId), inArray(intents.status, ['pending', 'ready']),
+    ));
+    await tx.update(intents).set({ status: 'pending', recipientUserId: null, readyAt: null }).where(and(
+      eq(intents.recipientUserId, userId), eq(intents.status, 'ready'),
+    ));
+    await tx.update(phoneClaims).set({ status: 'cancelled', resolvedAt: new Date() }).where(and(
+      eq(phoneClaims.claimantUserId, userId), eq(phoneClaims.status, 'pending_review'),
+    ));
+
+    await tx.delete(users).where(eq(users.id, userId));
+    await audit('account_deleted', {
+      userId: null,
+      data: { addressHash: sha256Hex(user.address) },
       ipHash,
     }, tx);
   });
