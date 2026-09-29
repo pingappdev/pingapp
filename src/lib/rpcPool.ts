@@ -15,6 +15,7 @@ type Endpoint = {
 type RpcOptions = { alchemyOnly?: boolean; timeoutMs?: number };
 type RpcPoolConfig = { alchemyUrls: string[]; publicUrl: string };
 type EndpointStatus = { id: string; kind: EndpointKind; coolingForMs: number; failures: number };
+export type RpcEndpointDiagnostic = { id: string; ok: boolean; latencyMs: number | null };
 type EndpointCheck = {
   id: string;
   chainId: string | null;
@@ -210,7 +211,28 @@ export function createRpcPool({ alchemyUrls, publicUrl }: RpcPoolConfig) {
     return Promise.all(endpoints.map(checkOne));
   }
 
-  return { rpc, poolStatus, checkEndpoints };
+  async function diagnoseEndpoints(): Promise<RpcEndpointDiagnostic[]> {
+    const timeoutMs = 5_000;
+    const checkOne = async (endpoint: Endpoint): Promise<RpcEndpointDiagnostic> => {
+      const started = performance.now();
+      try {
+        const block = await requestEndpoint<unknown>(endpoint, 'eth_blockNumber', [], timeoutMs);
+        const latencyMs = Math.round(performance.now() - started);
+        return {
+          id: endpoint.id,
+          ok: typeof block === 'string' && /^0x[\da-f]+$/i.test(block),
+          latencyMs,
+        };
+      } catch {
+        return { id: endpoint.id, ok: false, latencyMs: null };
+      }
+    };
+
+    // Diagnose every configured endpoint directly without changing pool health or routing state.
+    return Promise.all(endpoints.map(checkOne));
+  }
+
+  return { rpc, poolStatus, checkEndpoints, diagnoseEndpoints };
 }
 
 const defaultPool = createRpcPool({
@@ -221,3 +243,4 @@ const defaultPool = createRpcPool({
 export const rpc = defaultPool.rpc;
 export const poolStatus = defaultPool.poolStatus;
 export const checkRpcEndpoints = defaultPool.checkEndpoints;
+export const diagnoseRpcEndpoints = defaultPool.diagnoseEndpoints;
