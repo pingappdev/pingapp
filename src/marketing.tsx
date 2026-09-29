@@ -554,37 +554,49 @@ function InnerPage({ page }: { page: string }) {
           ? [
               [
                 "Your workspace",
-                "Your signed-in account is used to keep your contact book, saved wallet address, preferences, and activity separate from other users.",
+                "Your signed-in wallet account keeps your profile, private contacts, activity and notifications separate from other users. Private keys and seed phrases are never requested or stored.",
               ],
               [
                 "What is stored",
-                "Saved contacts contain the name, phone number, and wallet address you enter. Your public wallet address and submitted transaction hashes may also be stored. Private keys and seed phrases are never requested or stored.",
+                "We store your wallet address, display name, phone number (encrypted, plus a keyed hash for lookups), private contacts, transfers made through PingApp (hashes, amounts and parties), pending sends, notifications, and security logs with hashed IP addresses. Active sessions include device information so you can review and revoke them.",
               ],
               [
-                "Network requests",
-                "Reading balances sends public wallet addresses to blockchain RPC providers. Transfers are submitted through your connected wallet. No SMS verification provider is connected to this workspace.",
+                "Service providers",
+                "seven.io processes phone numbers and message text for SMS delivery. RPC providers, including Alchemy and Robinhood public RPC, receive wallet addresses to read balances. Price data comes from Robinhood's public Stock Token API, Coinbase and Kraken; no personal data is sent for price requests. Reown provides wallet connection services, including WalletConnect; transactions are approved through your connected wallet.",
               ],
               [
                 "Your controls",
-                "You can remove contacts, disconnect your wallet, and update account preferences in the dashboard. Disconnecting a wallet does not delete public blockchain records.",
+                "From Settings, you can remove your phone number, sign out of devices or delete your account. You can delete individual contacts from your address book. Blockchain data is public and permanent; deleting your account does not erase on-chain transfers. Transfer records and security audit history may remain after account deletion, without their account link.",
               ],
             ]
           : [
               [
                 "Your wallet remains yours",
-                "You control your keys and authorize transactions in your own wallet. PingApp cannot recover assets or reverse blockchain transactions.",
+                "PingApp is non-custodial and never holds funds or keys. You control your keys and authorize transactions in your own wallet. PingApp cannot recover assets or reverse blockchain transactions.",
+              ],
+              [
+                "Pending sends",
+                "Pending sends are not escrow: nothing is sent until the sender completes the transfer in their own wallet. An invitation does not reserve funds or guarantee payment.",
               ],
               [
                 "Review every transfer",
-                "You are responsible for verifying the recipient address, network, amount, and fees before approving a transaction. Saved phone contacts are not proof of ownership of a number.",
+                "Phone numbers can be reassigned or SIM-swapped. Verify the recipient, full address, network, amount and fees before approving. Phone verification is not a guarantee of identity, and transfers cannot be reversed.",
               ],
               [
-                "Service availability",
-                "Network and third-party wallet services may be unavailable. Phone verification and public number resolution require connected services and are unavailable until configured.",
+                "Stock Tokens",
+                "Stock Tokens are issued by Robinhood. Their availability and transfer eligibility are set by the issuer. PingApp is not affiliated with Robinhood Markets.",
               ],
               [
-                "Supported networks",
-                "The dashboard supports EVM addresses on Robinhood Chain, Ethereum, and Arbitrum. Do not use non-EVM addresses or send on unsupported networks.",
+                "Minimum transfer",
+                "PingApp only supports sends worth at least $2 (the configured minimum), to prevent spam. Smaller amounts can still be sent directly from your wallet, outside PingApp. When ETH pricing is unavailable, the app shows the configured ETH minimum instead.",
+              ],
+              [
+                "Supported network",
+                "PingApp supports Robinhood Chain. Do not send on unsupported networks; identical wallet addresses on different networks do not make their assets interchangeable.",
+              ],
+              [
+                "Private test and availability",
+                "PingApp is in a private test and features may change. Network, SMS, RPC and wallet services may be unavailable. Check transaction status in your wallet or the explorer before attempting another send.",
               ],
             ]
         ).map(([h, p]) => (
