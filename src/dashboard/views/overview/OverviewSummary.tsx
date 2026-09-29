@@ -1,8 +1,10 @@
 import { ChevronRight, History, Users, Wallet } from "lucide-react";
 import { useDashboard } from "../../state";
+import { useAccount } from "wagmi";
 
 export default function OverviewSummary() {
-  const { wallet, connected, contacts, history, balanceError, refreshBalance } = useDashboard();
+  const { wallet, contacts, history, balanceError, refreshBalance } = useDashboard();
+  const account = useAccount();
 
   return (
     <>
@@ -15,9 +17,9 @@ export default function OverviewSummary() {
             <small>Wallet access</small>
             <strong>
               {wallet
-                ? connected.toLowerCase() === wallet.toLowerCase()
+                ? account.address?.toLowerCase() === wallet.toLowerCase()
                   ? "Connected"
-                  : "Read only"
+                  : "Reconnecting"
                 : "Not connected"}
             </strong>
           </span>

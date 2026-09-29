@@ -26,6 +26,9 @@ import Send from "./views/Send";
 import Contacts from "./views/Contacts";
 import Activity from "./views/Activity";
 import Settings from "./views/Settings";
+import { useAuth } from "../auth/useAuth";
+import { openAccount } from "../wallet/appkit";
+import { trimAddress } from "./format";
 
 export default function Dashboard({ view }: { view: string }) {
   return (
@@ -36,8 +39,8 @@ export default function Dashboard({ view }: { view: string }) {
 }
 
 function DashboardLayout() {
-  const { view, data, profile, network, loading, error, load, setModal, exportActivity } =
-    useDashboard();
+  const { view, network, loading, error, load, setModal, exportActivity } = useDashboard();
+  const { me } = useAuth();
 
   useEffect(() => {
     const ctx = (
@@ -75,7 +78,9 @@ function DashboardLayout() {
         },
         { signal: life.signal },
       );
-    } catch {}
+    } catch {
+      // This browser capability is optional.
+    }
     return () => life.abort();
   }, []);
 
@@ -136,11 +141,11 @@ function DashboardLayout() {
               </span>
             </span>
             <button
-              className="avatar"
-              onClick={() => navigateTo("/dashboard/settings")}
-              aria-label="Account settings"
+              className="account-chip"
+              onClick={() => void openAccount()}
+              aria-label="Open wallet account"
             >
-              {(profile.display_name || data?.user.name || "P").slice(0, 1).toUpperCase()}
+              {me?.displayName || trimAddress(me?.address ?? "")}
             </button>
           </div>
         </header>

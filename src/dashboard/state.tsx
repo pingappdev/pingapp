@@ -43,8 +43,6 @@ export type DashboardBaseState = {
   balance: Balance | null;
   balanceError: string;
   balanceLoading: boolean;
-  connected: string;
-  readAddress: string;
   recipient: string;
   amount: string;
   review: boolean;
@@ -70,8 +68,6 @@ export type DashboardBaseState = {
   setBalance: Dispatch<SetStateAction<Balance | null>>;
   setBalanceError: Dispatch<SetStateAction<string>>;
   setBalanceLoading: Dispatch<SetStateAction<boolean>>;
-  setConnected: Dispatch<SetStateAction<string>>;
-  setReadAddress: Dispatch<SetStateAction<string>>;
   setRecipient: Dispatch<SetStateAction<string>>;
   setAmount: Dispatch<SetStateAction<string>>;
   setReview: Dispatch<SetStateAction<boolean>>;

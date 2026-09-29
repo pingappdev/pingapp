@@ -3,21 +3,12 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { useDashboard } from "../state";
 import Connection from "../components/Connection";
+import { useAuth } from "../../auth/useAuth";
+import { openAccount } from "../../wallet/appkit";
 
 export default function Settings() {
-  const {
-    data,
-    name,
-    setName,
-    confirm,
-    setConfirm,
-    busy,
-    setBusy,
-    saveProfile,
-    wallet,
-    connect,
-    setConnected,
-  } = useDashboard();
+  const { name, setName, confirm, setConfirm, busy, setBusy, saveProfile, wallet } = useDashboard();
+  const { me } = useAuth();
 
   return (
     <div className="settings-grid">
@@ -47,10 +38,6 @@ export default function Settings() {
               placeholder="Your name"
             />
           </label>
-          <label>
-            Email
-            <input value={data?.user.email ?? ""} disabled readOnly />
-          </label>
           <div className="setting-switch">
             <span>
               <strong>Keep transfer reminders visible</strong>
@@ -72,31 +59,13 @@ export default function Settings() {
         <section className="card settings-card">
           <h2>Wallet connection</h2>
           <p>Your address is public. Your keys stay private.</p>
-          <div className="settings-address">{wallet || "No wallet connected"}</div>
+          <div className="settings-address">{me?.address || wallet}</div>
           <Connection />
           <div className="settings-buttons">
-            <button className="button outline" disabled={busy} onClick={connect}>
-              {wallet ? "Reconnect" : "Connect wallet"}
+            <button className="button outline" disabled={busy} onClick={() => void openAccount()}>
+              Manage wallet
               <Wallet size={15} />
             </button>
-            {wallet && (
-              <button
-                className="text-link"
-                onClick={async () => {
-                  try {
-                    await saveProfile({ wallet: "" });
-                    setConnected("");
-                    toast.success(
-                      "Wallet removed from your workspace. You can revoke site permissions in your wallet.",
-                    );
-                  } catch (error) {
-                    toast.error((error as Error).message);
-                  }
-                }}
-              >
-                Disconnect
-              </button>
-            )}
           </div>
         </section>
         <section className="card settings-card">

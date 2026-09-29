@@ -1,15 +1,14 @@
 import { useDashboard } from "../state";
+import { useAccount } from "wagmi";
 
 export default function Connection() {
-  const { wallet, connected } = useDashboard();
+  const { wallet } = useDashboard();
+  const account = useAccount();
+  const connected = !!wallet && account.address?.toLowerCase() === wallet.toLowerCase();
   return (
     <div className="connection-status">
-      <span className={wallet ? "status-dot" : "status-dot off"} />
-      {wallet
-        ? connected.toLowerCase() === wallet.toLowerCase()
-          ? "Wallet connected"
-          : "Read-only wallet"
-        : "Wallet not connected"}
+      <span className={connected ? "status-dot" : "status-dot off"} />
+      {connected ? "Wallet connected" : wallet ? "Wallet reconnecting" : "Wallet not connected"}
     </div>
   );
 }

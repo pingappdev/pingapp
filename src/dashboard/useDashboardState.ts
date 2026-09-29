@@ -1,23 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
 import { readBalances, workspaceApi as api } from "../lib/workspace";
+import { useAuth } from "../auth/useAuth";
 import { isAddress } from "./format";
-import type { Balance, Contact, DashboardBaseState, Profile, Workspace } from "./state";
+import type { Balance, Contact, DashboardBaseState, Workspace } from "./state";
 
 const DEFAULT_NETWORK = "robinhood";
 
-type Provider = {
-  request: (a: { method: string; params?: unknown[] }) => Promise<unknown>;
-  on?: (e: string, fn: (a: unknown) => void) => void;
-  removeListener?: (e: string, fn: (a: unknown) => void) => void;
-};
-
-const provider = () =>
-  typeof window === "undefined"
-    ? undefined
-    : (window as unknown as { ethereum?: Provider }).ethereum;
-
 export function useDashboardState(view: string): DashboardBaseState {
+  const { me } = useAuth();
   const balanceVersion = useRef(0);
   const [data, setData] = useState<Workspace | null>(null);
   const [error, setError] = useState("");
@@ -29,8 +19,6 @@ export function useDashboardState(view: string): DashboardBaseState {
   const [balance, setBalance] = useState<Balance | null>(null);
   const [balanceError, setBalanceError] = useState("");
   const [balanceLoading, setBalanceLoading] = useState(false);
-  const [connected, setConnected] = useState("");
-  const [readAddress, setReadAddress] = useState("");
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");
   const [review, setReview] = useState(false);
@@ -39,11 +27,14 @@ export function useDashboardState(view: string): DashboardBaseState {
   const [name, setName] = useState("");
   const [confirm, setConfirm] = useState(true);
   const [activityFilter, setActivityFilter] = useState("all");
-  const profile = data?.profile ?? {
-    display_name: "",
-    wallet: "",
-    network: DEFAULT_NETWORK,
-    confirm_transfers: 1,
+  const profile = {
+    ...(data?.profile ?? {
+      display_name: "",
+      wallet: "",
+      network: DEFAULT_NETWORK,
+      confirm_transfers: 1,
+    }),
+    wallet: me?.address ?? "",
   };
   const network = DEFAULT_NETWORK;
   const wallet = profile.wallet;
@@ -103,31 +94,6 @@ export function useDashboardState(view: string): DashboardBaseState {
     refreshBalance();
   }, [refreshBalance]);
 
-  useEffect(() => {
-    const walletProvider = provider();
-    if (!walletProvider) return;
-    const changed = (accounts: unknown) => {
-      const first = Array.isArray(accounts) ? accounts[0] : "";
-      setConnected(typeof first === "string" ? first : "");
-      setReview(false);
-    };
-    const chainChanged = () => {
-      setReview(false);
-      setConnected("");
-      toast("Wallet network changed. Reconnect before sending.");
-    };
-    walletProvider
-      .request({ method: "eth_accounts" })
-      .then(changed)
-      .catch(() => {});
-    walletProvider.on?.("accountsChanged", changed);
-    walletProvider.on?.("chainChanged", chainChanged);
-    return () => {
-      walletProvider.removeListener?.("accountsChanged", changed);
-      walletProvider.removeListener?.("chainChanged", chainChanged);
-    };
-  }, []);
-
   return {
     view,
     data,
@@ -140,8 +106,6 @@ export function useDashboardState(view: string): DashboardBaseState {
     balance,
     balanceError,
     balanceLoading,
-    connected,
-    readAddress,
     recipient,
     amount,
     review,
@@ -167,8 +131,6 @@ export function useDashboardState(view: string): DashboardBaseState {
     setBalance,
     setBalanceError,
     setBalanceLoading,
-    setConnected,
-    setReadAddress,
     setRecipient,
     setAmount,
     setReview,

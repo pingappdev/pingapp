@@ -1,43 +1,25 @@
 import { toast } from "sonner";
-import { chain } from "../config";
 import { workspaceApi as api } from "../lib/workspace";
 import { isAddress } from "./format";
+import { useAccount } from "wagmi";
+import { openConnect } from "../wallet/appkit";
 import type { DashboardActions, DashboardBaseState, Profile } from "./state";
 
-type Provider = {
-  request: (a: { method: string; params?: unknown[] }) => Promise<unknown>;
-};
-
-const provider = () =>
-  typeof window === "undefined"
-    ? undefined
-    : (window as unknown as { ethereum?: Provider }).ethereum;
-
 export function useDashboardActions(state: DashboardBaseState): DashboardActions {
+  const account = useAccount();
   const {
     data,
     profile,
     network,
     wallet,
-    connected,
     destination,
     amount,
-    approved,
     query,
     activityFilter,
     history,
     setData,
-    setModal,
-    setBusy,
-    setConnected,
     setReview,
     setApproved,
-    setTxHash,
-    setAmount,
-    setReadAddress,
-    readAddress,
-    load,
-    refreshBalance,
   } = state;
 
   async function saveProfile(changes: Partial<Profile>) {
@@ -53,27 +35,7 @@ export function useDashboardActions(state: DashboardBaseState): DashboardActions
   }
 
   async function connect() {
-    const walletProvider = provider();
-    if (!walletProvider) {
-      setModal("wallet");
-      return;
-    }
-    setBusy(true);
-    try {
-      const accounts = (await walletProvider.request({
-        method: "eth_requestAccounts",
-      })) as string[];
-      if (!accounts[0] || !isAddress(accounts[0]))
-        throw new Error("No wallet address was provided.");
-      await saveProfile({ wallet: accounts[0] });
-      setConnected(accounts[0]);
-      setModal("");
-      toast.success("Wallet connected");
-    } catch (error) {
-      toast.error((error as Error).message ?? "Wallet connection was cancelled.");
-    } finally {
-      setBusy(false);
-    }
+    await openConnect();
   }
 
   async function copy(value: string) {
@@ -90,9 +52,9 @@ export function useDashboardActions(state: DashboardBaseState): DashboardActions
       toast.error("Enter a recipient wallet and an amount greater than zero.");
       return;
     }
-    if (!wallet || connected.toLowerCase() !== wallet.toLowerCase()) {
+    if (!wallet || account.address?.toLowerCase() !== wallet.toLowerCase()) {
       toast.error("Connect the sending wallet before continuing.");
-      setModal("wallet");
+      await openConnect();
       return;
     }
     setReview(true);
@@ -100,49 +62,8 @@ export function useDashboardActions(state: DashboardBaseState): DashboardActions
   }
 
   async function sendTransaction() {
-    const walletProvider = provider();
-    if (!walletProvider || !approved) return;
-    setBusy(true);
-    try {
-      const accounts = (await walletProvider.request({ method: "eth_accounts" })) as string[];
-      if (accounts[0]?.toLowerCase() !== wallet.toLowerCase())
-        throw new Error("Your wallet account changed. Reconnect and review this transfer again.");
-      if (
-        (await walletProvider.request({ method: "eth_chainId" })) !==
-        "0x" + chain.id.toString(16)
-      )
-        throw new Error("Select " + chain.name + " in your wallet before sending.");
-      const finalAccounts = (await walletProvider.request({ method: "eth_accounts" })) as string[];
-      if (finalAccounts[0]?.toLowerCase() !== wallet.toLowerCase())
-        throw new Error("Your wallet account changed. Reconnect and review this transfer again.");
-      const [whole, fraction = ""] = amount.split(".");
-      const value = BigInt(whole) * BigInt(10) ** BigInt(18) + BigInt(fraction.padEnd(18, "0"));
-      const hash = (await walletProvider.request({
-        method: "eth_sendTransaction",
-        params: [{ from: wallet, to: destination, value: "0x" + value.toString(16) }],
-      })) as string;
-      if (!/^0x[a-fA-F0-9]{64}$/.test(hash))
-        throw new Error(
-          "The wallet did not return a transaction hash. Check its activity before retrying.",
-        );
-      setTxHash(hash);
-      setReview(false);
-      try {
-        await api({ action: "activity", hash, network, address: destination, amount });
-        await load();
-        toast.success("Transfer submitted. View confirmation in the explorer.");
-      } catch {
-        toast.error(
-          "Transfer submitted, but activity could not be saved. Keep the transaction hash below.",
-        );
-      }
-      setAmount("");
-      refreshBalance();
-    } catch (error) {
-      toast.error((error as Error).message ?? "The transfer request was not completed.");
-    } finally {
-      setBusy(false);
-    }
+    // FE-09 replaces this screen with a token-aware send and transfer recording flow.
+    toast.error("Transfers are being connected to your signed-in wallet.");
   }
 
   const filtered = state.contacts.filter((contact) =>
