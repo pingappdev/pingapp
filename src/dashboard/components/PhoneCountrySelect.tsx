@@ -6,7 +6,7 @@ type CountrySelectProps = Omit<SelectHTMLAttributes<HTMLSelectElement>, "value" 
   value?: Country;
   onChange: (country: Country) => void;
   options: CountryOption[];
-  iconComponent: ComponentType<{ country?: Country; label: string }>;
+  iconComponent?: ComponentType<{ country?: Country; label: string }>;
   readOnly?: boolean;
 };
 
@@ -14,7 +14,7 @@ export default function PhoneCountrySelect({
   value,
   onChange,
   options,
-  iconComponent: Icon,
+  iconComponent: Icon = CountryFlag,
   className,
   disabled,
   readOnly,
@@ -48,5 +48,17 @@ export default function PhoneCountrySelect({
       )}
       <span className="PhoneInputCountrySelectArrow" aria-hidden="true" />
     </div>
+  );
+}
+
+function CountryFlag({ country, label }: { country?: Country; label: string }) {
+  return (
+    <span className="PhoneInputCountryIcon" aria-hidden="true">
+      <img
+        className="PhoneInputCountryIconImg"
+        src={`https://purecatamphetamine.github.io/country-flag-icons/3x2/${country}.svg`}
+        alt={label}
+      />
+    </span>
   );
 }

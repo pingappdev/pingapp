@@ -1,36 +1,18 @@
-import { forwardRef, type ComponentProps, type InputHTMLAttributes } from "react";
-import PhoneNumberInput, { getCountries } from "react-phone-number-input";
+import { useRef, useState } from "react";
+import { getCountries, type Country } from "react-phone-number-input";
+import labels from "react-phone-number-input/locale/en";
 import "react-phone-number-input/style.css";
 import PhoneCountrySelect from "./PhoneCountrySelect";
+import {
+  changePhoneCountry,
+  editPhoneDraft,
+  phoneDraftFromValue,
+  type PhoneDraft,
+} from "./phoneInputValue";
 
-type Country = NonNullable<ComponentProps<typeof PhoneNumberInput>["defaultCountry"]>;
-
-const StyledInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
-  ({ className, onPaste, onChange, ...props }, ref) => (
-    <input
-      {...props}
-      ref={ref}
-      className={`auth-input phone-input-control ${className ?? ""}`}
-      onPaste={(event) => {
-        event.currentTarget.setCustomValidity("");
-        if (/^0x/i.test(event.clipboardData.getData("text").trim())) {
-          event.preventDefault();
-          event.currentTarget.setCustomValidity(
-            "Enter a phone number. Wallet addresses aren't supported here.",
-          );
-          event.currentTarget.reportValidity();
-          return;
-        }
-        onPaste?.(event);
-      }}
-      onChange={(event) => {
-        event.currentTarget.setCustomValidity("");
-        onChange?.(event);
-      }}
-    />
-  ),
-);
-StyledInput.displayName = "StyledPhoneInput";
+const countryOptions = getCountries()
+  .map((value) => ({ value, label: labels[value] }))
+  .sort((a, b) => a.label.localeCompare(b.label));
 
 function countryFromLocale(): Country {
   if (typeof navigator !== "undefined") {
@@ -61,23 +43,65 @@ export default function PhoneInput({
   placeholder?: string;
   disabled?: boolean;
 }) {
+  const input = useRef<HTMLInputElement>(null);
+  const controlledValue = value || undefined;
+  const [draft, setDraft] = useState(() =>
+    phoneDraftFromValue(controlledValue, defaultCountry ?? countryFromLocale()),
+  );
+
+  // Parent echoes retain the editing draft; contact prefills and resets replace it.
+  if (controlledValue !== draft.value) {
+    setDraft(phoneDraftFromValue(controlledValue, draft.country));
+  }
+
+  function publish(next: PhoneDraft) {
+    setDraft(next);
+    if (next.value !== controlledValue) onChange(next.value);
+  }
+
   return (
-    <PhoneNumberInput
-      className="phone-input"
-      id={id}
-      name={name}
-      defaultCountry={defaultCountry ?? countryFromLocale()}
-      international
-      countryCallingCodeEditable={false}
-      addInternationalOption={false}
-      countrySelectComponent={PhoneCountrySelect}
-      countrySelectProps={{ "aria-label": "Country and calling code" }}
-      aria-label={id ? undefined : "Phone number"}
-      value={value as ComponentProps<typeof PhoneNumberInput>["value"]}
-      onChange={onChange}
-      inputComponent={StyledInput}
-      placeholder={placeholder}
-      disabled={disabled}
-    />
+    <div className={`PhoneInput phone-input${disabled ? " PhoneInput--disabled" : ""}`}>
+      <PhoneCountrySelect
+        value={draft.country}
+        options={countryOptions}
+        onChange={(country) => {
+          input.current?.setCustomValidity("");
+          publish(changePhoneCountry(draft, country));
+          input.current?.focus();
+        }}
+        name={name ? `${name}Country` : undefined}
+        aria-label="Country and calling code"
+        disabled={disabled}
+      />
+      <input
+        ref={input}
+        className="auth-input phone-input-control PhoneInputInput"
+        id={id}
+        name={name}
+        type="tel"
+        inputMode="tel"
+        autoComplete="tel"
+        dir="ltr"
+        aria-label={id ? undefined : "Phone number"}
+        value={draft.text}
+        placeholder={placeholder}
+        disabled={disabled}
+        onChange={(event) => {
+          event.currentTarget.setCustomValidity("");
+          publish(editPhoneDraft(event.target.value, draft.country));
+        }}
+        onBlur={() => publish(editPhoneDraft(draft.text, draft.country, true))}
+        onPaste={(event) => {
+          event.currentTarget.setCustomValidity("");
+          if (/^0x/i.test(event.clipboardData.getData("text").trim())) {
+            event.preventDefault();
+            event.currentTarget.setCustomValidity(
+              "Enter a phone number. Wallet addresses aren't supported here.",
+            );
+            event.currentTarget.reportValidity();
+          }
+        }}
+      />
+    </div>
   );
 }
