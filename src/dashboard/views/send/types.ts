@@ -50,3 +50,16 @@ export function recipientWarnings(recipient: Recipient): string[] {
   if (recipient.previouslySentByMe === false) warnings.push("First time sending to this wallet.");
   return warnings;
 }
+
+/** A fresh phone lookup must be reviewed whenever identity or safety signals change. */
+export function recipientChanged(reviewed: Recipient, fresh: Recipient): boolean {
+  return (
+    reviewed.address.toLowerCase() !== fresh.address.toLowerCase() ||
+    reviewed.name !== fresh.name ||
+    reviewed.phoneMasked !== fresh.phoneMasked ||
+    reviewed.linkedAt !== fresh.linkedAt ||
+    reviewed.recentlyLinked !== fresh.recentlyLinked ||
+    reviewed.underReview !== fresh.underReview ||
+    reviewed.previouslySentByMe !== fresh.previouslySentByMe
+  );
+}

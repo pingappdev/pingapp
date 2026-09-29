@@ -5,7 +5,7 @@ import { isAddress, zeroAddress } from "viem";
 import { useAccount } from "wagmi";
 import { ApiError } from "../../api/client";
 import { useBalances, useConfig, useContacts, useIntents, useResolve } from "../../api/hooks";
-import type { Asset, Contact, ResolveResponse } from "../../api/types";
+import type { Asset, Contact, Me, ResolveResponse } from "../../api/types";
 import { useAuth } from "../../auth/useAuth";
 import { chain } from "../../config";
 import { useSearchParams } from "../../routing";
@@ -42,6 +42,10 @@ function resolveError(error: unknown): string {
 
 export default function Send() {
   const { me } = useAuth();
+  return <SendSession key={me ? `${me.id}:${me.address.toLowerCase()}` : "signed-out"} me={me} />;
+}
+
+function SendSession({ me }: { me: Me | null }) {
   const account = useAccount();
   const params = useSearchParams();
   const intentId = params.get("intent");
@@ -65,11 +69,16 @@ export default function Send() {
   const prefilled = useRef("");
   const cache = useRef(new Map<string, ResolveResponse>());
 
-  const onChangedRecipient = (next: Recipient | null, updated?: ResolveResponse) => {
+  const onChangedRecipient = (
+    next: Recipient | null,
+    updated?: ResolveResponse,
+    requestedPhone?: string,
+  ) => {
     setFreshRecipient(next);
     if (updated) {
       setResolution(updated);
-      if (next?.phone) cache.current.set(next.phone, updated);
+      const phoneKey = requestedPhone ?? next?.phone;
+      if (phoneKey) cache.current.set(phoneKey, updated);
     } else if (!next) setResolution(null);
     setReview(null);
     setReviewOpen(false);
@@ -315,6 +324,7 @@ export default function Send() {
                   onContact={selectContact}
                   contacts={contacts.data ?? []}
                   formattedPhone={phone?.formatInternational()}
+                  locked={send.busy}
                 />
                 <RecipientCard
                   recipient={recipient}
@@ -341,14 +351,14 @@ export default function Send() {
                 setReview(null);
               }}
               minSendUsd={minSendUsd}
-              locked={locked}
+              locked={locked || send.busy}
             />
             <AmountField
               asset={selectedAsset}
               value={shownAmount}
               onChange={setAmount}
               error={shownAmount ? amountError : ""}
-              locked={locked}
+              locked={locked || send.busy}
             />
             <p className="field-help">Network fees are shown in your wallet.</p>
             <button className="button accent" type="submit" disabled={blocked}>
