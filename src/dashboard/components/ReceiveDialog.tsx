@@ -30,6 +30,7 @@ export default function ReceiveDialog() {
           <QRCodeSVG
             value={`ethereum:${walletAddress}@${chain.id}`}
             size={200}
+            marginSize={4}
             level="H"
             bgColor="#fff"
             fgColor="#111"
