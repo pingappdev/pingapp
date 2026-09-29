@@ -74,7 +74,7 @@ export function useAuth(): {
   }, [account.chainId, address, me, queryClient, signMessageAsync, switchChainAsync]);
 
   const withReauth = useCallback(
-    async <T,>(fn: () => Promise<T>): Promise<T> => {
+    async <T>(fn: () => Promise<T>): Promise<T> => {
       try {
         return await fn();
       } catch (error) {
@@ -90,7 +90,10 @@ export function useAuth(): {
     const unauthenticated = () => {
       queryClient.clear();
       queryClient.setQueryData(qk.session, null);
-      if (window.location.pathname.startsWith("/dashboard") || window.location.pathname.startsWith("/claim/")) {
+      if (
+        window.location.pathname.startsWith("/dashboard") ||
+        window.location.pathname.startsWith("/claim/")
+      ) {
         const returnTo = window.location.pathname + window.location.search;
         window.location.replace(`/login?returnTo=${encodeURIComponent(safeReturnTo(returnTo))}`);
       }

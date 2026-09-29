@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense } from "react";
 
-const ClientLogin = lazy(() => import("../wallet/client-login"));
+const ClientLogin = import.meta.env.SSR ? null : lazy(() => import("../wallet/client-login"));
 
 type LoginSearch = { returnTo?: string };
 
@@ -24,7 +24,7 @@ function Login() {
   const { returnTo } = Route.useSearch();
   return (
     <Suspense fallback={<main className="contact-page section">Checking your session…</main>}>
-      <ClientLogin returnTo={returnTo} />
+      {ClientLogin && <ClientLogin returnTo={returnTo} />}
     </Suspense>
   );
 }

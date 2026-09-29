@@ -3,7 +3,11 @@ import { useAuth } from "../auth/useAuth";
 import { WalletProvider } from "./appkit";
 
 export default function ClientLogout() {
-  return <WalletProvider><LogoutContent /></WalletProvider>;
+  return (
+    <WalletProvider>
+      <LogoutContent />
+    </WalletProvider>
+  );
 }
 
 function LogoutContent() {
@@ -14,5 +18,9 @@ function LogoutContent() {
     started.current = true;
     void signOut().finally(() => window.location.replace("/"));
   }, [signOut]);
-  return <main className="contact-page section"><div className="workspace-loading">Signing out…</div></main>;
+  return (
+    <main className="contact-page section">
+      <div className="workspace-loading">Signing out…</div>
+    </main>
+  );
 }
