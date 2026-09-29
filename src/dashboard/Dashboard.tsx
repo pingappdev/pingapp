@@ -18,6 +18,8 @@ import { navigateTo } from "../navigation";
 import { nav } from "./nav";
 import { DashboardProvider, useDashboard } from "./state";
 import { useIntents } from "../api/hooks";
+import { endpoints } from "../api/client";
+import { useSearchParams } from "../routing";
 import type { Contact } from "../api/types";
 import Connection from "./components/Connection";
 import NotificationsBell from "./components/NotificationsBell";
@@ -31,6 +33,7 @@ import Send from "./views/Send";
 import Requests from "./views/Requests";
 import Contacts from "./views/Contacts";
 import Activity from "./views/Activity";
+import { activityDirection } from "./views/activityDirection";
 import Settings from "./views/Settings";
 import { useAuth } from "../auth/useAuth";
 import { openAccount } from "../wallet/appkit";
@@ -45,7 +48,8 @@ export default function Dashboard({ view }: { view: string }) {
 }
 
 function DashboardLayout() {
-  const { view, loading, error, load, exportActivity } = useDashboard();
+  const { view, loading, error, load } = useDashboard();
+  const direction = activityDirection(useSearchParams().get("direction"));
   const { me } = useAuth();
   const [contactDialog, setContactDialog] = useState<{ contact: Contact | null } | null>(null);
   const [removeContact, setRemoveContact] = useState<Contact | null>(null);
@@ -199,10 +203,10 @@ function DashboardLayout() {
                 Add contact
               </button>
             ) : view === "activity" ? (
-              <button className="button outline" onClick={exportActivity}>
+              <a className="button outline" href={endpoints.transfers.exportUrl(direction)}>
                 <Download size={17} />
                 Export CSV
-              </button>
+              </a>
             ) : (
               <Connection />
             )}
