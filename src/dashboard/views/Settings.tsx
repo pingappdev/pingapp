@@ -7,6 +7,7 @@ import { useAuth } from "../../auth/useAuth";
 import { explorerAddress } from "../../config";
 import AddressText from "../components/AddressText";
 import Connection from "../components/Connection";
+import PhoneLinkFlow from "../components/PhoneLinkFlow";
 import { openAccount } from "../../wallet/appkit";
 
 export default function Settings() {
@@ -14,10 +15,11 @@ export default function Settings() {
   const updateMe = useUpdateMe();
   const [name, setName] = useState(me?.displayName ?? "");
   const [nameError, setNameError] = useState("");
+  const profileName = me?.displayName ?? "";
 
   useEffect(() => {
-    if (me) setName(me.displayName);
-  }, [me?.displayName]);
+    setName(profileName);
+  }, [profileName]);
 
   if (!me) return null;
 
@@ -99,14 +101,7 @@ export default function Settings() {
         </section>
         <section className="card settings-card">
           <h2>Phone verification</h2>
-          <span className="pill">Not connected</span>
-          <p>
-            Phone registration needs PingApp’s verification service. Your saved contacts remain
-            available while that service is not connected.
-          </p>
-          <a className="text-link" href="/what-we-do/security">
-            How verification works <ArrowUpRight size={15} />
-          </a>
+          <PhoneLinkFlow compact />
         </section>
         <a className="back-site" href="/logout" target="_top">
           Sign out of PingApp <ArrowUpRight size={15} />
