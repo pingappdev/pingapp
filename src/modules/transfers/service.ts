@@ -54,12 +54,12 @@ export async function recordTransfer(user: Sender, body: TransferBody): Promise<
   if (!isAddress(body.toAddress)) throw errors.invalidAddress();
   const toAddress = normAddress(body.toAddress);
   if (toAddress === normAddress(user.address)) throw errors.selfSend();
-  const token = await getToken(body.tokenAddress);
-  if (!token) throw errors.unknownToken();
   const hash = body.txHash.toLowerCase();
 
   const prior = await byHash(hash);
   if (prior) return { row: sameSender(prior, user.id), created: false };
+  const token = await getToken(body.tokenAddress);
+  if (!token) throw errors.unknownToken();
 
   // Enforce the API contract for every recorded send, including intent completions.
   await assertMinAmount(token, BigInt(body.amountRaw), { tolerancePct: 10 });
@@ -324,8 +324,8 @@ type JoinedRow = {
 function joined() {
   return db.select(fields).from(transfers)
     .innerJoin(tokens, eq(tokens.address, transfers.tokenAddress))
-    .leftJoin(senderParty, eq(senderParty.id, transfers.senderUserId))
-    .leftJoin(recipientParty, eq(recipientParty.id, transfers.recipientUserId));
+    .leftJoin(senderParty, eq(senderParty.address, transfers.senderAddress))
+    .leftJoin(recipientParty, eq(recipientParty.address, transfers.recipientAddress));
 }
 
 function visibleTo(userId: string, direction: Direction) {
