@@ -9,6 +9,8 @@ import AddressText from "../components/AddressText";
 import Connection from "../components/Connection";
 import PhoneLinkFlow from "../components/PhoneLinkFlow";
 import { openAccount } from "../../wallet/appkit";
+import DeleteAccountCard from "./settings/DeleteAccountCard";
+import SessionsCard from "./settings/SessionsCard";
 
 export default function Settings() {
   const { me } = useAuth();
@@ -50,6 +52,7 @@ export default function Settings() {
               className="auth-input"
               maxLength={40}
               value={name}
+              disabled={updateMe.isPending}
               onChange={(event) => {
                 setName(event.target.value);
                 setNameError("");
@@ -103,6 +106,8 @@ export default function Settings() {
           <h2>Phone verification</h2>
           <PhoneLinkFlow compact />
         </section>
+        <SessionsCard />
+        <DeleteAccountCard />
         <a className="back-site" href="/logout" target="_top">
           Sign out of PingApp <ArrowUpRight size={15} />
         </a>
