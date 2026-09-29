@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, ChevronRight, Download, Plus, RefreshCw, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ChevronRight, Download, Plus, ShieldCheck } from "lucide-react";
 import {
   SidebarProvider,
   Sidebar,
@@ -26,7 +26,6 @@ import NotificationsBell from "./components/NotificationsBell";
 import DashboardDialogs from "./components/DashboardDialogs";
 import ContactDialog from "./components/ContactDialog";
 import RemoveContactDialog from "./components/RemoveContactDialog";
-import RecipientQuery from "./components/RecipientQuery";
 import WorkspaceBanners from "./components/WorkspaceBanners";
 import Overview from "./views/Overview";
 import Send from "./views/Send";
@@ -40,15 +39,16 @@ import { openAccount } from "../wallet/appkit";
 import { trimAddress } from "./format";
 
 export default function Dashboard({ view }: { view: string }) {
+  const { me } = useAuth();
   return (
-    <DashboardProvider view={view}>
+    <DashboardProvider key={me?.id ?? "signed-out"} view={view}>
       <DashboardLayout />
     </DashboardProvider>
   );
 }
 
 function DashboardLayout() {
-  const { view, loading, error, load } = useDashboard();
+  const { view } = useDashboard();
   const direction = activityDirection(useSearchParams().get("direction"));
   const { me } = useAuth();
   const [contactDialog, setContactDialog] = useState<{ contact: Contact | null } | null>(null);
@@ -194,7 +194,7 @@ function DashboardLayout() {
                         ? "Review submitted transfers and their on-chain records."
                         : view === "requests"
                           ? "Review pending sends connected to your phone number."
-                          : "Manage your profile, wallet, and transfer preferences."}
+                          : "Manage your profile, phone number, and signed-in devices."}
               </p>
             </div>
             {view === "contacts" ? (
@@ -211,41 +211,18 @@ function DashboardLayout() {
               <Connection />
             )}
           </div>
-          {loading ? (
-            <div className="workspace-loading">
-              <RefreshCw className="spin" />
-              Opening your workspace…
-            </div>
-          ) : error ? (
-            <div className="error-panel">
-              <h2>Your workspace needs a moment.</h2>
-              <p>{error}</p>
-              <button className="button" onClick={load}>
-                Try again
-              </button>
-              {error.includes("sign in") && (
-                <a className="button" href="/login" target="_top">
-                  Sign in
-                </a>
-              )}
-            </div>
-          ) : (
-            <>
-              {view === "overview" && <Overview />}
-              {view === "contacts" && (
-                <Contacts
-                  key={me?.id ?? "signed-out"}
-                  onAdd={() => setContactDialog({ contact: null })}
-                  onEdit={(contact) => setContactDialog({ contact })}
-                  onRemove={setRemoveContact}
-                />
-              )}
-              {view === "send" && <Send />}
-              {view === "requests" && <Requests />}
-              {view === "activity" && <Activity />}
-              {view === "settings" && <Settings />}
-            </>
+          {view === "overview" && <Overview />}
+          {view === "contacts" && (
+            <Contacts
+              onAdd={() => setContactDialog({ contact: null })}
+              onEdit={(contact) => setContactDialog({ contact })}
+              onRemove={setRemoveContact}
+            />
           )}
+          {view === "send" && <Send />}
+          {view === "requests" && <Requests />}
+          {view === "activity" && <Activity />}
+          {view === "settings" && <Settings />}
         </main>
       </div>
       <DashboardDialogs />
@@ -255,7 +232,6 @@ function DashboardLayout() {
         onClose={() => setContactDialog(null)}
       />
       <RemoveContactDialog contact={removeContact} onClose={() => setRemoveContact(null)} />
-      <RecipientQuery />
     </SidebarProvider>
   );
 }

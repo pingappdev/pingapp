@@ -1,13 +1,11 @@
-import { useDashboard } from "../state";
 import { useAccount } from "wagmi";
 import { useAuth } from "../../auth/useAuth";
 import { openConnect } from "../../wallet/appkit";
 
 export default function Connection() {
-  const { wallet } = useDashboard();
   const { me } = useAuth();
   const account = useAccount();
-  const sessionAddress = me?.address ?? wallet;
+  const sessionAddress = me?.address;
   const connected =
     account.isConnected &&
     !!sessionAddress &&
