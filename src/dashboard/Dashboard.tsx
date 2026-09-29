@@ -13,16 +13,19 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Toaster } from "sonner";
-import { config } from "../config";
+import { chain } from "../config";
 import { navigateTo } from "../navigation";
 import { nav } from "./nav";
 import { DashboardProvider, useDashboard } from "./state";
-import NetworkLabel from "./components/NetworkLabel";
+import { useIntents } from "../api/hooks";
 import Connection from "./components/Connection";
+import NotificationsBell from "./components/NotificationsBell";
 import DashboardDialogs from "./components/DashboardDialogs";
 import RecipientQuery from "./components/RecipientQuery";
+import WorkspaceBanners from "./components/WorkspaceBanners";
 import Overview from "./views/Overview";
 import Send from "./views/Send";
+import Requests from "./views/Requests";
 import Contacts from "./views/Contacts";
 import Activity from "./views/Activity";
 import Settings from "./views/Settings";
@@ -39,8 +42,10 @@ export default function Dashboard({ view }: { view: string }) {
 }
 
 function DashboardLayout() {
-  const { view, network, loading, error, load, setModal, exportActivity } = useDashboard();
+  const { view, loading, error, load, setModal, exportActivity } = useDashboard();
   const { me } = useAuth();
+  const { data: openIntents } = useIntents("open");
+  const readyIntentCount = openIntents?.filter((intent) => intent.status === "ready").length ?? 0;
 
   useEffect(() => {
     const ctx = (
@@ -62,7 +67,7 @@ function DashboardLayout() {
             properties: {
               view: {
                 type: "string",
-                enum: ["overview", "send", "contacts", "activity", "settings"],
+                enum: ["overview", "send", "requests", "contacts", "activity", "settings"],
               },
             },
             required: ["view"],
@@ -106,6 +111,14 @@ function DashboardLayout() {
                   <a href={"/dashboard" + (item.id === "overview" ? "" : "/" + item.id)}>
                     <item.icon />
                     <span>{item.name}</span>
+                    {item.id === "requests" && readyIntentCount > 0 && (
+                      <span
+                        className="nav-count"
+                        aria-label={`${readyIntentCount} ready pending sends`}
+                      >
+                        {readyIntentCount}
+                      </span>
+                    )}
                     {view === item.id && <span className="nav-active-dot" />}
                   </a>
                 </SidebarMenuButton>
@@ -133,13 +146,14 @@ function DashboardLayout() {
             <ChevronRight size={14} />
             <strong>{pageName}</strong>
           </div>
-          <div>
+          <div className="dashboard-header-actions">
             <span className="network-name">
-              <NetworkLabel _network={network} />
-              <span className="mainnet-label">
-                {config.chainKey === "robinhood-testnet" ? "Testnet" : "Mainnet"}
+              <span className="network-title">Robinhood Chain</span>
+              <span className={`chain-environment${chain.testnet ? " testnet" : ""}`}>
+                {chain.testnet ? "Testnet" : "Mainnet"}
               </span>
             </span>
+            <NotificationsBell />
             <button
               className="account-chip"
               onClick={() => void openAccount()}
@@ -150,6 +164,7 @@ function DashboardLayout() {
           </div>
         </header>
         <main className="dashboard-main">
+          <WorkspaceBanners />
           <div className="dashboard-title">
             <div>
               <p className="eyebrow">PINGAPP / WORKSPACE</p>
@@ -163,7 +178,9 @@ function DashboardLayout() {
                       ? "Manage your private address book and saved recipients."
                       : view === "activity"
                         ? "Review submitted transfers and their on-chain records."
-                        : "Manage your profile, wallet, and transfer preferences."}
+                        : view === "requests"
+                          ? "Review pending sends connected to your phone number."
+                          : "Manage your profile, wallet, and transfer preferences."}
               </p>
             </div>
             {view === "contacts" ? (
@@ -203,6 +220,7 @@ function DashboardLayout() {
               {view === "overview" && <Overview />}
               {view === "contacts" && <Contacts />}
               {view === "send" && <Send />}
+              {view === "requests" && <Requests />}
               {view === "activity" && <Activity />}
               {view === "settings" && <Settings />}
             </>

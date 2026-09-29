@@ -1,23 +1,14 @@
 import { ArrowUpRight, History, Search } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useDashboard } from "../state";
 import ActivityTable from "../components/ActivityTable";
 import Empty from "../components/Empty";
-import NetworkLabel from "../components/NetworkLabel";
 
 export default function Activity() {
-  const { query, setQuery, activityFilter, setActivityFilter, shownHistory, history } =
-    useDashboard();
+  const { query, setQuery, shownHistory, history } = useDashboard();
 
   return (
     <>
-      <div className="toolbar">
+      <div className="toolbar activity-toolbar">
         <label className="input-icon">
           <Search size={17} />
           <input
@@ -27,17 +18,6 @@ export default function Activity() {
             onChange={(event) => setQuery(event.target.value)}
           />
         </label>
-        <Select value={activityFilter} onValueChange={setActivityFilter}>
-          <SelectTrigger aria-label="Filter activity network" className="filter-select">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="workspace-select">
-            <SelectItem value="all">All activity</SelectItem>
-            <SelectItem value="robinhood">
-              <NetworkLabel _network="robinhood" />
-            </SelectItem>
-          </SelectContent>
-        </Select>
       </div>
       <section className="card">
         {shownHistory.length ? (

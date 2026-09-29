@@ -1,13 +1,5 @@
 import { ArrowUpRight, Check, ExternalLink, Link2, ShieldCheck, Wallet } from "lucide-react";
-import { toast } from "sonner";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { explorerTx } from "../../config";
+import { chain, explorerTx } from "../../config";
 import { useDashboard } from "../state";
 import { trimAddress } from "../format";
 import Connection from "../components/Connection";
@@ -21,8 +13,6 @@ export default function Send() {
     currentContact,
     destination,
     submitSend,
-    network,
-    saveProfile,
     amount,
     setAmount,
     balance,
@@ -72,25 +62,13 @@ export default function Send() {
                 : "Enter a complete 0x wallet address or a saved phone number."}
             </p>
           )}
-          <label>
-            Network
-            <Select
-              value={network}
-              onValueChange={(value) => {
-                saveProfile({ network: value }).catch((error) => toast.error(error.message));
-                setReview(false);
-              }}
-            >
-              <SelectTrigger aria-label="Send network">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="workspace-select">
-                <SelectItem value="robinhood">
-                  <NetworkLabel _network="robinhood" />
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </label>
+          <div className="send-network-label">
+            <span>Network</span>
+            <NetworkLabel />
+            <span className={`chain-environment${chain.testnet ? " testnet" : ""}`}>
+              {chain.testnet ? "Testnet" : "Mainnet"}
+            </span>
+          </div>
           <label>
             Amount
             <div className="amount-input">

@@ -2,16 +2,12 @@ import { useEffect, useState, type ReactNode } from "react";
 import { RefreshCw } from "lucide-react";
 import { useAuth, safeReturnTo } from "./auth/useAuth";
 import { trimAddress } from "./dashboard/format";
-import { useAccount, useSwitchChain } from "wagmi";
-import { chain } from "./config";
 
 export default function AuthGate({ children }: { children: ReactNode }) {
   const { status, me, address, error: sessionError, retrySession, signIn, signOut } = useAuth();
   const [busy, setBusy] = useState(false);
   const [switching, setSwitching] = useState(false);
   const [error, setError] = useState("");
-  const account = useAccount();
-  const { switchChainAsync } = useSwitchChain();
 
   useEffect(() => {
     if (status !== "signed-out" || switching) return;
@@ -99,35 +95,6 @@ export default function AuthGate({ children }: { children: ReactNode }) {
               Switch back in your wallet
             </button>
           </div>
-        </div>
-      </main>
-    );
-  }
-
-  if (account.isConnected && account.chainId !== chain.id) {
-    return (
-      <main className="premium-workspace contact-page section">
-        <div className="card settings-card" style={{ maxWidth: 540, margin: "60px auto" }}>
-          <h1>Switch to {chain.name}.</h1>
-          <p>Your wallet is connected on another network.</p>
-          {error && <p role="alert">{error}</p>}
-          <button
-            className="button accent"
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              setError("");
-              try {
-                await switchChainAsync({ chainId: chain.id });
-              } catch (reason) {
-                setError((reason as Error).message || "Could not switch network.");
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            Switch network
-          </button>
         </div>
       </main>
     );

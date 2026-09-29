@@ -1,12 +1,4 @@
 import { ArrowDownLeft, ArrowUpRight, Copy, Lock, Phone, Send, Wallet } from "lucide-react";
-import { toast } from "sonner";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { chain } from "../../../config";
 import { trimAddress } from "../../format";
 import { useDashboard } from "../../state";
@@ -14,8 +6,6 @@ import NetworkLabel from "../../components/NetworkLabel";
 
 export default function OverviewBalance() {
   const {
-    network,
-    saveProfile,
     balance,
     balanceLoading,
     wallet,
@@ -32,21 +22,12 @@ export default function OverviewBalance() {
       <section className="balance-card">
         <div className="card-top">
           <span>AVAILABLE BALANCE</span>
-          <Select
-            value={network}
-            onValueChange={(value) =>
-              saveProfile({ network: value }).catch((error) => toast.error(error.message))
-            }
-          >
-            <SelectTrigger aria-label="Network" className="network-select">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="workspace-select">
-              <SelectItem value="robinhood">
-                <NetworkLabel _network="robinhood" />
-              </SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="balance-network-label">
+            <NetworkLabel />
+            <span className={`chain-environment${chain.testnet ? " testnet" : ""}`}>
+              {chain.testnet ? "Testnet" : "Mainnet"}
+            </span>
+          </div>
         </div>
         <div className="balance-number">
           {balanceLoading

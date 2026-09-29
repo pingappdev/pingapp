@@ -10,6 +10,10 @@ const views: Record<string, { title: string; description: string }> = {
     title: "Send crypto — PingApp Dashboard",
     description: "Send ETH to a saved contact or a wallet address, approved in your own wallet.",
   },
+  requests: {
+    title: "Pending sends — PingApp Dashboard",
+    description: "Review pending sends and requests connected to your phone number.",
+  },
   contacts: {
     title: "Contacts — PingApp Dashboard",
     description: "Save, search and remove the contacts in your private PingApp directory.",
