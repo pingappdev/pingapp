@@ -1,6 +1,7 @@
 import { buildApp } from './app.js';
 import { config } from './config.js';
 import { sql } from './db/client.js';
+import { closeQueues } from './lib/queue.js';
 import { redis } from './lib/redis.js';
 
 const app = await buildApp();
@@ -12,7 +13,9 @@ async function shutdown() {
   closing = true;
   try {
     await app.close();
-    await Promise.all([sql.end(), redis.quit()]);
+    const results = await Promise.allSettled([sql.end(), redis.quit(), closeQueues()]);
+    const failure = results.find((result) => result.status === 'rejected');
+    if (failure?.status === 'rejected') throw failure.reason;
   } catch (error) {
     app.log.error({ err: error }, 'shutdown failed');
     process.exitCode = 1;

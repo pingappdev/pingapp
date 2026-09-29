@@ -3,6 +3,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import type { Logger } from 'pino';
+import type { Job } from 'bullmq';
+import type { QueueName } from './queue.js';
 
 const modulesPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'modules');
 
@@ -33,10 +35,15 @@ export async function loadRouteModules(app: FastifyInstance): Promise<void> {
   }
 }
 
-export type JobContext = { logger: Logger };
-export async function loadJobModules(ctx: JobContext): Promise<void> {
+export type WorkerCtx = {
+  logger: Logger;
+  process(queue: QueueName, jobName: string, handler: (job: Job) => Promise<unknown>): void;
+  schedule(queue: QueueName, jobName: string, everyMs: number, data?: unknown): Promise<void>;
+};
+
+export async function loadJobModules(ctx: WorkerCtx): Promise<void> {
   for (const path of await moduleFiles('jobs')) {
-    const mod = await import(pathToFileURL(path).href) as { default: (context: JobContext) => Promise<void> | void };
+    const mod = await import(pathToFileURL(path).href) as { default: (context: WorkerCtx) => Promise<void> | void };
     await mod.default(ctx);
   }
 }
