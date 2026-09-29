@@ -4,11 +4,19 @@ import {
   getCountryCallingCode,
   parsePhoneNumberFromString,
   type CountryCode,
+  type PhoneNumber,
 } from "libphonenumber-js";
 
 export type PhoneDraft = { country: CountryCode; text: string; value?: string };
 
 const countries = getCountries();
+
+function numberWithoutCallingCode(number: PhoneNumber): string {
+  return number
+    .formatInternational()
+    .slice(number.countryCallingCode.length + 1)
+    .trimStart();
+}
 
 function internationalParts(text: string, preferred: CountryCode) {
   if (!/^\+[\d\s().-]*$/.test(text)) return null;
@@ -36,7 +44,7 @@ export function editPhoneDraft(text: string, country: CountryCode, commit = fals
           : undefined;
       return {
         country: parts.country,
-        text: parts.parsed?.isValid() ? parts.parsed.formatNational() : parts.national,
+        text: parts.parsed?.isValid() ? numberWithoutCallingCode(parts.parsed) : parts.national,
         value,
       };
     }
@@ -48,14 +56,22 @@ export function editPhoneDraft(text: string, country: CountryCode, commit = fals
   formatter.input(text);
   const value = formatter.getNumberValue();
   const parsed = value ? parsePhoneNumberFromString(value, { extract: false }) : undefined;
-  return { country, text: commit && parsed?.isValid() ? parsed.formatNational() : text, value };
+  return {
+    country,
+    text: commit && parsed?.isValid() ? numberWithoutCallingCode(parsed) : text,
+    value,
+  };
 }
 
 export function phoneDraftFromValue(value: string | undefined, preferred: CountryCode): PhoneDraft {
   if (!value) return { country: preferred, text: "", value: undefined };
   const parts = internationalParts(value, preferred);
   return parts
-    ? { country: parts.country, text: parts.parsed?.formatNational() ?? parts.national, value }
+    ? {
+        country: parts.country,
+        text: parts.parsed ? numberWithoutCallingCode(parts.parsed) : parts.national,
+        value,
+      }
     : { country: preferred, text: value, value };
 }
 

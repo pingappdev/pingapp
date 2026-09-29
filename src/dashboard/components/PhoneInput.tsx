@@ -74,7 +74,14 @@ export default function PhoneInput({
         disabled={disabled}
       />
       <input
-        ref={input}
+        ref={(element) => {
+          input.current = element;
+          element?.setCustomValidity(
+            draft.text.trim() && !draft.value
+              ? "Complete the phone number or clear this field."
+              : "",
+          );
+        }}
         className="auth-input phone-input-control PhoneInputInput"
         id={id}
         name={name}
