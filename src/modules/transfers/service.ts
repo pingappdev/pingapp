@@ -27,6 +27,7 @@ const INTENT_MISMATCH = "This transfer doesn't match the pending send.";
 
 export type TransferBody = {
   txHash: string;
+  expectedSenderAddress: string;
   tokenAddress: string;
   amountRaw: string;
   toAddress: string;
@@ -49,6 +50,10 @@ function sameSender(row: Transfer, userId: string): Transfer {
 
 /** The unique transaction hash is the idempotency key, including simultaneous POSTs. */
 export async function recordTransfer(user: Sender, body: TransferBody): Promise<{ row: Transfer; created: boolean }> {
+  if (!isAddress(body.expectedSenderAddress)) throw errors.invalidAddress('Enter the sending wallet address again.');
+  if (normAddress(body.expectedSenderAddress) !== normAddress(user.address)) {
+    throw errors.conflict('Your PingApp session changed. Reconnect the original sending wallet and sign in to save this transfer.');
+  }
   if (!HASH.test(body.txHash)) throw errors.validation('Enter a valid transaction hash.');
   if (!RAW_AMOUNT.test(body.amountRaw)) throw errors.invalidAmount();
   if (!isAddress(body.toAddress)) throw errors.invalidAddress();

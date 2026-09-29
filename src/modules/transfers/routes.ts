@@ -7,6 +7,7 @@ import { exportCsv, getTransfer, listTransfers, recordTransfer } from './service
 const recordLimiter = limiter('transfer_record_user_min', 30, 60);
 const bodySchema = z.object({
   txHash: z.string().max(100),
+  expectedSenderAddress: z.string().max(100),
   tokenAddress: z.string().max(100),
   amountRaw: z.string().max(78),
   toAddress: z.string().max(100),
