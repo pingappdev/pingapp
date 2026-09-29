@@ -74,7 +74,9 @@ export async function api<T>(path: string, opts: ApiOptions = {}): Promise<T> {
       method,
       credentials: "include",
       headers,
-      ...(opts.body === undefined ? {} : { body: JSON.stringify(opts.body) }),
+      ...(method === "GET"
+        ? {}
+        : { body: JSON.stringify(opts.body ?? {}) }),
       ...(opts.signal === undefined ? {} : { signal: opts.signal }),
     });
   } catch (error) {
