@@ -187,7 +187,7 @@ export type IntentStatusFilter = "open" | "all";
 export type ContactCreateInput =
   | { name: string; phone: string; address?: string | null }
   | { name: string; phone?: string | null; address: string };
-export type ContactUpdateInput = Partial<ContactCreateInput>;
+export type ContactUpdateInput = { name?: string; phone?: string | null; address?: string | null };
 
 export type TransferCreateInput = {
   txHash: `0x${string}`;

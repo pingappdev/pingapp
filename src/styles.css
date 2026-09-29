@@ -681,3 +681,5 @@ main h1:focus{outline:none}
     gap: 12px;
   }
 }
+/* API-backed contacts */
+.contact-card-actions{display:flex;gap:7px}.contact-card .pill.accent{background:#9346da24;color:#dbb8ff;border-color:#c286f840}.contact-card .address-copy{display:flex;align-items:center;min-height:42px}.contact-card .address-text{display:flex;align-items:center;justify-content:space-between;width:100%;gap:10px}.contact-card .address-text code{overflow-wrap:anywhere}.contact-card .address-text button{border:0;background:transparent;color:var(--ping-accent);padding:5px}.contact-mismatch{color:#d6ab73!important;font-size:12px;line-height:1.5;margin:10px 0 16px}.contact-form-error{color:#f19c9c!important}.ping-dialog .phone-input{margin:10px 0 0}.ping-dialog .phone-input .PhoneInputInput{width:100%;margin:0}.ping-dialog .phone-input .PhoneInputCountry{min-height:50px}

@@ -1,8 +1,6 @@
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useDashboard } from "../state";
-import ContactDialog from "./ContactDialog";
 import ReceiveDialog from "./ReceiveDialog";
-import RemoveContactDialog from "./RemoveContactDialog";
 
 export default function DashboardDialogs() {
   const { modal, busy, setModal } = useDashboard();
@@ -10,25 +8,19 @@ export default function DashboardDialogs() {
   return (
     <>
       <Dialog
-        open={!!modal}
+        open={modal === "receive"}
         onOpenChange={(open) => {
           if (!open && !busy) setModal("");
         }}
       >
         <DialogContent className="ping-dialog">
-          <DialogTitle>
-            {modal === "contact" ? "Add a contact" : "Receive in your wallet"}
-          </DialogTitle>
+          <DialogTitle>Receive in your wallet</DialogTitle>
           <DialogDescription>
-            {modal === "contact"
-              ? "Save someone you know. Confirm their wallet address before adding it."
-              : "Share your public address. Only receive assets on the selected network."}
+            Share your public address. Only receive assets on the selected network.
           </DialogDescription>
-          {modal === "contact" && <ContactDialog />}
           {modal === "receive" && <ReceiveDialog />}
         </DialogContent>
       </Dialog>
-      <RemoveContactDialog />
     </>
   );
 }

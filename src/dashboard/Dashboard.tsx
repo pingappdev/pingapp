@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, ChevronRight, Download, Plus, RefreshCw, ShieldCheck } from "lucide-react";
 import {
   SidebarProvider,
@@ -18,9 +18,12 @@ import { navigateTo } from "../navigation";
 import { nav } from "./nav";
 import { DashboardProvider, useDashboard } from "./state";
 import { useIntents } from "../api/hooks";
+import type { Contact } from "../api/types";
 import Connection from "./components/Connection";
 import NotificationsBell from "./components/NotificationsBell";
 import DashboardDialogs from "./components/DashboardDialogs";
+import ContactDialog from "./components/ContactDialog";
+import RemoveContactDialog from "./components/RemoveContactDialog";
 import RecipientQuery from "./components/RecipientQuery";
 import WorkspaceBanners from "./components/WorkspaceBanners";
 import Overview from "./views/Overview";
@@ -42,8 +45,15 @@ export default function Dashboard({ view }: { view: string }) {
 }
 
 function DashboardLayout() {
-  const { view, loading, error, load, setModal, exportActivity } = useDashboard();
+  const { view, loading, error, load, exportActivity } = useDashboard();
   const { me } = useAuth();
+  const [contactDialog, setContactDialog] = useState<{ contact: Contact | null } | null>(null);
+  const [removeContact, setRemoveContact] = useState<Contact | null>(null);
+
+  useEffect(() => {
+    setContactDialog(null);
+    setRemoveContact(null);
+  }, [view, me?.id]);
   const { data: openIntents } = useIntents("open");
   const readyIntentCount = openIntents?.filter((intent) => intent.status === "ready").length ?? 0;
 
@@ -184,7 +194,7 @@ function DashboardLayout() {
               </p>
             </div>
             {view === "contacts" ? (
-              <button className="button accent" onClick={() => setModal("contact")}>
+              <button className="button accent" onClick={() => setContactDialog({ contact: null })}>
                 <Plus size={17} />
                 Add contact
               </button>
@@ -218,7 +228,14 @@ function DashboardLayout() {
           ) : (
             <>
               {view === "overview" && <Overview />}
-              {view === "contacts" && <Contacts />}
+              {view === "contacts" && (
+                <Contacts
+                  key={me?.id ?? "signed-out"}
+                  onAdd={() => setContactDialog({ contact: null })}
+                  onEdit={(contact) => setContactDialog({ contact })}
+                  onRemove={setRemoveContact}
+                />
+              )}
               {view === "send" && <Send />}
               {view === "requests" && <Requests />}
               {view === "activity" && <Activity />}
@@ -228,6 +245,12 @@ function DashboardLayout() {
         </main>
       </div>
       <DashboardDialogs />
+      <ContactDialog
+        open={!!contactDialog}
+        contact={contactDialog?.contact ?? null}
+        onClose={() => setContactDialog(null)}
+      />
+      <RemoveContactDialog contact={removeContact} onClose={() => setRemoveContact(null)} />
       <RecipientQuery />
     </SidebarProvider>
   );
