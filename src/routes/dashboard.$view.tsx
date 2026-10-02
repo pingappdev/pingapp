@@ -10,6 +10,10 @@ const views: Record<string, { title: string; description: string }> = {
     title: "Send crypto — PingApp Dashboard",
     description: "Send ETH to a saved contact or a wallet address, approved in your own wallet.",
   },
+  card: {
+    title: "Ping Card — PingApp Dashboard",
+    description: "Your crypto-funded debit card. Top up, freeze, and spend anywhere.",
+  },
   requests: {
     title: "Pending sends — PingApp Dashboard",
     description: "Review pending sends and requests connected to your phone number.",
