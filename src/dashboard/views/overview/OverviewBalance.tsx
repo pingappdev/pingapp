@@ -95,11 +95,11 @@ export default function OverviewBalance() {
                 <Amount value={eth.balance} symbol="ETH" />
               </div>
             ) : (
-              "0.0"
+              "—"
             )}
           </div>
           <p className="balance-caption">
-            ETH {eth?.balance ?? "0.0"} · Read directly from Robinhood Chain
+            ETH {eth?.balance ?? "—"} · Read directly from Robinhood Chain
           </p>
           <div className="balance-actions">
             <a href="/dashboard/send" className="button accent">

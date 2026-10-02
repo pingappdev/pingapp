@@ -40,7 +40,7 @@ export default function OverviewAssets() {
       <div className="panel-heading">
         <h2>Asset balances</h2>
       </div>
-      <Table>
+      <Table className="holdings-table">
         <TableHeader>
           <TableRow>
             <TableHead>Asset</TableHead>
@@ -52,7 +52,7 @@ export default function OverviewAssets() {
           {balances.isPending && !balances.data ? (
             [0, 1, 2].map((row) => (
               <TableRow key={row} aria-hidden="true">
-                <TableCell>
+                <TableCell className="holding-asset">
                   <div className="asset-name">
                     <Skeleton className="h-9 w-9 rounded-full" />
                     <div>
@@ -61,10 +61,10 @@ export default function OverviewAssets() {
                     </div>
                   </div>
                 </TableCell>
-                <TableCell>
+                <TableCell className="holding-amount">
                   <Skeleton className="ml-auto h-4 w-20" />
                 </TableCell>
-                <TableCell>
+                <TableCell className="holding-value">
                   <Skeleton className="ml-auto h-4 w-16" />
                 </TableCell>
               </TableRow>
@@ -82,7 +82,7 @@ export default function OverviewAssets() {
           ) : (
             items.map((asset) => (
               <TableRow key={asset.token.address}>
-                <TableCell>
+                <TableCell className="holding-asset">
                   <div className="asset-name">
                     <TokenIcon symbol={asset.token.symbol} logoUrl={asset.token.logoUrl} />
                     <div>
@@ -91,10 +91,10 @@ export default function OverviewAssets() {
                     </div>
                   </div>
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="holding-amount text-right">
                   <Amount value={asset.balance} symbol={asset.token.symbol} />
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="holding-value text-right">
                   <Usd value={asset.valueUsd} />
                 </TableCell>
               </TableRow>

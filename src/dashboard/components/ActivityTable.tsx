@@ -27,7 +27,7 @@ function shortHash(hash: string): string {
 
 export default function ActivityTable({ rows }: { rows: Transfer[] }) {
   return (
-    <Table>
+    <Table className="activity-table">
       <TableHeader>
         <TableRow>
           <TableHead>Transfer</TableHead>
@@ -50,7 +50,7 @@ export default function ActivityTable({ rows }: { rows: Transfer[] }) {
 
           return (
             <TableRow key={transfer.id}>
-              <TableCell>
+              <TableCell className="transfer-party">
                 <div className="asset-name activity-transfer">
                   <span className="round-icon">
                     <DirectionIcon size={17} />
@@ -61,7 +61,7 @@ export default function ActivityTable({ rows }: { rows: Transfer[] }) {
                   </div>
                 </div>
               </TableCell>
-              <TableCell>
+              <TableCell className="transfer-asset">
                 <div className="asset-name activity-asset">
                   <TokenIcon symbol={symbol} logoUrl={logoUrl} />
                   <span>
@@ -72,13 +72,13 @@ export default function ActivityTable({ rows }: { rows: Transfer[] }) {
                   </span>
                 </div>
               </TableCell>
-              <TableCell>
+              <TableCell className="transfer-date">
                 <time dateTime={date}>{new Date(date).toLocaleDateString()}</time>
               </TableCell>
-              <TableCell>
+              <TableCell className="transfer-status">
                 <StatusPill status={transfer.status} />
               </TableCell>
-              <TableCell>
+              <TableCell className="transfer-explorer">
                 <a className="explorer-link" target="_blank" rel="noreferrer" href={href}>
                   View <ExternalLink size={13} />
                 </a>

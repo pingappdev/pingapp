@@ -123,7 +123,10 @@ function DashboardLayout() {
             {nav.map((item) => (
               <SidebarMenuItem key={item.id}>
                 <SidebarMenuButton asChild isActive={view === item.id}>
-                  <a href={"/dashboard" + (item.id === "overview" ? "" : "/" + item.id)}>
+                  <a
+                    href={"/dashboard" + (item.id === "overview" ? "" : "/" + item.id)}
+                    aria-current={view === item.id ? "page" : undefined}
+                  >
                     <item.icon />
                     <span>{item.name}</span>
                     {item.id === "requests" && readyIntentCount > 0 && (
@@ -159,9 +162,18 @@ function DashboardLayout() {
             key={item.id}
             href={"/dashboard" + (item.id === "overview" ? "" : "/" + item.id)}
             data-active={view === item.id}
+            aria-label={item.name}
+            aria-current={view === item.id ? "page" : undefined}
+            title={item.name}
           >
             <item.icon size={18} />
-            <span>{item.name === "Send crypto" ? "Send" : item.name === "Pending sends" ? "Pending" : item.name}</span>
+            <span>
+              {item.name === "Send crypto"
+                ? "Send"
+                : item.name === "Pending sends"
+                  ? "Pending"
+                  : item.name}
+            </span>
           </a>
         ))}
       </nav>
@@ -195,14 +207,20 @@ function DashboardLayout() {
           <div className="dashboard-title">
             <div>
               <p className="eyebrow">PINGAPP / WORKSPACE</p>
-              <h1>{view === "overview" ? "Crypto portfolio" : view === "card" ? "Ping Card" : pageName}</h1>
+              <h1>
+                {view === "overview"
+                  ? "Crypto portfolio"
+                  : view === "card"
+                    ? "Ping Card"
+                    : pageName}
+              </h1>
               <p>
                 {view === "overview"
                   ? "Your assets, contacts, and transfers at a glance."
                   : view === "send"
                     ? "Prepare a transfer. Review and approve it in your wallet."
                     : view === "card"
-                      ? "Your Ping Card. Top up with crypto, spend anywhere."
+                      ? "Explore your card, spending, and top-up preview."
                       : view === "contacts"
                         ? "Manage your private address book and saved recipients."
                         : view === "activity"

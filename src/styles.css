@@ -694,6 +694,18 @@ main h1:focus{outline:none}
 @media(max-width:767px){.request-intent-row{align-items:flex-start;flex-direction:column;gap:12px}.request-intent-actions{justify-content:flex-start}.request-intent-actions .button{flex:0 0 auto}.request-sms-status{margin-left:0;align-items:flex-start}.request-submit-row{align-items:flex-start;flex-direction:column}.request-sms-result{align-items:flex-start;flex-direction:column}.request-history{padding:0 20px}.claim-page{padding-top:105px}.claim-card{margin-top:28px;padding:24px}.claim-summary h1{font-size:34px}.claim-actions{align-items:stretch;flex-direction:column}.claim-actions .button{justify-content:center}}
 
 
+/* Shared tokens for the Card preview; the desktop dashboard retains its original theme. */
+.premium-workspace,.card-dialog{--ping-bg:#0c0c0c;--ping-surface:#17151b;--ping-surface-2:#26212d;--ping-surface-3:#302637;--ping-border:#ffffff12;--ping-text:#f6f3f9;--ping-text-2:#b3a6bf;--ping-text-3:#a294af;--ping-accent-soft:#a24af11a;--ping-success:#45E39A;--ping-ease:cubic-bezier(.2,.8,.2,1)}
+.ping-mobile-tabbar{display:none}
+.dashboard-header-actions .account-chip{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(min-width:768px) and (max-width:1100px){
+ .premium-workspace{--sidebar-width:13rem!important}
+ .overview-grid,.dashboard-two-column,.send-grid,.settings-grid{grid-template-columns:minmax(0,1fr)}
+ .dashboard-header{padding:0 24px}.dashboard-header>div:first-child>span,.dashboard-header>div:first-child>svg{display:none}
+ .dashboard-main{padding:28px 24px}.dashboard-title h1{font-size:28px}
+}
+
+@media(max-width:767px){
 /* ================================================================= */
 /* PingApp native-app theme — adapts the iOS Ping app palette & layout to the webapp dashboard. */
 /* Scoped to .premium-workspace so the marketing site is unaffected.  */
@@ -707,7 +719,7 @@ main h1:focus{outline:none}
  --ping-border:transparent;
  --ping-text:#F5F2FA;
  --ping-text-2:#9D97AD;
- --ping-text-3:#605B70;
+ --ping-text-3:#9992AA;
  --ping-accent:#AB9FF2;
  --ping-accent-soft:#AB9FF224;
  --ping-accent-strong:#8575DE;
@@ -742,7 +754,7 @@ main h1:focus{outline:none}
 .premium-workspace .settings-card>p,
 .premium-workspace .panel-footnote,
 .premium-workspace .field-help{color:var(--ping-text-2)}
-.premium-workspace .button.accent{background:var(--ping-accent);color:#fff;border-radius:14px;min-height:48px;font-weight:600;box-shadow:none}
+.premium-workspace .button.accent{background:var(--ping-accent);color:#1a1430;border-radius:14px;min-height:48px;font-weight:600;box-shadow:none}
 .premium-workspace .button.accent:hover{background:#8370da}
 .premium-workspace .button.outline{background:var(--ping-surface);color:var(--ping-text);border:1px solid var(--ping-border);border-radius:14px;min-height:48px;font-weight:500}
 .premium-workspace .button.outline:hover{background:var(--ping-surface-2)}
@@ -791,26 +803,18 @@ main h1:focus{outline:none}
 .premium-workspace .explorer-link{color:var(--ping-accent);border:0;background:none;padding:0}
 
 /* ================================================================= */
-/* Phone-frame layout — always render dashboard as a phone,          */
-/* at every screen size. On desktop, center it in a device bezel.    */
+/* Mobile layout: full-width content and floating navigation.        */
 /* ================================================================= */
 
 /* Hide sidebar completely — bottom tab bar is the only nav */
 .premium-workspace .ping-sidebar,
 .premium-workspace [data-slot=sidebar]{display:none!important}
 
-/* The frame — fills viewport on narrow screens, becomes a centered phone on wide ones */
+/* Fill the mobile viewport and let the document scroll naturally. */
 .premium-workspace{display:flex!important;justify-content:flex-start!important;align-items:center!important;flex-direction:column!important;background:#07080A!important;min-height:100vh;min-height:100svh}
-.premium-workspace .dashboard-shell{position:relative;flex:1 1 auto;width:100%;max-width:100%;min-height:100vh;min-height:100svh;background:var(--ping-bg);display:flex;flex-direction:column;overflow-x:hidden}
+.premium-workspace .dashboard-shell{position:relative;flex:1 1 auto;width:100%;max-width:100%;min-height:100vh;min-height:100svh;background:var(--ping-bg);display:flex;flex-direction:column}
 /* Shadcn's sidebar renders an inline-flex peer DIV even when sidebar is display:none — hide that too */
 .premium-workspace>div.group.peer{display:none!important}
-
-/* Phone-shaped frame on desktop/tablet */
-@media(min-width:480px){
- .premium-workspace{padding:28px 20px;gap:20px}
- .premium-workspace .dashboard-shell{flex:0 0 auto;width:420px;max-width:420px;min-height:min(760px,calc(100svh - 160px));max-height:calc(100svh - 160px);border-radius:38px;border:1px solid #1E2024;box-shadow:0 0 0 10px #121418,0 40px 80px #000000cc,0 10px 40px #00000080;overflow:hidden}
- .premium-workspace .dashboard-shell>main.dashboard-main{overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:24px!important}
-}
 
 /* Header always compact mobile style */
 .premium-workspace .dashboard-header{height:62px;padding:0 20px;border-bottom:0;flex-shrink:0}
@@ -823,8 +827,8 @@ main h1:focus{outline:none}
 .premium-workspace .mainnet-label{display:none}
 .premium-workspace .dashboard-header .avatar{width:32px;height:32px;font-size:13px}
 
-/* Main — mobile paddings always, extra bottom to clear the tab bar */
-.premium-workspace .dashboard-main{max-width:none;padding:12px 20px 110px!important;margin:0;flex:1}
+/* Reserve room for the bottom navigation and device safe area. */
+.premium-workspace .dashboard-main{max-width:none;padding:12px 20px calc(110px + env(safe-area-inset-bottom))!important;margin:0;flex:1}
 .premium-workspace .dashboard-title{display:flex;flex-direction:column;align-items:flex-start;margin-bottom:20px;gap:4px}
 .premium-workspace .dashboard-title .eyebrow{font-size:11px}
 .premium-workspace .dashboard-title h1{font-size:26px;font-weight:700;letter-spacing:-.02em;max-width:none}
@@ -856,55 +860,26 @@ main h1:focus{outline:none}
 .premium-workspace .workspace-summary>a>svg{color:var(--ping-text-3);display:block;margin-left:auto}
 .premium-workspace .summary-icon{width:34px;height:34px;border-radius:10px;display:grid;place-items:center}
 
-/* Tables → card rows (overview holdings) */
-.premium-workspace .holdings [data-slot=table-container],
-.premium-workspace .recent-activity [data-slot=table-container],
-.premium-workspace .dashboard-main>section.card>[data-slot=table-container]{overflow:visible}
-.premium-workspace .holdings table,
-.premium-workspace .holdings tbody,
-.premium-workspace .holdings tr,
-.premium-workspace .holdings td{display:block;width:100%}
-.premium-workspace .holdings thead{display:none}
-.premium-workspace .holdings tr{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;padding:12px 0!important;border-bottom:1px solid var(--ping-border)}
-.premium-workspace .holdings tr:last-child{border-bottom:0}
-.premium-workspace .holdings td{padding:0!important;border:0;white-space:normal;min-width:0}
-.premium-workspace .holdings td:nth-child(2){display:none}
-.premium-workspace .holdings td:nth-child(3){text-align:right;color:var(--ping-text);font-weight:600;font-size:15px}
-.premium-workspace .holdings td:nth-child(3) small{color:var(--ping-text-3);font-weight:400;margin-left:4px}
-.premium-workspace .holdings .asset-name strong{font-size:15px;font-weight:500}
-.premium-workspace .holdings .asset-name small{font-size:12px}
-
-/* Recent activity (overview, 3 cols rendered via ActivityTable) and full Activity (5 cols) — stacked card rows */
-.premium-workspace .recent-activity table,
-.premium-workspace .recent-activity tbody,
-.premium-workspace .recent-activity tr,
-.premium-workspace .dashboard-main>section.card>[data-slot=table-container] table,
-.premium-workspace .dashboard-main>section.card>[data-slot=table-container] tbody,
-.premium-workspace .dashboard-main>section.card>[data-slot=table-container] tr{display:block;width:100%}
-.premium-workspace .recent-activity thead,
-.premium-workspace .dashboard-main>section.card>[data-slot=table-container] thead{display:none}
-.premium-workspace .recent-activity tr,
-.premium-workspace .dashboard-main>section.card>[data-slot=table-container] tr{display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto auto;row-gap:2px;column-gap:14px;padding:14px 0!important;border-bottom:1px solid var(--ping-border)}
-.premium-workspace .recent-activity tr:last-child,
-.premium-workspace .dashboard-main>section.card>[data-slot=table-container] tr:last-child{border-bottom:0}
-.premium-workspace .recent-activity td,
-.premium-workspace .dashboard-main>section.card>[data-slot=table-container] td{display:block;padding:0!important;border:0;font-size:12px;color:var(--ping-text-3);white-space:normal;min-width:0}
-.premium-workspace .recent-activity td:nth-child(1),
-.premium-workspace .dashboard-main>section.card>[data-slot=table-container] td:nth-child(1){grid-column:1;grid-row:1 / span 3;align-self:center}
-.premium-workspace .recent-activity td:nth-child(1) .asset-name>div>strong,
-.premium-workspace .dashboard-main>section.card>[data-slot=table-container] td:nth-child(1) .asset-name>div>strong{display:block;font-size:14px;color:var(--ping-text);font-weight:500}
-.premium-workspace .recent-activity td:nth-child(1) .asset-name>div>small,
-.premium-workspace .dashboard-main>section.card>[data-slot=table-container] td:nth-child(1) .asset-name>div>small{display:block;font-size:11px;color:var(--ping-text-3);margin-top:2px}
-.premium-workspace .recent-activity td:nth-child(2),
-.premium-workspace .dashboard-main>section.card>[data-slot=table-container] td:nth-child(2){display:none}
-.premium-workspace .recent-activity td:nth-child(3),
-.premium-workspace .dashboard-main>section.card>[data-slot=table-container] td:nth-child(3){grid-column:2;grid-row:1;text-align:right;color:var(--ping-text);font-weight:600;font-size:15px;white-space:nowrap}
-.premium-workspace .recent-activity td:nth-child(4),
-.premium-workspace .dashboard-main>section.card>[data-slot=table-container] td:nth-child(4){grid-column:2;grid-row:2;text-align:right;color:var(--ping-text-3);font-size:11px;white-space:nowrap}
-.premium-workspace .recent-activity td:nth-child(5),
-.premium-workspace .dashboard-main>section.card>[data-slot=table-container] td:nth-child(5){grid-column:2;grid-row:3;text-align:right;font-size:11px;white-space:nowrap}
-.premium-workspace .dashboard-main>section.card>[data-slot=table-container] td:nth-child(5) .explorer-link,
-.premium-workspace .recent-activity td:nth-child(5) .explorer-link{color:var(--ping-accent);font-size:11px}
+/* Keep amounts, dates, statuses and explorer links visible in compact rows. */
+.premium-workspace :is(.holdings-table,.activity-table) thead{display:none}
+.premium-workspace :is(.holdings-table,.activity-table) tbody{display:block}
+.premium-workspace :is(.holdings-table,.activity-table) tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:16px 0;border-bottom:1px solid #ffffff0c}
+.premium-workspace :is(.holdings-table,.activity-table) td{display:block;padding:0;min-width:0;white-space:normal}
+.premium-workspace .holdings-table .holding-asset{grid-column:1;grid-row:1 / span 2;align-self:center}
+.premium-workspace .holdings-table .holding-amount{grid-column:2;grid-row:2;font-size:11px;color:var(--ping-text-2)}
+.premium-workspace .holdings-table .holding-value{grid-column:2;grid-row:1;font-size:14px;color:var(--ping-text);font-weight:600}
+.premium-workspace .holdings-table td[colspan]{grid-column:1 / -1}
+.premium-workspace .activity-table .transfer-party{grid-column:1 / -1;grid-row:1;margin-bottom:6px}
+.premium-workspace .activity-table .transfer-asset{grid-column:1;grid-row:2}
+.premium-workspace .activity-table .transfer-date{grid-column:1;grid-row:3;color:var(--ping-text-2);font-size:11px}
+.premium-workspace .activity-table .transfer-status{grid-column:2;grid-row:2;text-align:right}
+.premium-workspace .activity-table .transfer-explorer{grid-column:2;grid-row:3;text-align:right}
+.premium-workspace .activity-table .activity-asset .token-icon,.premium-workspace .activity-table .activity-asset small{display:none}
+.premium-workspace .activity-table .activity-transfer strong{max-width:none;white-space:normal;overflow-wrap:anywhere}
+.premium-workspace .holdings-table .asset-name{gap:10px}
+.premium-workspace .holdings-table .asset-name strong{font-size:13px;overflow-wrap:anywhere}
+.premium-workspace .holdings-table .asset-name small{font-size:11px}
+.premium-workspace .holdings-table .token-icon{width:32px;height:32px}
 
 /* Contact cards — single column */
 .premium-workspace .contact-grid{display:flex;flex-direction:column;gap:14px}
@@ -925,12 +900,8 @@ main h1:focus{outline:none}
 .premium-workspace .send-note .text-link{color:var(--ping-accent);font-size:13px;display:inline-flex;align-items:center;gap:6px}
 
 /* Phantom-style floating glass tab bar */
-.ping-mobile-tabbar{position:fixed;left:16px;right:16px;bottom:14px;z-index:50;display:flex;background:rgba(28,29,38,0.65);border:0;border-radius:28px;padding:8px;gap:2px;backdrop-filter:blur(28px) saturate(1.6);-webkit-backdrop-filter:blur(28px) saturate(1.6);box-shadow:0 20px 60px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.04)}
-@media(min-width:480px){
- .ping-mobile-tabbar{position:relative;order:2;left:auto;right:auto;bottom:auto;width:420px;max-width:420px;background:rgba(28,29,38,0.85)}
- .premium-workspace .dashboard-shell{order:1}
-}
-.ping-mobile-tabbar>a{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;font-weight:500;color:var(--ping-text-3,#605B70);padding:12px 6px;border-radius:22px;text-decoration:none;transition:color .22s var(--ping-ease),background .22s var(--ping-ease),transform .22s var(--ping-ease);min-width:0}
+.ping-mobile-tabbar{position:fixed;left:16px;right:16px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:50;display:flex;background:rgba(28,29,38,0.65);border:0;border-radius:28px;padding:8px;gap:2px;backdrop-filter:blur(28px) saturate(1.6);-webkit-backdrop-filter:blur(28px) saturate(1.6);box-shadow:0 20px 60px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.04)}
+.ping-mobile-tabbar>a{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;font-weight:500;color:var(--ping-text-2,#9D97AD);padding:12px 6px;border-radius:22px;text-decoration:none;transition:color .22s var(--ping-ease),background .22s var(--ping-ease),transform .22s var(--ping-ease);min-width:0}
 .ping-mobile-tabbar>a>svg{flex-shrink:0;transition:transform .22s var(--ping-ease)}
 .ping-mobile-tabbar>a[data-active=true]{background:var(--ping-accent,#AB9FF2);color:#1a1430}
 .ping-mobile-tabbar>a[data-active=true]>svg{transform:scale(1.08)}
@@ -950,11 +921,6 @@ main h1:focus{outline:none}
 .premium-workspace .button:active{transform:scale(.98)}
 .premium-workspace .card-actions>button:active{transform:scale(.96)}
 .premium-workspace .ping-card-visual:active{transform:scale(.985) perspective(1200px) rotateY(0deg)}
-
-/* Disable page-switch animations (view transitions, flip, brand entrance) */
-::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}
-main,[data-route-pending] main{opacity:1!important;transform:none!important}
-.brand-entrance{display:none!important}
 
 /* Consistent card padding — pre-existing mobile rules only set vertical padding and left content pressed against the border */
 .premium-workspace .dashboard-main .card,
@@ -978,22 +944,25 @@ main,[data-route-pending] main{opacity:1!important;transform:none!important}
 .premium-workspace .amount-input>span{display:inline-flex;align-items:center;gap:7px;color:var(--ping-text-2);font-size:13px;font-weight:500}
 .premium-workspace .amount-input>span>img{width:28px;height:28px;padding:4px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#38316A 0%,#1D1830 70%);border:1px solid #3A2E6A;box-shadow:0 0 15px #6E56CF24;object-fit:contain;box-sizing:border-box}
 
-/* Hide scrollbars inside the phone frame — scrolling still works, just invisible */
-html:has(.premium-workspace),
-body:has(.premium-workspace),
-.premium-workspace,
-.premium-workspace .dashboard-main,
-.premium-workspace .dashboard-shell{scrollbar-width:none;-ms-overflow-style:none}
-html:has(.premium-workspace)::-webkit-scrollbar,
-body:has(.premium-workspace)::-webkit-scrollbar,
-.premium-workspace::-webkit-scrollbar,
-.premium-workspace .dashboard-main::-webkit-scrollbar,
-.premium-workspace .dashboard-shell::-webkit-scrollbar{display:none;width:0;height:0}
-
 /* Consistent vertical spacing between top-level dashboard blocks */
 .premium-workspace .dashboard-main .recent-activity,
 .premium-workspace .dashboard-main .dashboard-two-column,
 .premium-workspace .dashboard-main .workspace-summary{margin-top:18px!important}
+
+/* Dialog is portaled outside .premium-workspace — these rules make the Ping theme apply there too */
+.ping-dialog{--ping-accent:#AB9FF2;--ping-accent-soft:#AB9FF224;--ping-surface:#13141A;--ping-surface-2:#1C1D26;--ping-surface-3:#232432;--ping-text:#F5F2FA;--ping-text-2:#9D97AD;--ping-text-3:#605B70;--ping-success:#45E39A;--ping-ease:cubic-bezier(0.2,0.8,0.2,1);color:var(--ping-text);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',system-ui,sans-serif}
+.ping-dialog h1,.ping-dialog h2,.ping-dialog h3,.ping-dialog [data-slot=dialog-title]{font-family:inherit!important;font-weight:700;letter-spacing:-.02em;color:var(--ping-text)}
+.ping-dialog .topup-success h3{font-size:22px;font-weight:700;letter-spacing:-.02em;color:var(--ping-text);margin:6px 0 2px}
+.ping-dialog .topup-success p{font-size:14px;color:var(--ping-text-2);margin:0 0 18px;font-weight:400}
+.ping-dialog .button.accent{background:var(--ping-accent)!important;background-image:none!important;color:#1a1430!important;border:0!important;border-radius:14px!important;min-height:48px;font-weight:600;box-shadow:none!important;transition:transform .22s var(--ping-ease),background .22s var(--ping-ease)}
+.ping-dialog .button.accent:hover{background:#C0B4F7!important;color:#1a1430!important}
+.ping-dialog .button.accent:active{transform:scale(.98)}
+.ping-dialog .button.outline{background:var(--ping-surface-2)!important;color:var(--ping-text)!important;border:0!important;border-radius:14px!important;min-height:48px;font-weight:500}
+.ping-dialog .button.outline:hover{background:var(--ping-surface-3)!important;color:var(--ping-text)!important}
+.ping-dialog .token-icon{background:radial-gradient(circle at 30% 30%,#38316A 0%,#1D1830 70%)!important;border:0!important;box-shadow:0 0 20px #AB9FF224!important;overflow:hidden;border-radius:50%!important;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.ping-dialog .token-icon img{width:72%;height:72%;object-fit:contain}
+
+}
 
 /* ================================================================= */
 /* Ping Card view — virtual Visa debit funded from crypto             */
@@ -1096,14 +1065,14 @@ body:has(.premium-workspace)::-webkit-scrollbar,
 .card-dialog .card-reveal-btn:hover{background:#AB9FF236!important}
 
 /* Dialog is portaled outside .premium-workspace — these rules make the Ping theme apply there too */
-.ping-dialog{--ping-accent:#AB9FF2;--ping-accent-soft:#AB9FF224;--ping-surface:#13141A;--ping-surface-2:#1C1D26;--ping-surface-3:#232432;--ping-text:#F5F2FA;--ping-text-2:#9D97AD;--ping-text-3:#605B70;--ping-success:#45E39A;--ping-ease:cubic-bezier(0.2,0.8,0.2,1);color:var(--ping-text);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',system-ui,sans-serif}
-.ping-dialog h1,.ping-dialog h2,.ping-dialog h3,.ping-dialog [data-slot=dialog-title]{font-family:inherit!important;font-weight:700;letter-spacing:-.02em;color:var(--ping-text)}
-.ping-dialog .topup-success h3{font-size:22px;font-weight:700;letter-spacing:-.02em;color:var(--ping-text);margin:6px 0 2px}
-.ping-dialog .topup-success p{font-size:14px;color:var(--ping-text-2);margin:0 0 18px;font-weight:400}
-.ping-dialog .button.accent{background:var(--ping-accent)!important;background-image:none!important;color:#1a1430!important;border:0!important;border-radius:14px!important;min-height:48px;font-weight:600;box-shadow:none!important;transition:transform .22s var(--ping-ease),background .22s var(--ping-ease)}
-.ping-dialog .button.accent:hover{background:#C0B4F7!important;color:#1a1430!important}
-.ping-dialog .button.accent:active{transform:scale(.98)}
-.ping-dialog .button.outline{background:var(--ping-surface-2)!important;color:var(--ping-text)!important;border:0!important;border-radius:14px!important;min-height:48px;font-weight:500}
-.ping-dialog .button.outline:hover{background:var(--ping-surface-3)!important;color:var(--ping-text)!important}
-.ping-dialog .token-icon{background:radial-gradient(circle at 30% 30%,#38316A 0%,#1D1830 70%)!important;border:0!important;box-shadow:0 0 20px #AB9FF224!important;overflow:hidden;border-radius:50%!important;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
-.ping-dialog .token-icon img{width:72%;height:72%;object-fit:contain}
+.card-dialog.ping-dialog{--ping-accent:#AB9FF2;--ping-accent-soft:#AB9FF224;--ping-surface:#13141A;--ping-surface-2:#1C1D26;--ping-surface-3:#232432;--ping-text:#F5F2FA;--ping-text-2:#9D97AD;--ping-text-3:#605B70;--ping-success:#45E39A;--ping-ease:cubic-bezier(0.2,0.8,0.2,1);color:var(--ping-text);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',system-ui,sans-serif}
+.card-dialog.ping-dialog h1,.card-dialog.ping-dialog h2,.card-dialog.ping-dialog h3,.card-dialog.ping-dialog [data-slot=dialog-title]{font-family:inherit!important;font-weight:700;letter-spacing:-.02em;color:var(--ping-text)}
+.card-dialog.ping-dialog .topup-success h3{font-size:22px;font-weight:700;letter-spacing:-.02em;color:var(--ping-text);margin:6px 0 2px}
+.card-dialog.ping-dialog .topup-success p{font-size:14px;color:var(--ping-text-2);margin:0 0 18px;font-weight:400}
+.card-dialog.ping-dialog .button.accent{background:var(--ping-accent)!important;background-image:none!important;color:#1a1430!important;border:0!important;border-radius:14px!important;min-height:48px;font-weight:600;box-shadow:none!important;transition:transform .22s var(--ping-ease),background .22s var(--ping-ease)}
+.card-dialog.ping-dialog .button.accent:hover{background:#C0B4F7!important;color:#1a1430!important}
+.card-dialog.ping-dialog .button.accent:active{transform:scale(.98)}
+.card-dialog.ping-dialog .button.outline{background:var(--ping-surface-2)!important;color:var(--ping-text)!important;border:0!important;border-radius:14px!important;min-height:48px;font-weight:500}
+.card-dialog.ping-dialog .button.outline:hover{background:var(--ping-surface-3)!important;color:var(--ping-text)!important}
+.card-dialog.ping-dialog .token-icon{background:radial-gradient(circle at 30% 30%,#38316A 0%,#1D1830 70%)!important;border:0!important;box-shadow:0 0 20px #AB9FF224!important;overflow:hidden;border-radius:50%!important;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.card-dialog.ping-dialog .token-icon img{width:72%;height:72%;object-fit:contain}

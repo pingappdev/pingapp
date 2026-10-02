@@ -1,4 +1,12 @@
-import { ArrowUpRight, CreditCard, History, Hourglass, LayoutGrid, Settings, Users } from "lucide-react";
+import {
+  ArrowUpRight,
+  CreditCard,
+  History,
+  Hourglass,
+  LayoutGrid,
+  Settings,
+  Users,
+} from "lucide-react";
 
 export const nav = [
   { id: "overview", name: "Overview", icon: LayoutGrid },
