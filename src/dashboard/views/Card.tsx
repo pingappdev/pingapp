@@ -278,7 +278,7 @@ export default function Card() {
                   >
                     Top up ${fmtUsd(Number(topUpAmount || 0))} <ArrowUpRight size={16} />
                   </button>
-                  <p className="field-help">Crypto is converted to USD and loaded onto your card instantly. No fees.</p>
+                  <p className="field-help">Crypto is converted to USD and loaded onto your card instantly.</p>
                 </>
               )}
             </>
