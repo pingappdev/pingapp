@@ -18,6 +18,7 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
+import "./card.css";
 
 const CARD = {
   lastFour: "4297",
@@ -30,7 +31,7 @@ const CARD = {
   holderName: "Dev Preview",
 };
 
-const RATE_FALLBACK = 2700;
+const DEMO_ETH_RATE = 2700;
 
 function fmtUsd(value: number) {
   return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -51,114 +52,163 @@ export default function Card() {
   const [modal, setModal] = useState<"topup" | "details" | "">("");
   const [topUpAmount, setTopUpAmount] = useState("50");
   const [topUpDone, setTopUpDone] = useState(false);
+  const numericTopUpAmount = Number(topUpAmount);
+  const validTopUpAmount = Number.isFinite(numericTopUpAmount) && numericTopUpAmount > 0;
   const spentPct = Math.min((CARD.spent / CARD.limit) * 100, 100);
 
   return (
     <div className="card-view">
-      <div
-        className={"ping-card-visual" + (frozen ? " frozen" : "")}
-        onClick={() => setRevealed((r) => !r)}
-      >
-        <div className="ping-card-shine" />
-        <div className="ping-card-inner">
-          <div className="ping-card-top">
-            <span className="ping-card-brand">
-              <span className="ping-card-mark" />
-              <strong>Ping</strong>
-            </span>
-            {frozen ? (
-              <span className="ping-card-frozen">
-                <Snowflake size={10} />
-                FROZEN
-              </span>
-            ) : (
-              <span className="ping-card-network">VISA</span>
-            )}
-          </div>
-          <div className="ping-card-number">
-            {revealed ? CARD.number : `•••• •••• •••• ${CARD.lastFour}`}
-          </div>
-          <div className="ping-card-row">
-            <div>
-              <small>EXPIRES</small>
-              <span>{revealed ? CARD.expiry : "••/••"}</span>
-            </div>
-            <div>
-              <small>CVV</small>
-              <span>{revealed ? CARD.cvv : "•••"}</span>
-            </div>
-            <div className="ping-card-wave" aria-hidden="true">
-              <span />
-              <span />
-              <span />
-            </div>
-          </div>
-        </div>
+      <div className="card-preview-note">
+        <span>Card preview</span>
+        <p>Sample balance and activity. Explore the card with demo actions.</p>
       </div>
-
-      <div className="card-balance-block">
-        <span className="eyebrow">CARD BALANCE</span>
-        <div className="card-balance-amount">${fmtUsd(CARD.balance)}</div>
-      </div>
-
-      <div className="card-actions">
+      <div className="card-overview">
         <button
           type="button"
-          onClick={() => {
-            setTopUpDone(false);
-            setModal("topup");
-          }}
+          aria-label={revealed ? "Hide demo card details" : "Reveal demo card details"}
+          aria-pressed={revealed}
+          className={"ping-card-visual" + (frozen ? " frozen" : "")}
+          onClick={() => setRevealed((r) => !r)}
         >
-          <span className="card-action-icon">
-            <Plus size={20} />
+          <span className="ping-card-shine" />
+          <span className="ping-card-inner">
+            <span className="ping-card-top">
+              <span className="ping-card-brand">
+                <span className="ping-card-mark" />
+                <strong>Ping</strong>
+              </span>
+              {frozen ? (
+                <span className="ping-card-frozen">
+                  <Snowflake size={10} />
+                  FROZEN
+                </span>
+              ) : (
+                <span className="ping-card-network">VISA</span>
+              )}
+            </span>
+            <span className="ping-card-number">
+              {revealed ? CARD.number : `•••• •••• •••• ${CARD.lastFour}`}
+            </span>
+            <span className="ping-card-row">
+              <span>
+                <small>EXPIRES</small>
+                <span>{revealed ? CARD.expiry : "••/••"}</span>
+              </span>
+              <span>
+                <small>CVV</small>
+                <span>{revealed ? CARD.cvv : "•••"}</span>
+              </span>
+              <span className="ping-card-wave" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </span>
+            </span>
           </span>
-          <small>Top Up</small>
         </button>
-        <button type="button" onClick={() => setFrozen((f) => !f)}>
-          <span className="card-action-icon">
-            {frozen ? <Flame size={20} /> : <Snowflake size={20} />}
-          </span>
-          <small>{frozen ? "Unfreeze" : "Freeze"}</small>
-        </button>
-        <button type="button" onClick={() => setModal("details")}>
-          <span className="card-action-icon">
-            <CreditCard size={20} />
-          </span>
-          <small>Details</small>
-        </button>
+
+        <div className="card-balance-block">
+          <span className="eyebrow">CARD BALANCE</span>
+          <div className="card-balance-amount">${fmtUsd(CARD.balance)}</div>
+        </div>
+
+        <div className="card-actions">
+          <button
+            type="button"
+            onClick={() => {
+              setTopUpDone(false);
+              setModal("topup");
+            }}
+          >
+            <span className="card-action-icon">
+              <Plus size={20} />
+            </span>
+            <small>Top Up</small>
+          </button>
+          <button
+            type="button"
+            aria-label={frozen ? "Unfreeze demo card" : "Freeze demo card"}
+            aria-pressed={frozen}
+            onClick={() => setFrozen((f) => !f)}
+          >
+            <span className="card-action-icon">
+              {frozen ? <Flame size={20} /> : <Snowflake size={20} />}
+            </span>
+            <small>{frozen ? "Unfreeze" : "Freeze"}</small>
+          </button>
+          <button type="button" onClick={() => setModal("details")}>
+            <span className="card-action-icon">
+              <CreditCard size={20} />
+            </span>
+            <small>Details</small>
+          </button>
+        </div>
       </div>
 
-      <section className="card card-spending">
-        <div className="panel-heading">
-          <h2>Spending</h2>
-          <span className="card-spending-period">This month</span>
-        </div>
-        <div className="card-spending-bar">
-          <div
-            style={{
-              width: `${spentPct}%`,
-              background: spentPct > 85 ? "var(--ping-warn)" : "var(--ping-accent)",
-            }}
-          />
-        </div>
-        <div className="card-spending-labels">
-          <span>
-            <strong>${fmtUsd(CARD.spent)}</strong> spent
-          </span>
-          <span>${fmtUsd(CARD.limit)} limit</span>
-        </div>
-      </section>
+      <div className="card-activity">
+        <section className="card card-spending">
+          <div className="panel-heading">
+            <h2>Spending</h2>
+            <span className="card-spending-period">This month</span>
+          </div>
+          <div className="card-spending-bar">
+            <div
+              style={{
+                width: `${spentPct}%`,
+                background: spentPct > 85 ? "var(--ping-warn)" : "var(--ping-accent)",
+              }}
+            />
+          </div>
+          <div className="card-spending-labels">
+            <span>
+              <strong>${fmtUsd(CARD.spent)}</strong> spent
+            </span>
+            <span>${fmtUsd(CARD.limit)} limit</span>
+          </div>
+        </section>
 
-      <section className="card card-tx-list">
-        <div className="panel-heading">
-          <h2>Recent transactions</h2>
-        </div>
-        <TxRow icon={<Coffee size={16} />} tone="muted" merchant="Starbucks Coffee" subtitle="Today · 8:42 AM" amount="-$5.75" />
-        <TxRow icon={<ArrowDown size={16} />} tone="success" merchant="Top up from ETH" subtitle="Yesterday" amount="+$200.00" positive />
-        <TxRow icon={<Film size={16} />} tone="muted" merchant="Netflix" subtitle="Oct 1 · 11:00 AM" amount="-$15.99" />
-        <TxRow icon={<ShoppingBag size={16} />} tone="muted" merchant="Whole Foods Market" subtitle="Sep 30 · 6:15 PM" amount="-$87.42" />
-        <TxRow icon={<Zap size={16} />} tone="muted" merchant="Electric Bill" subtitle="Sep 29" amount="-$124.50" />
-      </section>
+        <section className="card card-tx-list">
+          <div className="panel-heading">
+            <h2>Recent transactions</h2>
+          </div>
+          <TxRow
+            icon={<Coffee size={16} />}
+            tone="muted"
+            merchant="Starbucks Coffee"
+            subtitle="Today · 8:42 AM"
+            amount="-$5.75"
+          />
+          <TxRow
+            icon={<ArrowDown size={16} />}
+            tone="success"
+            merchant="Top up from ETH"
+            subtitle="Yesterday"
+            amount="+$200.00"
+            positive
+          />
+          <TxRow
+            icon={<Film size={16} />}
+            tone="muted"
+            merchant="Netflix"
+            subtitle="Oct 1 · 11:00 AM"
+            amount="-$15.99"
+          />
+          <TxRow
+            icon={<ShoppingBag size={16} />}
+            tone="muted"
+            merchant="Whole Foods Market"
+            subtitle="Sep 30 · 6:15 PM"
+            amount="-$87.42"
+          />
+          <TxRow
+            icon={<Zap size={16} />}
+            tone="muted"
+            merchant="Electric Bill"
+            subtitle="Sep 29"
+            amount="-$124.50"
+          />
+        </section>
+      </div>
 
       <section className="card card-info-block">
         <div className="panel-heading">
@@ -183,15 +233,17 @@ export default function Card() {
         <DialogContent className="ping-dialog card-dialog">
           {modal === "topup" && (
             <>
-              <DialogTitle>Top up card</DialogTitle>
-              <DialogDescription>Convert crypto to USD and load it onto your Ping Card.</DialogDescription>
+              <DialogTitle>Top up preview</DialogTitle>
+              <DialogDescription>Try a sample crypto top up. No funds will move.</DialogDescription>
               {topUpDone ? (
                 <div className="topup-success">
                   <span className="topup-check">
                     <Check size={32} />
                   </span>
-                  <h3>Card topped up!</h3>
-                  <p>${fmtUsd(Number(topUpAmount || 0))} added to your Ping Card.</p>
+                  <h3>Preview complete</h3>
+                  <p>
+                    You previewed a ${fmtUsd(numericTopUpAmount)} top up. Your balance is unchanged.
+                  </p>
                   <button
                     className="button accent"
                     onClick={() => {
@@ -212,7 +264,7 @@ export default function Card() {
                       </span>
                       <div>
                         <strong>ETH</strong>
-                        <small>Balance · Robinhood Chain</small>
+                        <small>Demo source · Robinhood Chain</small>
                       </div>
                     </div>
                   </div>
@@ -238,7 +290,10 @@ export default function Card() {
                       <input
                         inputMode="decimal"
                         value={topUpAmount}
-                        onChange={(e) => setTopUpAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (/^\d*(\.\d{0,2})?$/.test(value)) setTopUpAmount(value);
+                        }}
                         aria-label="Amount in USD"
                       />
                     </div>
@@ -248,6 +303,7 @@ export default function Card() {
                           key={preset}
                           type="button"
                           className={topUpAmount === preset ? "active" : ""}
+                          aria-pressed={topUpAmount === preset}
                           onClick={() => setTopUpAmount(preset)}
                         >
                           ${preset}
@@ -255,20 +311,22 @@ export default function Card() {
                       ))}
                     </div>
                   </div>
-                  {Number(topUpAmount) > 0 && (
+                  {validTopUpAmount && (
                     <div className="topup-rate">
-                      <span>Rate</span>
-                      <strong>1 ETH ≈ ${fmtUsd(RATE_FALLBACK)}</strong>
+                      <span>Sample rate</span>
+                      <strong>1 ETH ≈ ${fmtUsd(DEMO_ETH_RATE)}</strong>
                     </div>
                   )}
                   <button
                     className="button accent"
-                    disabled={!(Number(topUpAmount) > 0)}
+                    type="button"
+                    disabled={!validTopUpAmount}
                     onClick={() => {
                       setTopUpDone(true);
-                      toast.success("Card topped up");
+                      toast.success("Top up preview complete");
                       confetti({
                         particleCount: 120,
+                        disableForReducedMotion: true,
                         spread: 70,
                         startVelocity: 38,
                         origin: { y: 0.6 },
@@ -276,20 +334,33 @@ export default function Card() {
                       });
                     }}
                   >
-                    Top up ${fmtUsd(Number(topUpAmount || 0))} <ArrowUpRight size={16} />
+                    Preview ${fmtUsd(validTopUpAmount ? numericTopUpAmount : 0)} top up{" "}
+                    <ArrowUpRight size={16} />
                   </button>
-                  <p className="field-help">Crypto is converted to USD and loaded onto your card instantly.</p>
+                  <p className="field-help">
+                    Demo only. No wallet connection or payment is required.
+                  </p>
                 </>
               )}
             </>
           )}
           {modal === "details" && (
             <>
-              <DialogTitle>Card details</DialogTitle>
-              <DialogDescription>Reveal and copy the full card number and security details.</DialogDescription>
+              <DialogTitle>Demo card details</DialogTitle>
+              <DialogDescription>
+                These sample card details cannot be used for payments.
+              </DialogDescription>
               <div className="card-details-list">
-                <DetailRow label="Card number" value={revealed ? CARD.number : `•••• •••• •••• ${CARD.lastFour}`} copyValue={CARD.number} />
-                <DetailRow label="Expiry" value={revealed ? CARD.expiry : "••/••"} copyValue={CARD.expiry} />
+                <DetailRow
+                  label="Card number"
+                  value={revealed ? CARD.number : `•••• •••• •••• ${CARD.lastFour}`}
+                  copyValue={CARD.number}
+                />
+                <DetailRow
+                  label="Expiry"
+                  value={revealed ? CARD.expiry : "••/••"}
+                  copyValue={CARD.expiry}
+                />
                 <DetailRow label="CVV" value={revealed ? CARD.cvv : "•••"} copyValue={CARD.cvv} />
                 <DetailRow label="Cardholder" value={CARD.holderName} copyValue={CARD.holderName} />
               </div>
@@ -354,7 +425,15 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function DetailRow({ label, value, copyValue }: { label: string; value: string; copyValue: string }) {
+function DetailRow({
+  label,
+  value,
+  copyValue,
+}: {
+  label: string;
+  value: string;
+  copyValue: string;
+}) {
   return (
     <div className="card-detail-row">
       <div>
