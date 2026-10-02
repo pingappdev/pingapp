@@ -699,17 +699,22 @@ main h1:focus{outline:none}
 /* Scoped to .premium-workspace so the marketing site is unaffected.  */
 /* ================================================================= */
 .premium-workspace{
- --ping-bg:#0E1013;
- --ping-surface:#1A1C20;
- --ping-surface-2:#24262B;
- --ping-border:#2C2E34;
- --ping-text:#F4F3EF;
- --ping-text-2:#9A9CA3;
- --ping-text-3:#65676E;
- --ping-accent:#6E56CF;
- --ping-accent-soft:#6E56CF26;
+ /* Phantom-style 4-level elevation palette: no borders, no shadows, pure stacking contrast */
+ --ping-bg:#08080C;
+ --ping-surface:#13141A;
+ --ping-surface-2:#1C1D26;
+ --ping-surface-3:#232432;
+ --ping-border:transparent;
+ --ping-text:#F5F2FA;
+ --ping-text-2:#9D97AD;
+ --ping-text-3:#605B70;
+ --ping-accent:#AB9FF2;
+ --ping-accent-soft:#AB9FF224;
+ --ping-accent-strong:#8575DE;
  --ping-warn:#FF6B57;
- --ping-success:#34D399;
+ --ping-success:#45E39A;
+ --ping-ease:cubic-bezier(0.2,0.8,0.2,1);
+ --ping-ease-exit:cubic-bezier(0.25,1,0.5,1);
  background:var(--ping-bg);
  color:var(--ping-text);
  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
@@ -721,8 +726,8 @@ main h1:focus{outline:none}
 .premium-workspace .network-name{border-color:var(--ping-border);color:var(--ping-text-2);background:var(--ping-surface)}
 .premium-workspace .avatar{background:var(--ping-surface-2);color:var(--ping-text);border:1px solid var(--ping-border)}
 .premium-workspace .card,
-.premium-workspace .dashboard-main .card{background:var(--ping-surface);border:1px solid var(--ping-border);border-radius:16px}
-.premium-workspace .balance-card{background:var(--ping-surface);border:1px solid var(--ping-border);border-radius:16px}
+.premium-workspace .dashboard-main .card{background:var(--ping-surface);border:0;border-radius:20px}
+.premium-workspace .balance-card{background:var(--ping-surface);border:0;border-radius:20px}
 .premium-workspace .dashboard-title h1,
 .premium-workspace .error-panel h2,
 .premium-workspace .empty-state h2,
@@ -777,7 +782,7 @@ main h1:focus{outline:none}
 .premium-workspace .nav-active-dot{background:#fff}
 .premium-workspace .sidebar-note{border-color:var(--ping-border);background:var(--ping-surface-2);color:var(--ping-text-2)}
 .premium-workspace .sidebar-note strong{color:var(--ping-text)}
-.premium-workspace .ping-dialog{background:var(--ping-surface)!important;border:1px solid var(--ping-border)!important;border-radius:20px!important}
+.premium-workspace .ping-dialog{background:var(--ping-surface)!important;border:0!important;border-radius:24px!important;transition:transform .32s var(--ping-ease),opacity .24s var(--ping-ease-exit)!important}
 .premium-workspace .dashboard-bottom-line{color:var(--ping-text-3)}
 .premium-workspace .dashboard-bottom-line a{white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
 .premium-workspace .connection-status{color:var(--ping-text-2)}
@@ -919,16 +924,32 @@ main h1:focus{outline:none}
 .premium-workspace .send-note p{font-size:13px;line-height:1.55;color:var(--ping-text-2);margin:0 0 14px}
 .premium-workspace .send-note .text-link{color:var(--ping-accent);font-size:13px;display:inline-flex;align-items:center;gap:6px}
 
-/* Floating bottom tab bar — fixed to viewport on mobile; sits under the phone frame on desktop */
-.ping-mobile-tabbar{position:fixed;left:16px;right:16px;bottom:14px;z-index:50;display:flex;background:#1A1C20E6;border:1px solid var(--ping-border,#2C2E34);border-radius:999px;padding:6px;gap:2px;box-shadow:0 10px 30px #000000a0;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+/* Phantom-style floating glass tab bar */
+.ping-mobile-tabbar{position:fixed;left:16px;right:16px;bottom:14px;z-index:50;display:flex;background:rgba(28,29,38,0.65);border:0;border-radius:28px;padding:8px;gap:2px;backdrop-filter:blur(28px) saturate(1.6);-webkit-backdrop-filter:blur(28px) saturate(1.6);box-shadow:0 20px 60px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.04)}
 @media(min-width:480px){
- .ping-mobile-tabbar{position:relative;order:2;left:auto;right:auto;bottom:auto;width:420px;max-width:420px;background:var(--ping-surface,#1A1C20);box-shadow:0 20px 50px #00000090}
+ .ping-mobile-tabbar{position:relative;order:2;left:auto;right:auto;bottom:auto;width:420px;max-width:420px;background:rgba(28,29,38,0.85)}
  .premium-workspace .dashboard-shell{order:1}
 }
-.ping-mobile-tabbar>a{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;font-weight:500;color:var(--ping-text-3,#65676E);padding:11px 6px;border-radius:999px;text-decoration:none;transition:color .15s,background .15s;min-width:0}
-.ping-mobile-tabbar>a>svg{flex-shrink:0}
-.ping-mobile-tabbar>a[data-active=true]{background:var(--ping-accent,#6E56CF);color:#fff}
+.ping-mobile-tabbar>a{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;font-weight:500;color:var(--ping-text-3,#605B70);padding:12px 6px;border-radius:22px;text-decoration:none;transition:color .22s var(--ping-ease),background .22s var(--ping-ease),transform .22s var(--ping-ease);min-width:0}
+.ping-mobile-tabbar>a>svg{flex-shrink:0;transition:transform .22s var(--ping-ease)}
+.ping-mobile-tabbar>a[data-active=true]{background:var(--ping-accent,#AB9FF2);color:#1a1430}
+.ping-mobile-tabbar>a[data-active=true]>svg{transform:scale(1.08)}
 .ping-mobile-tabbar>a>span{display:none}
+
+/* Phantom-style physics easing on all interactive surfaces */
+.premium-workspace .button,
+.premium-workspace .card,
+.premium-workspace .input-icon,
+.premium-workspace .workspace-summary>a,
+.premium-workspace .contact-mini,
+.premium-workspace .ping-card-visual,
+.premium-workspace .card-actions>button,
+.premium-workspace .card-action-icon,
+.premium-workspace .topup-presets>button,
+.premium-workspace .ping-dialog{transition-timing-function:var(--ping-ease)!important;transition-duration:.24s!important}
+.premium-workspace .button:active{transform:scale(.98)}
+.premium-workspace .card-actions>button:active{transform:scale(.96)}
+.premium-workspace .ping-card-visual:active{transform:scale(.985) perspective(1200px) rotateY(0deg)}
 
 /* Disable page-switch animations (view transitions, flip, brand entrance) */
 ::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}
@@ -979,10 +1000,11 @@ body:has(.premium-workspace)::-webkit-scrollbar,
 /* ================================================================= */
 .premium-workspace .card-view{display:flex;flex-direction:column;gap:18px}
 
-/* The gradient card itself */
-.premium-workspace .ping-card-visual{position:relative;height:208px;border-radius:20px;background:linear-gradient(135deg,#7C5CFC 0%,#4A35A0 55%,#2D1F6B 100%);border:1px solid #ffffff26;overflow:hidden;cursor:pointer;box-shadow:0 20px 40px #6E56CF40,0 2px 8px #00000060;transition:transform .25s,box-shadow .25s;isolation:isolate}
-.premium-workspace .ping-card-visual:active{transform:scale(.985)}
-.premium-workspace .ping-card-visual.frozen{background:linear-gradient(135deg,#2A2D35,#1A1C20);border-color:var(--ping-border);box-shadow:none}
+/* Phantom-purple gradient card */
+.premium-workspace .ping-card-visual{position:relative;height:208px;border-radius:24px;background:linear-gradient(135deg,#C9BBFF 0%,#AB9FF2 35%,#6E5EC7 72%,#3B2F7A 100%);border:0;overflow:hidden;cursor:pointer;box-shadow:0 24px 48px rgba(171,159,242,0.28),0 2px 8px rgba(0,0,0,0.4);transition:transform .32s var(--ping-ease),box-shadow .32s var(--ping-ease);isolation:isolate;transform-style:preserve-3d;perspective:1200px}
+.premium-workspace .ping-card-visual:hover{transform:translateY(-2px) rotateX(2deg) rotateY(-1deg);box-shadow:0 32px 56px rgba(171,159,242,0.35),0 4px 12px rgba(0,0,0,0.5)}
+.premium-workspace .ping-card-visual:active{transform:scale(.985) rotateX(0) rotateY(0)}
+.premium-workspace .ping-card-visual.frozen{background:linear-gradient(135deg,#2A2D35,#13141A);box-shadow:none}
 .premium-workspace .ping-card-shine{position:absolute;inset:0;background:linear-gradient(100deg,transparent 20%,#ffffff14 50%,transparent 80%);transform:translateX(-100%);animation:ping-card-shine 4.5s ease-in-out infinite;z-index:1;pointer-events:none}
 .premium-workspace .ping-card-visual.frozen .ping-card-shine{display:none}
 @keyframes ping-card-shine{0%{transform:translateX(-100%)}60%,100%{transform:translateX(120%)}}

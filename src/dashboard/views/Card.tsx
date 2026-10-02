@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import confetti from "canvas-confetti";
 
 const CARD = {
   lastFour: "4297",
@@ -266,6 +267,13 @@ export default function Card() {
                     onClick={() => {
                       setTopUpDone(true);
                       toast.success("Card topped up");
+                      confetti({
+                        particleCount: 120,
+                        spread: 70,
+                        startVelocity: 38,
+                        origin: { y: 0.6 },
+                        colors: ["#AB9FF2", "#C9BBFF", "#8575DE", "#45E39A", "#F5F2FA"],
+                      });
                     }}
                   >
                     Top up ${fmtUsd(Number(topUpAmount || 0))} <ArrowUpRight size={16} />
