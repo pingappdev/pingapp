@@ -68,8 +68,13 @@
 }
 
 .card-dialog.ping-dialog {
+  width: min(420px, calc(100vw - 32px));
   max-height: calc(100svh - 32px);
   overflow-y: auto;
+}
+
+.card-dialog.ping-dialog > * {
+  flex-shrink: 0;
 }
 
 .card-dialog.ping-dialog .card-action-icon.small {

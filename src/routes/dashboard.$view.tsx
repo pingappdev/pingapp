@@ -12,7 +12,7 @@ const views: Record<string, { title: string; description: string }> = {
   },
   card: {
     title: "Ping Card — PingApp Dashboard",
-    description: "Your crypto-funded debit card. Top up, freeze, and spend anywhere.",
+    description: "Explore the Ping Card preview, sample spending, and demo top-ups.",
   },
   requests: {
     title: "Pending sends — PingApp Dashboard",

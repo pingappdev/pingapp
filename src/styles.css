@@ -818,10 +818,12 @@ main h1:focus{outline:none}
 
 /* Header always compact mobile style */
 .premium-workspace .dashboard-header{height:62px;padding:0 20px;border-bottom:0;flex-shrink:0}
+.premium-workspace .dashboard-header>div:first-child{min-width:0;flex:1}
+.premium-workspace .dashboard-header .dashboard-header-actions{flex-shrink:0}
 .premium-workspace .dashboard-header>div:first-child [data-slot=sidebar-trigger]{display:none!important}
 .premium-workspace .dashboard-header>div:first-child>span{display:none}
 .premium-workspace .dashboard-header>div:first-child>svg{display:none}
-.premium-workspace .dashboard-header>div:first-child strong{font-size:17px;font-weight:700;color:var(--ping-text);max-width:none;letter-spacing:-.01em}
+.premium-workspace .dashboard-header>div:first-child strong{font-size:17px;font-weight:700;color:var(--ping-text);max-width:100%;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .premium-workspace .network-name{font-size:12px;padding:5px 10px}
 .premium-workspace .network-label-robinhood img{width:98px;height:14px}
 .premium-workspace .mainnet-label{display:none}
@@ -890,6 +892,9 @@ main h1:focus{outline:none}
 /* Toolbars wrap */
 .premium-workspace .toolbar{flex-wrap:wrap;gap:14px}
 .premium-workspace .toolbar .input-icon{width:100%}
+.premium-workspace :is(.request-create-card,.settings-card) .panel-heading{align-items:flex-start;flex-direction:column}
+.premium-workspace :is(.request-create-card,.settings-card) .panel-heading>.button{white-space:nowrap}
+@media(max-width:374px){.premium-workspace .dashboard-header .network-title{display:none}.premium-workspace .dashboard-header .network-name{padding:5px}}
 
 /* Send page: give "Review before sending" the same dial/card look as other blocks, with breathing room above */
 .premium-workspace .send-grid>aside{display:flex;flex-direction:column;gap:16px}
