@@ -1092,5 +1092,15 @@ body:has(.premium-workspace)::-webkit-scrollbar,
 .card-dialog .card-detail-row>div>small{font-size:11px;color:var(--ping-text-3)}
 .card-dialog .card-detail-row>div>span{font-size:14px;font-weight:500;color:var(--ping-text);font-family:'SF Mono',ui-monospace,Menlo,Monaco,Consolas,monospace;letter-spacing:.03em}
 .card-dialog .card-detail-row>button{background:var(--ping-surface-2);border:0;color:var(--ping-text-2);width:34px;height:34px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
-.card-dialog .card-reveal-btn{width:100%;background:var(--ping-accent-soft)!important;color:var(--ping-accent)!important;border-color:transparent!important}
-.card-dialog .card-reveal-btn:hover{background:#6E56CF36!important}
+.card-dialog .card-reveal-btn{width:100%;background:var(--ping-accent-soft,#AB9FF224)!important;color:var(--ping-accent,#AB9FF2)!important;border-color:transparent!important}
+.card-dialog .card-reveal-btn:hover{background:#AB9FF236!important}
+
+/* Dialog is portaled outside .premium-workspace — these rules make the Ping theme apply there too */
+.ping-dialog{--ping-accent:#AB9FF2;--ping-accent-soft:#AB9FF224;--ping-surface:#13141A;--ping-surface-2:#1C1D26;--ping-surface-3:#232432;--ping-text:#F5F2FA;--ping-text-2:#9D97AD;--ping-text-3:#605B70;--ping-success:#45E39A;--ping-ease:cubic-bezier(0.2,0.8,0.2,1);color:var(--ping-text)}
+.ping-dialog .button.accent{background:var(--ping-accent)!important;background-image:none!important;color:#1a1430!important;border:0!important;border-radius:14px!important;min-height:48px;font-weight:600;box-shadow:none!important;transition:transform .22s var(--ping-ease),background .22s var(--ping-ease)}
+.ping-dialog .button.accent:hover{background:#C0B4F7!important;color:#1a1430!important}
+.ping-dialog .button.accent:active{transform:scale(.98)}
+.ping-dialog .button.outline{background:var(--ping-surface-2)!important;color:var(--ping-text)!important;border:0!important;border-radius:14px!important;min-height:48px;font-weight:500}
+.ping-dialog .button.outline:hover{background:var(--ping-surface-3)!important;color:var(--ping-text)!important}
+.ping-dialog .token-icon{background:radial-gradient(circle at 30% 30%,#38316A 0%,#1D1830 70%)!important;border:0!important;box-shadow:0 0 20px #AB9FF224!important;overflow:hidden;border-radius:50%!important;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.ping-dialog .token-icon img{width:72%;height:72%;object-fit:contain}
