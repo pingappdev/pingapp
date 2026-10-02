@@ -692,3 +692,383 @@ main h1:focus{outline:none}
 .request-page{display:grid;gap:18px}.request-create-card .panel-heading{margin-bottom:4px}.request-create-card .panel-heading .field-help{margin:8px 0 0}.request-form{display:grid;gap:18px;margin-top:18px}.request-form>p{margin:0}.request-token-picker{margin:0}.request-token-picker>label{display:block;font-size:12px;color:#b9a1c9;margin-bottom:10px}.request-token-popover{width:min(420px,calc(100vw - 32px));padding:0;overflow:hidden}.request-token-popover [cmdk-item]{min-height:54px}.request-token-option-name{display:flex;flex:1;min-width:0;flex-direction:column;gap:2px}.request-token-option-name small,.request-token-unavailable{font-size:10px;color:#aaa}.request-token-unavailable{margin-left:auto}.request-note-label{display:block;color:#b9a1c9;font-size:12px}.request-note{min-height:88px;resize:vertical}.request-note-label>small{display:block;text-align:right;color:#897e90;font-size:10px}.request-submit-row,.request-intent-actions,.request-sms-result,.claim-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.request-submit-row>.field-help{margin:0}.request-form-error{padding:13px 15px;border:1px solid #b7666640;border-radius:7px;background:#4d29291f;color:#f0aaaa;font-size:12px}.request-form-error p{margin:0 0 8px}.request-form-error .text-link{font-size:12px}.request-sms-result{justify-content:space-between;padding:16px;border:1px solid #a681bc35;border-radius:8px;background:#29212f;margin:18px 0}.request-sms-result p{margin:6px 0 0;color:#aaa;font-size:12px}.request-sms-result .request-intent-actions{justify-content:flex-end}.request-list-card .panel-heading{margin-bottom:8px}.request-list-card .panel-heading .field-help{margin:8px 0 0;max-width:520px;line-height:1.5}.request-intent-list{display:grid}.request-intent-row{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:16px 0;border-bottom:1px solid #ffffff12}.request-intent-row:last-child{border-bottom:0}.request-intent-main{display:flex;align-items:center;gap:12px;min-width:0}.request-intent-main>div{display:grid;gap:5px;min-width:0}.request-intent-main strong{font-size:13px;font-weight:500;overflow-wrap:anywhere}.request-intent-main small{font-size:11px;color:#9c929f;line-height:1.45}.request-intent-actions{justify-content:flex-end}.request-intent-actions .button{min-height:35px;padding:8px 11px;font-size:11px}.request-cancel-button,.request-open-invite{display:inline-flex;align-items:center;gap:6px;background:transparent;border:0;color:#b99ccc;font-size:11px;text-decoration:underline;text-underline-offset:3px;cursor:pointer}.request-cancel-button:disabled{opacity:.55;cursor:wait}.request-pending-item{border-bottom:1px solid #ffffff12}.request-pending-item:last-child{border-bottom:0}.request-pending-item .request-intent-row{border-bottom:0}.request-sms-status{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 12px 48px;color:#9e92a5;font-size:10px}.request-sms-status a{display:inline-flex;align-items:center;gap:5px;color:#c5a2dc}.request-empty{display:flex;align-items:center;gap:9px;padding:18px 0 4px;color:#9d92a5;font-size:12px}.request-empty svg{flex:none;color:#9b79ad}.request-query-message{display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:#bbabbf;font-size:12px}.request-query-message>svg{flex:none}.request-query-message .text-link{font-size:11px}.request-query-message small{width:100%;color:#998ca0}.request-inline-query-error{color:#bfa6ce;font-size:11px}.request-inline-query-error .text-link{font-size:11px}.request-history{padding:0 26px}.request-history>summary{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:21px 0;list-style:none;cursor:pointer;font-size:14px;font-weight:500}.request-history>summary::-webkit-details-marker{display:none}.request-history>summary>span:last-child{color:#9a8aa0;font-size:11px}.request-history[open]>summary{border-bottom:1px solid #ffffff14;margin-bottom:4px}.request-history .request-intent-actions .pill{white-space:nowrap}
 .claim-page{min-height:100vh;padding-top:130px}.claim-page>.wordmark{display:inline-flex;margin-bottom:0}.claim-card{max-width:700px;margin:42px auto 80px;padding:34px;background:#17151b;color:#f4edf8}.claim-summary .eyebrow{margin:32px 0 12px;color:#9a80aa;font-size:10px;letter-spacing:.14em}.claim-summary h1{margin:16px 0 18px;font:clamp(31px,5vw,50px)/1.08 Georgia,serif;letter-spacing:-.04em}.claim-token-line{display:flex;align-items:center;gap:11px;color:#e8d8f0;font-size:18px}.claim-token-line .token-icon{width:42px;height:42px}.claim-summary blockquote{margin:18px 0;padding-left:16px;border-left:2px solid #a77ac1;color:#c1aecb;font:italic 17px/1.5 Georgia,serif}.claim-meta{color:#a89caf;font-size:12px;line-height:1.8}.claim-safety{margin-top:26px;padding:16px 18px;border:1px solid #c6a76a35;border-radius:8px;background:#352e211c}.claim-safety strong{display:block;color:#e2c98d;font-size:12px}.claim-safety p{margin:7px 0 0;color:#c5b99d;font-size:12px;line-height:1.65}.claim-state{margin-top:28px}.claim-state h2{margin:0 0 12px;font-size:20px;line-height:1.35}.claim-state p{margin:10px 0 18px;color:#b4a9b9;font-size:13px;line-height:1.65}.claim-state .button,.claim-actions .button{margin-top:8px}.claim-state .text-link{display:flex;width:max-content;margin-top:12px;font-size:12px}.claim-loading{display:flex;align-items:center;gap:10px;color:#c6a6dc;font-size:13px}.claim-status-icon{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:1px solid #7fb89d55;border-radius:50%;color:#9ad2b1}.claim-recipient-ready{padding:15px;border:1px solid #7fb89d38;border-radius:8px;background:#1d30251f}.claim-link-feedback,.claim-phone-hint{padding:11px 13px;border-left:2px solid #9b75b4;background:#2b22311f}.claim-refresh-error{display:flex;align-items:center;gap:8px;color:#d1b8dc;font-size:11px}.claim-refresh-error .text-link{font-size:11px}.claim-actions{margin-top:20px}.claim-actions .button{margin:0}
 @media(max-width:767px){.request-intent-row{align-items:flex-start;flex-direction:column;gap:12px}.request-intent-actions{justify-content:flex-start}.request-intent-actions .button{flex:0 0 auto}.request-sms-status{margin-left:0;align-items:flex-start}.request-submit-row{align-items:flex-start;flex-direction:column}.request-sms-result{align-items:flex-start;flex-direction:column}.request-history{padding:0 20px}.claim-page{padding-top:105px}.claim-card{margin-top:28px;padding:24px}.claim-summary h1{font-size:34px}.claim-actions{align-items:stretch;flex-direction:column}.claim-actions .button{justify-content:center}}
+
+
+/* ================================================================= */
+/* PingApp native-app theme — adapts the iOS Ping app palette & layout to the webapp dashboard. */
+/* Scoped to .premium-workspace so the marketing site is unaffected.  */
+/* ================================================================= */
+.premium-workspace{
+ --ping-bg:#0E1013;
+ --ping-surface:#1A1C20;
+ --ping-surface-2:#24262B;
+ --ping-border:#2C2E34;
+ --ping-text:#F4F3EF;
+ --ping-text-2:#9A9CA3;
+ --ping-text-3:#65676E;
+ --ping-accent:#6E56CF;
+ --ping-accent-soft:#6E56CF26;
+ --ping-warn:#FF6B57;
+ --ping-success:#34D399;
+ background:var(--ping-bg);
+ color:var(--ping-text);
+ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+}
+.premium-workspace .dashboard-shell{background:var(--ping-bg);color:var(--ping-text)}
+.premium-workspace .dashboard-header{border-color:var(--ping-border)}
+.premium-workspace .dashboard-header strong{color:var(--ping-text)}
+.premium-workspace .dashboard-header>div{color:var(--ping-text-3)}
+.premium-workspace .network-name{border-color:var(--ping-border);color:var(--ping-text-2);background:var(--ping-surface)}
+.premium-workspace .avatar{background:var(--ping-surface-2);color:var(--ping-text);border:1px solid var(--ping-border)}
+.premium-workspace .card,
+.premium-workspace .dashboard-main .card{background:var(--ping-surface);border:1px solid var(--ping-border);border-radius:16px}
+.premium-workspace .balance-card{background:var(--ping-surface);border:1px solid var(--ping-border);border-radius:16px}
+.premium-workspace .dashboard-title h1,
+.premium-workspace .error-panel h2,
+.premium-workspace .empty-state h2,
+.premium-workspace .ping-dialog [data-slot=dialog-title]{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;letter-spacing:-.02em;color:var(--ping-text)}
+.premium-workspace .dashboard-title .eyebrow,
+.premium-workspace .card-top>span,
+.premium-workspace .workspace-label{color:var(--ping-text-3);font-weight:600;letter-spacing:.08em}
+.premium-workspace .dashboard-title>div>p:last-child,
+.premium-workspace .balance-caption,
+.premium-workspace .quick-send>p,
+.premium-workspace .send-form>p,
+.premium-workspace .settings-card>p,
+.premium-workspace .panel-footnote,
+.premium-workspace .field-help{color:var(--ping-text-2)}
+.premium-workspace .button.accent{background:var(--ping-accent);color:#fff;border-radius:14px;min-height:48px;font-weight:600;box-shadow:none}
+.premium-workspace .button.accent:hover{background:#8370da}
+.premium-workspace .button.outline{background:var(--ping-surface);color:var(--ping-text);border:1px solid var(--ping-border);border-radius:14px;min-height:48px;font-weight:500}
+.premium-workspace .button.outline:hover{background:var(--ping-surface-2)}
+.premium-workspace .quick-send .light-button{background:var(--ping-surface-2);color:var(--ping-text);border-radius:14px;font-weight:500}
+.premium-workspace .quick-send .light-button:hover{background:#2d2f35}
+.premium-workspace .input-icon{background:var(--ping-surface);border:1px solid var(--ping-border);border-radius:14px;color:var(--ping-text-3)}
+.premium-workspace .input-icon input{color:var(--ping-text);padding:15px 0!important;font-size:14px!important}
+.premium-workspace .dashboard-main form input,
+.premium-workspace .ping-dialog form input,
+.premium-workspace .auth-input{background:var(--ping-surface);border:1px solid var(--ping-border);color:var(--ping-text);border-radius:14px;min-height:48px}
+.premium-workspace .dashboard-main form input:focus,
+.premium-workspace .ping-dialog form input:focus{border-color:var(--ping-accent)}
+.premium-workspace .dashboard-main form label>[data-slot=select-trigger],
+.premium-workspace .network-select{background:var(--ping-surface)!important;border-color:var(--ping-border)!important;color:var(--ping-text);border-radius:14px!important}
+.premium-workspace .balance-number{font-weight:700;letter-spacing:-.03em;color:var(--ping-text)}
+.premium-workspace .balance-number>span{color:var(--ping-text-2)}
+.premium-workspace .status-dot{background:var(--ping-accent);box-shadow:0 0 10px #6E56CF60}
+.premium-workspace .round-icon{background:var(--ping-accent-soft);color:var(--ping-accent);border-radius:12px}
+.premium-workspace .token-icon{background:radial-gradient(circle at 30% 30%,#38316A 0%,#1D1830 70%);border:1px solid #3A2E6A;box-shadow:0 0 20px #6E56CF24;overflow:hidden}
+.premium-workspace .token-icon img{width:72%;height:72%;object-fit:contain}
+.premium-workspace .contact-initial{background:var(--ping-surface-2);border:1px solid var(--ping-border);color:var(--ping-text);font-weight:600}
+.premium-workspace .pill{background:var(--ping-surface-2);border:1px solid var(--ping-border);color:var(--ping-text-2);border-radius:999px}
+.premium-workspace .address-copy{background:var(--ping-surface-2);color:var(--ping-text-2);border-radius:12px}
+.premium-workspace .settings-address{background:var(--ping-surface-2);color:var(--ping-text-2);border-radius:12px}
+.premium-workspace .workspace-summary{background:var(--ping-surface);border:1px solid var(--ping-border);border-radius:16px}
+.premium-workspace .workspace-summary>a+a{border-color:var(--ping-border)}
+.premium-workspace .workspace-summary strong{color:var(--ping-text);font-weight:600}
+.premium-workspace .workspace-summary small{color:var(--ping-text-3)}
+.premium-workspace .summary-icon{background:var(--ping-accent-soft);color:var(--ping-accent);border-radius:12px}
+.premium-workspace .ping-sidebar{border-color:var(--ping-border)!important}
+.premium-workspace .ping-sidebar [data-slot=sidebar-inner],
+.premium-workspace [data-slot=sidebar][data-mobile=true] [data-slot=sidebar-inner]{background:var(--ping-surface)}
+.premium-workspace .ping-sidebar [data-slot=sidebar-menu-button][data-active=true],
+.premium-workspace [data-slot=sidebar][data-mobile=true] [data-slot=sidebar-menu-button][data-active=true]{background:var(--ping-accent);color:#fff}
+.premium-workspace .ping-sidebar [data-slot=sidebar-menu-button]:hover,
+.premium-workspace [data-slot=sidebar][data-mobile=true] [data-slot=sidebar-menu-button]:hover{background:var(--ping-surface-2);color:var(--ping-text)}
+.premium-workspace .nav-active-dot{background:#fff}
+.premium-workspace .sidebar-note{border-color:var(--ping-border);background:var(--ping-surface-2);color:var(--ping-text-2)}
+.premium-workspace .sidebar-note strong{color:var(--ping-text)}
+.premium-workspace .ping-dialog{background:var(--ping-surface)!important;border:1px solid var(--ping-border)!important;border-radius:20px!important}
+.premium-workspace .dashboard-bottom-line{color:var(--ping-text-3)}
+.premium-workspace .dashboard-bottom-line a{white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+.premium-workspace .connection-status{color:var(--ping-text-2)}
+.premium-workspace .asset-name strong{color:var(--ping-text)}
+.premium-workspace .asset-name small{color:var(--ping-text-3)}
+.premium-workspace .explorer-link{color:var(--ping-accent);border:0;background:none;padding:0}
+
+/* ================================================================= */
+/* Phone-frame layout — always render dashboard as a phone,          */
+/* at every screen size. On desktop, center it in a device bezel.    */
+/* ================================================================= */
+
+/* Hide sidebar completely — bottom tab bar is the only nav */
+.premium-workspace .ping-sidebar,
+.premium-workspace [data-slot=sidebar]{display:none!important}
+
+/* The frame — fills viewport on narrow screens, becomes a centered phone on wide ones */
+.premium-workspace{display:flex!important;justify-content:flex-start!important;align-items:center!important;flex-direction:column!important;background:#07080A!important;min-height:100vh;min-height:100svh}
+.premium-workspace .dashboard-shell{position:relative;flex:1 1 auto;width:100%;max-width:100%;min-height:100vh;min-height:100svh;background:var(--ping-bg);display:flex;flex-direction:column;overflow-x:hidden}
+/* Shadcn's sidebar renders an inline-flex peer DIV even when sidebar is display:none — hide that too */
+.premium-workspace>div.group.peer{display:none!important}
+
+/* Phone-shaped frame on desktop/tablet */
+@media(min-width:480px){
+ .premium-workspace{padding:28px 20px;gap:20px}
+ .premium-workspace .dashboard-shell{flex:0 0 auto;width:420px;max-width:420px;min-height:min(760px,calc(100svh - 160px));max-height:calc(100svh - 160px);border-radius:38px;border:1px solid #1E2024;box-shadow:0 0 0 10px #121418,0 40px 80px #000000cc,0 10px 40px #00000080;overflow:hidden}
+ .premium-workspace .dashboard-shell>main.dashboard-main{overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:24px!important}
+}
+
+/* Header always compact mobile style */
+.premium-workspace .dashboard-header{height:62px;padding:0 20px;border-bottom:0;flex-shrink:0}
+.premium-workspace .dashboard-header>div:first-child [data-slot=sidebar-trigger]{display:none!important}
+.premium-workspace .dashboard-header>div:first-child>span{display:none}
+.premium-workspace .dashboard-header>div:first-child>svg{display:none}
+.premium-workspace .dashboard-header>div:first-child strong{font-size:17px;font-weight:700;color:var(--ping-text);max-width:none;letter-spacing:-.01em}
+.premium-workspace .network-name{font-size:12px;padding:5px 10px}
+.premium-workspace .network-label-robinhood img{width:98px;height:14px}
+.premium-workspace .mainnet-label{display:none}
+.premium-workspace .dashboard-header .avatar{width:32px;height:32px;font-size:13px}
+
+/* Main — mobile paddings always, extra bottom to clear the tab bar */
+.premium-workspace .dashboard-main{max-width:none;padding:12px 20px 110px!important;margin:0;flex:1}
+.premium-workspace .dashboard-title{display:flex;flex-direction:column;align-items:flex-start;margin-bottom:20px;gap:4px}
+.premium-workspace .dashboard-title .eyebrow{font-size:11px}
+.premium-workspace .dashboard-title h1{font-size:26px;font-weight:700;letter-spacing:-.02em;max-width:none}
+.premium-workspace .dashboard-title>div>p:last-child{font-size:13px;color:var(--ping-text-2);line-height:1.5}
+.premium-workspace .dashboard-title>.button,
+.premium-workspace .dashboard-title>.connection-status{align-self:flex-start;margin-top:12px}
+
+/* Balance / Quick send always stacked (phone-column layout) */
+.premium-workspace .overview-grid,
+.premium-workspace .dashboard-two-column,
+.premium-workspace .send-grid,
+.premium-workspace .settings-grid{display:flex!important;flex-direction:column;gap:16px}
+.premium-workspace .send-grid{max-width:none}
+.premium-workspace .balance-card{padding:20px;border-radius:18px;background:var(--ping-surface);border:1px solid var(--ping-border)}
+.premium-workspace .balance-number{font-size:40px;margin:14px 0 6px}
+.premium-workspace .balance-actions{gap:10px;margin:20px 0 0}
+.premium-workspace .balance-actions .button{flex:1;min-height:46px;font-size:14px}
+.premium-workspace .balance-card-bottom{padding-top:16px;margin-top:18px;border-color:var(--ping-border);font-size:12px;color:var(--ping-text-2)}
+.premium-workspace .balance-card-bottom .non-custodial{font-size:11px}
+
+/* Workspace summary single-column */
+.premium-workspace .workspace-summary{display:flex;flex-direction:column;margin:16px 0;border-radius:16px}
+.premium-workspace .workspace-summary>a{padding:14px 16px;gap:12px;border:0}
+.premium-workspace .workspace-summary>a+a{border-top:1px solid var(--ping-border);border-left:0}
+.premium-workspace .workspace-summary>a>span:nth-child(2){flex:1;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.premium-workspace .workspace-summary small{font-size:12px;color:var(--ping-text-3);margin:0}
+.premium-workspace .workspace-summary strong{font-size:14px;color:var(--ping-text);font-weight:500}
+.premium-workspace .workspace-summary em{display:none}
+.premium-workspace .workspace-summary>a>svg{color:var(--ping-text-3);display:block;margin-left:auto}
+.premium-workspace .summary-icon{width:34px;height:34px;border-radius:10px;display:grid;place-items:center}
+
+/* Tables → card rows (overview holdings) */
+.premium-workspace .holdings [data-slot=table-container],
+.premium-workspace .recent-activity [data-slot=table-container],
+.premium-workspace .dashboard-main>section.card>[data-slot=table-container]{overflow:visible}
+.premium-workspace .holdings table,
+.premium-workspace .holdings tbody,
+.premium-workspace .holdings tr,
+.premium-workspace .holdings td{display:block;width:100%}
+.premium-workspace .holdings thead{display:none}
+.premium-workspace .holdings tr{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;padding:12px 0!important;border-bottom:1px solid var(--ping-border)}
+.premium-workspace .holdings tr:last-child{border-bottom:0}
+.premium-workspace .holdings td{padding:0!important;border:0;white-space:normal;min-width:0}
+.premium-workspace .holdings td:nth-child(2){display:none}
+.premium-workspace .holdings td:nth-child(3){text-align:right;color:var(--ping-text);font-weight:600;font-size:15px}
+.premium-workspace .holdings td:nth-child(3) small{color:var(--ping-text-3);font-weight:400;margin-left:4px}
+.premium-workspace .holdings .asset-name strong{font-size:15px;font-weight:500}
+.premium-workspace .holdings .asset-name small{font-size:12px}
+
+/* Recent activity (overview, 3 cols rendered via ActivityTable) and full Activity (5 cols) — stacked card rows */
+.premium-workspace .recent-activity table,
+.premium-workspace .recent-activity tbody,
+.premium-workspace .recent-activity tr,
+.premium-workspace .dashboard-main>section.card>[data-slot=table-container] table,
+.premium-workspace .dashboard-main>section.card>[data-slot=table-container] tbody,
+.premium-workspace .dashboard-main>section.card>[data-slot=table-container] tr{display:block;width:100%}
+.premium-workspace .recent-activity thead,
+.premium-workspace .dashboard-main>section.card>[data-slot=table-container] thead{display:none}
+.premium-workspace .recent-activity tr,
+.premium-workspace .dashboard-main>section.card>[data-slot=table-container] tr{display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto auto;row-gap:2px;column-gap:14px;padding:14px 0!important;border-bottom:1px solid var(--ping-border)}
+.premium-workspace .recent-activity tr:last-child,
+.premium-workspace .dashboard-main>section.card>[data-slot=table-container] tr:last-child{border-bottom:0}
+.premium-workspace .recent-activity td,
+.premium-workspace .dashboard-main>section.card>[data-slot=table-container] td{display:block;padding:0!important;border:0;font-size:12px;color:var(--ping-text-3);white-space:normal;min-width:0}
+.premium-workspace .recent-activity td:nth-child(1),
+.premium-workspace .dashboard-main>section.card>[data-slot=table-container] td:nth-child(1){grid-column:1;grid-row:1 / span 3;align-self:center}
+.premium-workspace .recent-activity td:nth-child(1) .asset-name>div>strong,
+.premium-workspace .dashboard-main>section.card>[data-slot=table-container] td:nth-child(1) .asset-name>div>strong{display:block;font-size:14px;color:var(--ping-text);font-weight:500}
+.premium-workspace .recent-activity td:nth-child(1) .asset-name>div>small,
+.premium-workspace .dashboard-main>section.card>[data-slot=table-container] td:nth-child(1) .asset-name>div>small{display:block;font-size:11px;color:var(--ping-text-3);margin-top:2px}
+.premium-workspace .recent-activity td:nth-child(2),
+.premium-workspace .dashboard-main>section.card>[data-slot=table-container] td:nth-child(2){display:none}
+.premium-workspace .recent-activity td:nth-child(3),
+.premium-workspace .dashboard-main>section.card>[data-slot=table-container] td:nth-child(3){grid-column:2;grid-row:1;text-align:right;color:var(--ping-text);font-weight:600;font-size:15px;white-space:nowrap}
+.premium-workspace .recent-activity td:nth-child(4),
+.premium-workspace .dashboard-main>section.card>[data-slot=table-container] td:nth-child(4){grid-column:2;grid-row:2;text-align:right;color:var(--ping-text-3);font-size:11px;white-space:nowrap}
+.premium-workspace .recent-activity td:nth-child(5),
+.premium-workspace .dashboard-main>section.card>[data-slot=table-container] td:nth-child(5){grid-column:2;grid-row:3;text-align:right;font-size:11px;white-space:nowrap}
+.premium-workspace .dashboard-main>section.card>[data-slot=table-container] td:nth-child(5) .explorer-link,
+.premium-workspace .recent-activity td:nth-child(5) .explorer-link{color:var(--ping-accent);font-size:11px}
+
+/* Contact cards — single column */
+.premium-workspace .contact-grid{display:flex;flex-direction:column;gap:14px}
+.premium-workspace .contact-card{border-radius:16px}
+.premium-workspace .contact-card h2{font-size:17px;font-weight:600;letter-spacing:-.01em}
+.premium-workspace .contact-card .button.outline{min-height:46px}
+
+/* Toolbars wrap */
+.premium-workspace .toolbar{flex-wrap:wrap;gap:14px}
+.premium-workspace .toolbar .input-icon{width:100%}
+
+/* Send page: give "Review before sending" the same dial/card look as other blocks, with breathing room above */
+.premium-workspace .send-grid>aside{display:flex;flex-direction:column;gap:16px}
+.premium-workspace .send-note{background:var(--ping-surface);border:1px solid var(--ping-border);border-radius:16px;padding:22px!important;margin-top:4px}
+.premium-workspace .send-note>svg{color:var(--ping-accent);margin-bottom:14px}
+.premium-workspace .send-note h3{font-size:17px;font-weight:600;letter-spacing:-.01em;color:var(--ping-text);margin:0 0 10px}
+.premium-workspace .send-note p{font-size:13px;line-height:1.55;color:var(--ping-text-2);margin:0 0 14px}
+.premium-workspace .send-note .text-link{color:var(--ping-accent);font-size:13px;display:inline-flex;align-items:center;gap:6px}
+
+/* Floating bottom tab bar — fixed to viewport on mobile; sits under the phone frame on desktop */
+.ping-mobile-tabbar{position:fixed;left:16px;right:16px;bottom:14px;z-index:50;display:flex;background:#1A1C20E6;border:1px solid var(--ping-border,#2C2E34);border-radius:999px;padding:6px;gap:2px;box-shadow:0 10px 30px #000000a0;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+@media(min-width:480px){
+ .ping-mobile-tabbar{position:relative;order:2;left:auto;right:auto;bottom:auto;width:420px;max-width:420px;background:var(--ping-surface,#1A1C20);box-shadow:0 20px 50px #00000090}
+ .premium-workspace .dashboard-shell{order:1}
+}
+.ping-mobile-tabbar>a{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;font-weight:500;color:var(--ping-text-3,#65676E);padding:11px 6px;border-radius:999px;text-decoration:none;transition:color .15s,background .15s;min-width:0}
+.ping-mobile-tabbar>a>svg{flex-shrink:0}
+.ping-mobile-tabbar>a[data-active=true]{background:var(--ping-accent,#6E56CF);color:#fff}
+.ping-mobile-tabbar>a>span{display:none}
+
+/* Disable page-switch animations (view transitions, flip, brand entrance) */
+::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}
+main,[data-route-pending] main{opacity:1!important;transform:none!important}
+.brand-entrance{display:none!important}
+
+/* Consistent card padding — pre-existing mobile rules only set vertical padding and left content pressed against the border */
+.premium-workspace .dashboard-main .card,
+.premium-workspace .dashboard-main .holdings,
+.premium-workspace .dashboard-main .recent-activity,
+.premium-workspace .dashboard-main .contacts-preview,
+.premium-workspace .dashboard-main .quick-send,
+.premium-workspace .dashboard-main .send-form,
+.premium-workspace .dashboard-main .send-wallet,
+.premium-workspace .dashboard-main .settings-card,
+.premium-workspace .dashboard-main .contact-card{padding:22px!important}
+.premium-workspace .dashboard-main .balance-card{padding:22px!important}
+.premium-workspace .holdings .asset-name,
+.premium-workspace .recent-activity .asset-name,
+.premium-workspace .dashboard-main>section.card>[data-slot=table-container] .asset-name{gap:14px}
+
+/* ETH→USD live conversion under the amount input */
+.premium-workspace .amount-usd{margin:10px 2px 4px;font-size:13px;font-weight:500;color:var(--ping-accent);letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+
+/* Match the amount-input's ETH badge to the Asset balances token-icon look */
+.premium-workspace .amount-input>span{display:inline-flex;align-items:center;gap:7px;color:var(--ping-text-2);font-size:13px;font-weight:500}
+.premium-workspace .amount-input>span>img{width:28px;height:28px;padding:4px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#38316A 0%,#1D1830 70%);border:1px solid #3A2E6A;box-shadow:0 0 15px #6E56CF24;object-fit:contain;box-sizing:border-box}
+
+/* Hide scrollbars inside the phone frame — scrolling still works, just invisible */
+html:has(.premium-workspace),
+body:has(.premium-workspace),
+.premium-workspace,
+.premium-workspace .dashboard-main,
+.premium-workspace .dashboard-shell{scrollbar-width:none;-ms-overflow-style:none}
+html:has(.premium-workspace)::-webkit-scrollbar,
+body:has(.premium-workspace)::-webkit-scrollbar,
+.premium-workspace::-webkit-scrollbar,
+.premium-workspace .dashboard-main::-webkit-scrollbar,
+.premium-workspace .dashboard-shell::-webkit-scrollbar{display:none;width:0;height:0}
+
+/* Consistent vertical spacing between top-level dashboard blocks */
+.premium-workspace .dashboard-main .recent-activity,
+.premium-workspace .dashboard-main .dashboard-two-column,
+.premium-workspace .dashboard-main .workspace-summary{margin-top:18px!important}
+
+/* ================================================================= */
+/* Ping Card view — virtual Visa debit funded from crypto             */
+/* ================================================================= */
+.premium-workspace .card-view{display:flex;flex-direction:column;gap:18px}
+
+/* The gradient card itself */
+.premium-workspace .ping-card-visual{position:relative;height:208px;border-radius:20px;background:linear-gradient(135deg,#7C5CFC 0%,#4A35A0 55%,#2D1F6B 100%);border:1px solid #ffffff26;overflow:hidden;cursor:pointer;box-shadow:0 20px 40px #6E56CF40,0 2px 8px #00000060;transition:transform .25s,box-shadow .25s;isolation:isolate}
+.premium-workspace .ping-card-visual:active{transform:scale(.985)}
+.premium-workspace .ping-card-visual.frozen{background:linear-gradient(135deg,#2A2D35,#1A1C20);border-color:var(--ping-border);box-shadow:none}
+.premium-workspace .ping-card-shine{position:absolute;inset:0;background:linear-gradient(100deg,transparent 20%,#ffffff14 50%,transparent 80%);transform:translateX(-100%);animation:ping-card-shine 4.5s ease-in-out infinite;z-index:1;pointer-events:none}
+.premium-workspace .ping-card-visual.frozen .ping-card-shine{display:none}
+@keyframes ping-card-shine{0%{transform:translateX(-100%)}60%,100%{transform:translateX(120%)}}
+.premium-workspace .ping-card-inner{position:relative;z-index:2;height:100%;padding:22px;display:flex;flex-direction:column;justify-content:space-between;color:#fff}
+.premium-workspace .ping-card-top{display:flex;align-items:center;justify-content:space-between}
+.premium-workspace .ping-card-brand{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:700;letter-spacing:-.01em}
+.premium-workspace .ping-card-mark{width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#C9B9FF,#6E56CF 55%,#3C2A89);box-shadow:0 0 12px #6E56CF80}
+.premium-workspace .ping-card-network{font-size:15px;font-weight:700;letter-spacing:.05em;color:#ffffffb3;font-family:-apple-system,BlinkMacSystemFont,sans-serif}
+.premium-workspace .ping-card-frozen{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--ping-text-3);background:#ffffff14;padding:5px 10px;border-radius:999px}
+.premium-workspace .ping-card-visual.frozen .ping-card-number,
+.premium-workspace .ping-card-visual.frozen .ping-card-row>div>span{color:#ffffff66}
+.premium-workspace .ping-card-number{font-size:19px;letter-spacing:.08em;font-weight:600;font-family:'SF Mono',ui-monospace,Menlo,Monaco,Consolas,monospace;color:#ffffffe8}
+.premium-workspace .ping-card-row{display:flex;align-items:center;gap:28px}
+.premium-workspace .ping-card-row>div{display:flex;flex-direction:column;gap:3px}
+.premium-workspace .ping-card-row>div>small{font-size:9px;font-weight:700;letter-spacing:.1em;color:#ffffff80}
+.premium-workspace .ping-card-row>div>span{font-size:13px;font-weight:600;color:#ffffffd9;font-family:'SF Mono',ui-monospace,Menlo,Monaco,Consolas,monospace;letter-spacing:.04em}
+.premium-workspace .ping-card-wave{margin-left:auto;display:inline-flex;flex-direction:column;gap:2px;transform:rotate(90deg);opacity:.45}
+.premium-workspace .ping-card-wave>span{display:block;width:4px;height:4px;border-radius:50%;background:#fff}
+
+/* Card balance block */
+.premium-workspace .card-balance-block{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 0 6px}
+.premium-workspace .card-balance-block .eyebrow{font-size:11px}
+.premium-workspace .card-balance-amount{font-size:34px;font-weight:700;letter-spacing:-.03em;color:var(--ping-text);font-variant-numeric:tabular-nums}
+
+/* Action row */
+.premium-workspace .card-actions{display:flex;gap:10px}
+.premium-workspace .card-actions>button{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 8px;background:none;border:0;color:var(--ping-text-2);font-size:12px;font-weight:500;cursor:pointer;border-radius:14px;transition:background .15s}
+.premium-workspace .card-actions>button:hover{background:var(--ping-surface)}
+.premium-workspace .card-action-icon{display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:14px;background:var(--ping-accent-soft);color:var(--ping-accent)}
+.premium-workspace .card-action-icon.small{width:34px;height:34px;border-radius:50%}
+
+/* Spending card */
+.premium-workspace .card-spending .panel-heading{margin-bottom:14px}
+.premium-workspace .card-spending-period{font-size:12px;color:var(--ping-text-2)}
+.premium-workspace .card-spending-bar{height:8px;border-radius:4px;background:var(--ping-surface-2);overflow:hidden;margin:0 0 10px}
+.premium-workspace .card-spending-bar>div{height:100%;border-radius:4px;transition:width .3s ease}
+.premium-workspace .card-spending-labels{display:flex;justify-content:space-between;font-size:12px;color:var(--ping-text-2)}
+.premium-workspace .card-spending-labels strong{color:var(--ping-text);font-weight:600;margin-right:4px}
+
+/* Transaction list */
+.premium-workspace .card-tx-list .panel-heading{margin-bottom:4px}
+.premium-workspace .card-tx-row{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;padding:14px 0;border-bottom:1px solid var(--ping-border)}
+.premium-workspace .card-tx-row:last-child{border-bottom:0}
+.premium-workspace .card-tx-icon{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:10px;flex-shrink:0}
+.premium-workspace .card-tx-icon.muted{background:var(--ping-surface-2);color:var(--ping-text-2)}
+.premium-workspace .card-tx-icon.success{background:#34D39924;color:var(--ping-success)}
+.premium-workspace .card-tx-row>div{min-width:0;display:flex;flex-direction:column;gap:2px}
+.premium-workspace .card-tx-row>div>strong{font-size:14px;font-weight:500;color:var(--ping-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.premium-workspace .card-tx-row>div>small{font-size:11px;color:var(--ping-text-3)}
+.premium-workspace .card-tx-amount{font-size:14px;font-weight:600;color:var(--ping-text);font-variant-numeric:tabular-nums;white-space:nowrap}
+.premium-workspace .card-tx-amount.positive{color:var(--ping-success)}
+
+/* Card info rows */
+.premium-workspace .card-info-block .panel-heading{margin-bottom:4px}
+.premium-workspace .card-info-row{display:flex;justify-content:space-between;align-items:center;padding:13px 0;border-bottom:1px solid var(--ping-border);font-size:14px}
+.premium-workspace .card-info-row:last-child{border-bottom:0}
+.premium-workspace .card-info-row>span{color:var(--ping-text-2);font-weight:500}
+.premium-workspace .card-info-row>strong{color:var(--ping-text);font-weight:500}
+
+/* Card dialogs: Top Up + Details */
+.card-dialog.ping-dialog{max-width:420px;display:flex;flex-direction:column;gap:14px}
+.card-dialog .topup-section{display:flex;flex-direction:column;gap:8px}
+.card-dialog .topup-source{display:flex;align-items:center;gap:12px;padding:14px;background:var(--ping-surface);border:1px solid var(--ping-border);border-radius:14px}
+.card-dialog .topup-source>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.card-dialog .topup-source>div>strong{font-size:14px;font-weight:600;color:var(--ping-text)}
+.card-dialog .topup-source>div>small{font-size:12px;color:var(--ping-text-3)}
+.card-dialog .topup-arrow{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:var(--ping-surface-2);color:var(--ping-text-2);margin:-6px auto}
+.card-dialog .topup-amount{display:flex;flex-direction:column;align-items:center;gap:10px;padding:14px 0}
+.card-dialog .topup-amount-row{display:flex;align-items:baseline;gap:4px;color:var(--ping-text);font-size:38px;font-weight:700;letter-spacing:-.03em}
+.card-dialog .topup-amount-row>input{all:unset;width:140px;text-align:center;font-size:38px;font-weight:700;color:var(--ping-text);letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.card-dialog .topup-presets{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.card-dialog .topup-presets>button{background:var(--ping-surface-2);color:var(--ping-text-2);border:0;border-radius:999px;padding:7px 14px;font-size:13px;font-weight:500;cursor:pointer;transition:background .12s,color .12s}
+.card-dialog .topup-presets>button.active{background:var(--ping-accent);color:#fff}
+.card-dialog .topup-rate{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--ping-surface);border-radius:10px;font-size:13px;color:var(--ping-text-2)}
+.card-dialog .topup-rate>strong{color:var(--ping-text);font-weight:600}
+.card-dialog .topup-success{display:flex;flex-direction:column;align-items:center;gap:10px;padding:30px 0 10px;text-align:center}
+.card-dialog .topup-check{display:inline-flex;align-items:center;justify-content:center;width:58px;height:58px;border-radius:50%;background:#34D39924;color:var(--ping-success)}
+.card-dialog .topup-success h3{font-size:20px;font-weight:700;color:var(--ping-text);margin:4px 0 0}
+.card-dialog .topup-success p{font-size:14px;color:var(--ping-text-2);margin:0 0 12px}
+.card-dialog .topup-success .button{width:100%}
+.card-dialog .card-details-list{display:flex;flex-direction:column;background:var(--ping-surface);border:1px solid var(--ping-border);border-radius:14px;padding:0 14px}
+.card-dialog .card-detail-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--ping-border);gap:12px}
+.card-dialog .card-detail-row:last-child{border-bottom:0}
+.card-dialog .card-detail-row>div{display:flex;flex-direction:column;gap:3px;min-width:0}
+.card-dialog .card-detail-row>div>small{font-size:11px;color:var(--ping-text-3)}
+.card-dialog .card-detail-row>div>span{font-size:14px;font-weight:500;color:var(--ping-text);font-family:'SF Mono',ui-monospace,Menlo,Monaco,Consolas,monospace;letter-spacing:.03em}
+.card-dialog .card-detail-row>button{background:var(--ping-surface-2);border:0;color:var(--ping-text-2);width:34px;height:34px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.card-dialog .card-reveal-btn{width:100%;background:var(--ping-accent-soft)!important;color:var(--ping-accent)!important;border-color:transparent!important}
+.card-dialog .card-reveal-btn:hover{background:#6E56CF36!important}

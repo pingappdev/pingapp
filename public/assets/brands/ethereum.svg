@@ -1,1 +1,26 @@
-<svg enable-background="new 0 0 1920 1920" viewBox="0 0 1920 1920" xmlns="http://www.w3.org/2000/svg"><path d="m959.8 80.7-539.7 895.6 539.7-245.3z" fill="#8a92b2"/><path d="m959.8 731-539.7 245.3 539.7 319.1z" fill="#62688f"/><path d="m1499.6 976.3-539.8-895.6v650.3z" fill="#62688f"/><path d="m959.8 1295.4 539.8-319.1-539.8-245.3z" fill="#454a75"/><path d="m420.1 1078.7 539.7 760.6v-441.7z" fill="#8a92b2"/><path d="m959.8 1397.6v441.7l540.1-760.6z" fill="#62688f"/></svg>
+<svg viewBox="0 0 1920 1920" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="eth-top-light" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D7CBF6"/>
+      <stop offset="100%" stop-color="#A08EE3"/>
+    </linearGradient>
+    <linearGradient id="eth-bot-light" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#C4B4F0"/>
+      <stop offset="100%" stop-color="#8A74DE"/>
+    </linearGradient>
+    <linearGradient id="eth-top-dark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8871DA"/>
+      <stop offset="100%" stop-color="#5B45B5"/>
+    </linearGradient>
+    <linearGradient id="eth-mid-dark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4F3BA6"/>
+      <stop offset="100%" stop-color="#2E2278"/>
+    </linearGradient>
+  </defs>
+  <path d="m959.8 80.7-539.7 895.6 539.7-245.3z" fill="url(#eth-top-light)"/>
+  <path d="m959.8 731-539.7 245.3 539.7 319.1z" fill="url(#eth-top-dark)"/>
+  <path d="m1499.6 976.3-539.8-895.6v650.3z" fill="url(#eth-top-dark)"/>
+  <path d="m959.8 1295.4 539.8-319.1-539.8-245.3z" fill="url(#eth-mid-dark)"/>
+  <path d="m420.1 1078.7 539.7 760.6v-441.7z" fill="url(#eth-bot-light)"/>
+  <path d="m959.8 1397.6v441.7l540.1-760.6z" fill="url(#eth-top-dark)"/>
+</svg>
