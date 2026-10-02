@@ -29,6 +29,7 @@ import RemoveContactDialog from "./components/RemoveContactDialog";
 import WorkspaceBanners from "./components/WorkspaceBanners";
 import Overview from "./views/Overview";
 import Send from "./views/Send";
+import Card from "./views/Card";
 import Requests from "./views/Requests";
 import Contacts from "./views/Contacts";
 import Activity from "./views/Activity";
@@ -81,7 +82,7 @@ function DashboardLayout() {
             properties: {
               view: {
                 type: "string",
-                enum: ["overview", "send", "requests", "contacts", "activity", "settings"],
+                enum: ["overview", "send", "card", "requests", "contacts", "activity", "settings"],
               },
             },
             required: ["view"],
@@ -152,6 +153,18 @@ function DashboardLayout() {
           </a>
         </SidebarFooter>
       </Sidebar>
+      <nav className="ping-mobile-tabbar" aria-label="Dashboard sections">
+        {nav.map((item) => (
+          <a
+            key={item.id}
+            href={"/dashboard" + (item.id === "overview" ? "" : "/" + item.id)}
+            data-active={view === item.id}
+          >
+            <item.icon size={18} />
+            <span>{item.name === "Send crypto" ? "Send" : item.name === "Pending sends" ? "Pending" : item.name}</span>
+          </a>
+        ))}
+      </nav>
       <div className="dashboard-shell">
         <header className="dashboard-header">
           <div>
@@ -182,19 +195,21 @@ function DashboardLayout() {
           <div className="dashboard-title">
             <div>
               <p className="eyebrow">PINGAPP / WORKSPACE</p>
-              <h1>{view === "overview" ? "Crypto portfolio" : pageName}</h1>
+              <h1>{view === "overview" ? "Crypto portfolio" : view === "card" ? "Ping Card" : pageName}</h1>
               <p>
                 {view === "overview"
                   ? "Your assets, contacts, and transfers at a glance."
                   : view === "send"
                     ? "Prepare a transfer. Review and approve it in your wallet."
-                    : view === "contacts"
-                      ? "Manage your private address book and saved recipients."
-                      : view === "activity"
-                        ? "Review submitted transfers and their on-chain records."
-                        : view === "requests"
-                          ? "Review pending sends connected to your phone number."
-                          : "Manage your profile, phone number, and signed-in devices."}
+                    : view === "card"
+                      ? "Your Ping Card. Top up with crypto, spend anywhere."
+                      : view === "contacts"
+                        ? "Manage your private address book and saved recipients."
+                        : view === "activity"
+                          ? "Review submitted transfers and their on-chain records."
+                          : view === "requests"
+                            ? "Review pending sends connected to your phone number."
+                            : "Manage your profile, phone number, and signed-in devices."}
               </p>
             </div>
             {view === "contacts" ? (
@@ -220,6 +235,7 @@ function DashboardLayout() {
             />
           )}
           {view === "send" && <Send />}
+          {view === "card" && <Card />}
           {view === "requests" && <Requests />}
           {view === "activity" && <Activity />}
           {view === "settings" && <Settings />}
