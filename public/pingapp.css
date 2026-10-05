@@ -1,0 +1,135 @@
+/* PingApp colors augment the retained template's original layout and motion. */
+:root{--ping-violet:#853df5;--ping-pink:#d62ea2;--ping-red:#ff2744;color-scheme:dark}
+#__framer-badge-container,a[href*="lemonsqueezy"],[data-framer-name="Get Template Button"],.framer-129rlqa-container{display:none!important}
+a[href*="lemonsqueezy"]{visibility:hidden!important;pointer-events:none!important}
+body{background:#18171a!important}
+[data-framer-name="Hero Image Wrapper"]:after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,rgba(117,31,203,.64),rgba(168,30,111,.5) 52%,rgba(217,31,66,.55));mix-blend-mode:color;pointer-events:none}
+[data-framer-name="Hero Image Wrapper"] img{filter:contrast(1.08)}
+video{display:none!important}
+nav [data-framer-name="Logo"]:before,[data-framer-name="Logo"][href]:before{content:"";width:24px;height:24px;display:block;flex:none;background:url('/favicon.svg') center/contain no-repeat}
+img[src$="/phone.svg"],img[src$="/wallet.svg"],img[src$="/shield.svg"],img[src$="/key.svg"]{padding:18%;background:linear-gradient(140deg,var(--ping-violet),var(--ping-pink),var(--ping-red))}
+.ping-modal{border:1px solid #4c394f;background:#211d26;color:white;border-radius:18px;padding:44px;width:min(420px,calc(100% - 32px));box-shadow:0 30px 130px #0009;text-align:center}
+.ping-modal::backdrop{background:#0c0a12a8;backdrop-filter:blur(10px)}
+.ping-modal[open]{animation:pingModal .4s cubic-bezier(.22,1,.36,1)}
+.ping-modal h2{font:500 46px/1.05 Inter,sans-serif;letter-spacing:-2px;margin:16px 0}
+.ping-modal p{font:400 16px/1.5 Inter,sans-serif;color:#bcb4c6;margin:0 0 24px}
+.ping-modal button{border:0;border-radius:50px;padding:12px 24px;background:linear-gradient(100deg,var(--ping-violet),var(--ping-pink),var(--ping-red));color:white;cursor:pointer;font:500 14px Inter,sans-serif}
+.ping-social-icon{width:22px;height:22px;display:block;fill:currentColor}
+.ping-social{gap:8px!important}
+.ping-native-social-icon{display:flex;align-items:center;justify-content:center}
+.ping-native-social-icon:after{display:none!important}
+/* The complete transparent mark and both labels share one unclipped row. */
+.ping-wordmark{display:flex!important;flex-direction:row!important;gap:8px!important;align-items:center!important;justify-content:flex-start!important;min-height:32px!important;height:32px!important;width:max-content!important;max-width:100%;overflow:visible!important}
+.ping-wordmark>[data-framer-component-type="RichTextContainer"]{position:static!important;left:auto!important;right:auto!important;width:max-content!important;height:auto!important;flex:none!important;transform:none!important}
+.ping-wordmark p{padding:0!important;margin:0!important}
+.ping-logo{width:26px;height:26px;flex:none;display:block;background:url('/assets/logo.png') center/210% no-repeat;border-radius:6px}
+.ping-protocol-step{width:100%;box-sizing:border-box;min-height:60px;display:flex;align-items:center;padding:16px 22px;font:400 16px/1.5 Inter,sans-serif;color:#ded8e6;border-radius:4px;background:transparent}
+.ping-protocol-note{min-height:144px;align-items:flex-start;padding-top:22px}
+form.ping-protocol button{cursor:pointer}
+.ping-flow-list{display:grid;gap:16px;text-align:left;margin:24px 0;font:400 15px/1.5 Inter,sans-serif;color:#c8bfd0}
+.ping-flow-list b{display:block;font-weight:500;color:white;font-size:19px;margin-bottom:4px}
+@keyframes pingModal{from{opacity:0;transform:translateY(15px) scale(.96)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+/* Transparent, uncropped source mark on every surface. */
+.ping-logo{background:url('/assets/pingapp-mark-v3.svg') center/contain no-repeat;border-radius:0;height:29px}
+.ping-social-icon{filter:brightness(0) invert(1);object-fit:contain;padding:0!important;background:none!important}
+.ping-product-icon{padding:18%!important;box-sizing:border-box;background:linear-gradient(140deg,var(--ping-violet),var(--ping-pink),var(--ping-red))}
+[data-framer-name="FAQs"]>[data-framer-name="Wrapper"]{position:relative!important;top:auto!important}
+.ping-account-caption{font:400 15px/1.5 Inter,sans-serif;color:#bdb4c7;margin:0;letter-spacing:-.2px}
+[data-framer-name="Toggle Wrap"]{align-items:center!important}
+.ping-film{width:min(1100px,calc(100% - 32px));max-width:none;padding:20px;box-sizing:border-box}
+.ping-film-bar{display:flex;align-items:center;justify-content:space-between;gap:20px;margin:0 0 16px}
+.ping-film h2{font-size:20px;letter-spacing:-.5px;margin:0;text-align:left}
+.ping-film video{display:block!important;width:100%;max-height:75vh;aspect-ratio:16/9;border-radius:8px;background:#18171a}
+.ping-modal{box-sizing:border-box;max-height:calc(100dvh - 32px);overflow:auto}
+/* Portrait composition follows the template; the supplied loop is colour-graded live. */
+.ping-hero-graphic{position:absolute;inset:0;z-index:1;pointer-events:none;overflow:hidden;background:linear-gradient(110deg,#542190,#7334ad 52%,#bc2867)}
+.ping-hero-ready:after{display:none!important}
+.ping-hero-ready>div:not(.ping-hero-graphic){visibility:hidden}
+.ping-robot-filters{position:absolute;pointer-events:none}
+.ping-robot-scene{position:absolute;inset:0;isolation:isolate}
+.ping-robot-video,.ping-robot-poster{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 45%;transform:translateX(24%) scale(1.28);filter:url(#ping-robot-grade)!important;mask-image:linear-gradient(90deg,transparent,#000 26%);transform-origin:center}
+.ping-robot-hero .ping-robot-video{display:block!important;visibility:visible!important}
+.ping-robot-poster{display:block;visibility:visible!important}
+.ping-robot-hero.is-playing:not(.is-static) .ping-robot-poster{visibility:hidden!important}
+.ping-robot-hero.is-static .ping-robot-video{display:none!important}
+.ping-robot-colour{position:absolute;inset:0;background:linear-gradient(110deg,#853df5,#d62ea2 62%,#ff2744);mix-blend-mode:color;opacity:.35}
+.ping-robot-shade{position:absolute;inset:0;background:linear-gradient(0deg,#120d1ecc,transparent 58%),linear-gradient(90deg,#180e2433,transparent 50%,#180e2426);pointer-events:none}
+.ping-logo{width:28px;height:32px}
+@media(min-width:810px) and (max-width:1199px){.ping-robot-video,.ping-robot-poster{transform:translateX(18%) scale(1.2)}}
+@media(max-width:809px){.ping-robot-video,.ping-robot-poster{transform:none;object-position:24% center;mask-image:none}.ping-robot-shade{background:linear-gradient(0deg,#120d1ed9,transparent 67%),linear-gradient(90deg,#180e244d,transparent 70%)}}
+@media(max-width:809px){.ping-film{padding:14px}.ping-modal:not(.ping-film){padding:32px 24px}.ping-modal h2{font-size:36px}.ping-film h2{font-size:19px}.ping-account-caption{font-size:14px}}
+#account [data-framer-name="Toggle Wrap"]{display:none!important}
+#account [data-framer-name="Pricing Cards"]{align-items:stretch!important}
+#account .framer-3rhb5s-container{display:flex!important;align-items:stretch!important}
+#account [data-framer-name="Monthly"],#account [data-framer-name="Pricing Card 2"]{height:auto!important;flex:1!important}
+@media(max-width:809px){[data-framer-name="Title"]>[data-framer-name="Trademark"]{right:auto!important;transform:none!important}.framer-atv81i{width:max-content!important}}
+form.ping-protocol .framer-form-input-wrapper{height:auto!important;min-height:60px!important;padding:0!important;overflow:visible!important;box-sizing:border-box}
+form.ping-protocol .ping-protocol-step{padding:18px 22px;min-height:60px}
+form.ping-protocol .ping-protocol-note{min-height:144px}
+nav.framer-hQjsc{transition:background-color .35s,backdrop-filter .35s}
+.ping-scrolled nav.framer-hQjsc{background-color:rgba(24,23,26,.94)!important;backdrop-filter:blur(14px)}
+section[data-framer-name="Showreel"] video{display:block!important}
+section[data-framer-name="Showreel"] [data-framer-name="Hero Image Wrapper"] img{visibility:hidden}
+section[data-framer-name="Showreel"] [data-framer-name="Hero Image Wrapper"]:after{display:none!important}
+
+nav a.framer-7n4Jj>div:not([data-framer-component-type="RichTextContainer"]){display:none!important}
+nav a.framer-7n4Jj{width:122px!important;min-width:122px!important;height:32px!important;justify-content:flex-start!important;align-items:center!important;gap:8px!important;overflow:visible!important}
+nav a.framer-7n4Jj>[data-framer-component-type="RichTextContainer"]{position:static!important;left:auto!important;width:max-content!important;height:auto!important;flex:none!important;transform:none!important}
+nav a.framer-7n4Jj>[data-framer-component-type="RichTextContainer"]~[data-framer-component-type="RichTextContainer"]{display:none!important}
+@media(prefers-reduced-motion:reduce){.ping-hero-graphic *{animation:none!important;transition:none!important}}
+
+/* Product refinements: consistent line icons, clear labels, and readable milestones. */
+.ping-product-icon{background:#29252f!important;border:1px solid #ffffff12;border-radius:10px;object-fit:contain!important;padding:20%!important}
+img[src*="/assets/icons/label-"]{object-fit:contain!important;object-position:center!important}
+[data-framer-name="Logo Card"]>[data-framer-name="Logo"]{width:160px!important;height:48px!important;max-width:calc(100% - 24px)!important;overflow:visible!important}
+.framer-1gftuf3 p,.framer-115tc1q p{line-height:1.4em!important}
+.framer-161qz3o{overflow:visible!important;min-width:0!important}
+.framer-mmU6J .framer-1s3t1qp{overflow:visible!important;align-items:center!important}
+.framer-mmU6J .framer-1qzwmzm{height:auto!important;min-height:280px!important}
+/* Both preloader columns share the same line box and centre alignment. */
+.framer-HORAV .framer-44lnrv{align-items:center!important;gap:10px!important}
+.framer-HORAV .framer-atv81i{height:28.6px!important;display:flex!important;align-items:center!important}
+.framer-HORAV .framer-atv81i p{font-size:22px!important;line-height:28.6px!important;margin:0!important}
+.framer-HORAV .framer-1idc66e-container{width:102px!important;min-height:28.6px!important;height:28.6px!important;overflow:visible!important}
+.framer-HORAV .framer-1idc66e-container>div{padding:0!important;height:28.6px!important;align-items:center!important}
+.framer-HORAV .framer-1idc66e-container p{font-size:22px!important;line-height:28.6px!important;margin:0!important}
+/* Keep the template's overline above the lowercase letters of the longer name. */
+@media(min-width:1200px){.framer-Pl3zo .framer-1phjd0s{left:31.5%}}
+.ping-roadmap-card{align-self:stretch!important;height:100%!important;min-width:0;gap:18px!important}
+.ping-roadmap-card>[data-framer-name="Image"]{height:168px!important;aspect-ratio:auto!important;flex:none!important;border:1px solid #ffffff14;border-radius:12px;background:radial-gradient(ellipse at 75% 5%,#853df515,transparent 65%),#211e26}
+.ping-roadmap-card>[data-framer-name="Image"] img.ping-product-icon{padding:52px!important;background:transparent!important;border:0;border-radius:0}
+.ping-roadmap-card>[data-framer-name="Text Wrapper"]{height:auto!important;overflow:visible!important;min-width:0;flex:1!important;justify-content:flex-start!important}
+.ping-roadmap-card>[data-framer-name="Text Wrapper"]>div:first-child p{font-size:18px!important;line-height:1.4em!important}
+.ping-roadmap-card>[data-framer-name="Text Wrapper"]>div:nth-child(2) p{font-size:13px!important;line-height:1.5em!important;color:#c3b9cc!important}
+.ping-roadmap-details{width:100%;min-width:0;text-align:left;font-family:Inter,sans-serif}
+.ping-roadmap-window{display:inline-block;font-size:10px;line-height:1.5;letter-spacing:.3px;margin:10px 0 12px;padding:5px 8px;border:1px solid #b77ada28;background:#853df50a;color:#cdb9dd;border-radius:4px}
+.ping-roadmap-summary{font-size:14px;line-height:1.65;color:#d1cbd7;margin:0 0 14px}
+.ping-roadmap-details ul{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+.ping-roadmap-details li{font-size:12px;line-height:1.65;color:#a99fad;padding-left:14px;position:relative}
+.ping-roadmap-details li:before{content:"";width:4px;height:4px;background:#af7fc5;border-radius:50%;position:absolute;left:0;top:8px}
+.ping-release-gates{width:100%;box-sizing:border-box;border-top:1px solid #ffffff20;padding-top:24px;display:grid;grid-template-columns:1fr 2fr;gap:30px;font-family:Inter,sans-serif}
+.ping-release-gates h3{font-size:18px;line-height:1.45;font-weight:500;letter-spacing:-.3px;color:#eee8f4;margin:0}
+.ping-release-gates p{font-size:14px;line-height:1.7;color:#b5aabc;margin:0}
+@media(max-width:809px){.framer-900qtw{grid-template-columns:1fr!important;row-gap:36px!important}.ping-release-gates{grid-template-columns:1fr;gap:12px}.ping-roadmap-card>[data-framer-name="Image"]{height:144px!important}.ping-roadmap-card>[data-framer-name="Image"] img.ping-product-icon{padding:42px!important}}
+
+/* Product symbols occupy individual tiles rather than overlapping avatar slots. */
+[data-framer-name="Avatar Group"]{width:max-content!important;max-width:100%;padding:0!important;gap:8px!important;justify-content:flex-start!important;flex-wrap:wrap!important}
+[data-framer-name="Avatar Group"]>[data-framer-name^="Avatar"]{width:36px!important;height:36px!important;flex:none!important}
+[data-framer-name="Avatar Group"]>[data-framer-name^="Avatar"]>div{position:relative!important;left:0!important;top:0!important;transform:none!important;width:36px!important;height:36px!important;--border-width:0px;--border-top-width:0px;--border-right-width:0px;--border-bottom-width:0px;--border-left-width:0px}
+[data-framer-name="Avatar Group"]>[data-framer-name="More"]{width:max-content!important;height:36px!important;flex:none!important}
+[data-framer-name="Avatar Group"]>[data-framer-name="More"]>[data-framer-name="More"]{position:relative!important;left:auto!important;top:auto!important;transform:none!important;aspect-ratio:auto!important;width:max-content!important;min-height:36px!important;height:36px!important;box-sizing:border-box;padding:0 12px!important;display:flex!important;align-items:center!important;justify-content:center!important;background:#29252f!important;border-radius:8px!important;--border-top-width:0px;--border-right-width:0px;--border-bottom-width:0px;--border-left-width:0px}
+[data-framer-name="Avatar Group"] [data-framer-component-type="RichTextContainer"]{position:static!important;left:auto!important;top:auto!important;transform:none!important;width:max-content!important;white-space:nowrap!important}
+.framer-4rzex{overflow:visible!important;min-width:0!important;flex-direction:column!important;align-items:flex-start!important;gap:12px!important}
+.framer-4rzex>.framer-hco9cv{min-width:0!important;flex:1 1 auto!important;width:auto!important;white-space:normal!important}
+@media(max-width:809px){.framer-4rzex{width:100%!important;flex-direction:column!important;align-items:flex-start!important;gap:12px!important}.framer-4rzex>.framer-hco9cv{width:100%!important}.framer-vbpzal{overflow:visible!important}}
+
+.ping-icon-frame{filter:none!important}
+
+/* Longer product copy keeps the native reveal while fitting its visible window. */
+.framer-Pl3zo .framer-1xt7p1o{height:var(--ping-description-height,86px)!important}
+.framer-gpejc .framer-1wn17cx{height:var(--ping-description-height,86px)!important}
+.framer-aMymp:not(.framer-v-1sx0pxf) .framer-jleosx{height:var(--ping-description-height,62px)!important}
+.framer-aMymp:not(.framer-v-tdez24):not(.framer-v-1sx0pxf) .framer-1o9ubl5{top:100%}
+.framer-Pl3zo .framer-1mdzwho{overflow:visible!important}
+@media(max-width:359px){.framer-2NkUf .framer-tmm2it h1{font-size:17vw!important}}
