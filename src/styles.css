@@ -839,6 +839,7 @@ main h1:focus{outline:none}
 .premium-workspace .dashboard-title>.connection-status{align-self:flex-start;margin-top:12px}
 
 /* Balance / Quick send always stacked (phone-column layout) */
+.premium-workspace .onboarding-card{margin-bottom:16px}
 .premium-workspace .overview-grid,
 .premium-workspace .dashboard-two-column,
 .premium-workspace .send-grid,
