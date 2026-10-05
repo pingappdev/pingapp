@@ -904,8 +904,8 @@ main h1:focus{outline:none}
 .premium-workspace .send-note p{font-size:13px;line-height:1.55;color:var(--ping-text-2);margin:0 0 14px}
 .premium-workspace .send-note .text-link{color:var(--ping-accent);font-size:13px;display:inline-flex;align-items:center;gap:6px}
 
-/* Phantom-style floating glass tab bar */
-.ping-mobile-tabbar{position:fixed;left:16px;right:16px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:50;display:flex;background:rgba(28,29,38,0.65);border:0;border-radius:28px;padding:8px;gap:2px;backdrop-filter:blur(28px) saturate(1.6);-webkit-backdrop-filter:blur(28px) saturate(1.6);box-shadow:0 20px 60px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.04)}
+/* Opaque floating tab bar keeps scrolling content from showing through. */
+.ping-mobile-tabbar{position:fixed;left:16px;right:16px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:50;display:flex;background:var(--ping-surface-2,#1C1D26);border:0;border-radius:28px;padding:8px;gap:2px;box-shadow:0 20px 60px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.04)}
 .ping-mobile-tabbar>a{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;font-weight:500;color:var(--ping-text-2,#9D97AD);padding:12px 6px;border-radius:22px;text-decoration:none;transition:color .22s var(--ping-ease),background .22s var(--ping-ease),transform .22s var(--ping-ease);min-width:0}
 .ping-mobile-tabbar>a>svg{flex-shrink:0;transition:transform .22s var(--ping-ease)}
 .ping-mobile-tabbar>a[data-active=true]{background:var(--ping-accent,#AB9FF2);color:#1a1430}
