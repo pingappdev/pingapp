@@ -9,8 +9,17 @@ export default tseslint.config(
   {
     // Standalone marketing assets are the supplied, precompiled site export.
     ignores: [
-      "dist", "dist-ssr", ".output", ".vinxi", ".vercel", ".tanstack", ".nitro",
-      "public/runtime/**", "public/assets/**", "public/pingapp.js", "public/ping-hero.js",
+      "dist",
+      "dist-ssr",
+      ".output",
+      ".vinxi",
+      ".vercel",
+      ".tanstack",
+      ".nitro",
+      "public/runtime/**",
+      "public/assets/**",
+      "public/pingapp.js",
+      "public/ping-hero.js",
     ],
   },
   {

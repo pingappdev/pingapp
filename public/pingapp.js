@@ -5,7 +5,7 @@
   function openModal(film = false) {
     lastFocus = document.activeElement;
     dialog.classList.toggle('ping-film',film);
-    dialog.innerHTML = film ? '<div class="ping-film-bar"><h2 id="ping-modal-title">PingApp film</h2><button type="button" aria-label="Close film">Close ×</button></div><video controls playsinline preload="metadata" src="/__l5e/assets-v1/a7f8ccc3-c463-4c75-9e61-95e1f43a4135/pingapp-film.mp4" aria-label="PingApp brand film"></video>' : '<img src="/assets/pingapp-mark-v3.svg" width="64" height="70" alt="PingApp logo"><h2 id="ping-modal-title">Coming soon</h2><p>Connect with PingApp.<br>Our community channels are on their way.</p><button type="button">Close</button>';
+    dialog.innerHTML = film ? '<div class="ping-film-bar"><h2 id="ping-modal-title">PingApp film</h2><button type="button" aria-label="Close film">Close ×</button></div><video controls playsinline preload="metadata" src="/assets/media/pingapp-film.mp4" aria-label="PingApp film"></video>' : '<img src="/assets/pingapp-mark-v3.svg" width="64" height="70" alt="PingApp logo"><h2 id="ping-modal-title">Coming soon</h2><p>Connect with PingApp.<br>Our community channels are on their way.</p><button type="button">Close</button>';
     dialog.querySelector('button').addEventListener('click', closeModal); dialog.showModal(); dialog.querySelector('button').focus();
     if(film){document.querySelectorAll('section[data-framer-name="Showreel"] video').forEach(v=>v.pause());dialog.querySelector('video').play().catch(()=>{});}
   }
@@ -46,6 +46,16 @@
     return '';
   }
   function cleanup() {
+    // Native links leave the standalone marketing runtime and load the existing app.
+    document.querySelectorAll('nav [data-framer-name="Menu Wrapper"]').forEach(wrapper => {
+      if (wrapper.querySelector('.ping-open-app')) return;
+      const link = document.createElement('a');
+      link.className = 'ping-open-app';
+      link.href = '/dashboard';
+      link.textContent = 'Open app';
+      link.dataset.nativeNavigation = 'true';
+      wrapper.prepend(link);
+    });
     for(const [text] of textMeasurements)if(!text.isConnected){textResize.unobserve(text);textMeasurements.delete(text);}
     document.querySelectorAll('.framer-1xt7p1o,.framer-1wn17cx,.framer-jleosx').forEach(wrapper=>{
       wrapper.querySelectorAll(':scope > [data-framer-component-type="RichTextContainer"]').forEach(text=>{if(!textMeasurements.has(text)){textMeasurements.set(text,wrapper);textResize.observe(text);}});
@@ -95,7 +105,7 @@
     document.querySelectorAll('[data-framer-name="Toggle Wrap"]').forEach(w=>{if(!w.dataset.pingAccount){w.dataset.pingAccount='true';w.replaceChildren();const p=document.createElement('p');p.className='ping-account-caption';p.textContent='Two layers. One owner.';w.append(p);}});
     document.querySelectorAll('section[data-framer-name="Showreel"]').forEach(s=>{s.setAttribute('role','button');s.setAttribute('aria-label','Play PingApp film');s.tabIndex=0;if(!s.dataset.pingFilm){s.dataset.pingFilm='true';s.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openModal(true);}});}});
     for(const v of reels)if(!v.isConnected){reelObserver.unobserve(v);v.pause();reels.delete(v);}
-    document.querySelectorAll('section[data-framer-name="Showreel"] video').forEach(v=>{if(!v.dataset.pingReel){v.dataset.pingReel='true';v.src='/__l5e/assets-v1/a7f8ccc3-c463-4c75-9e61-95e1f43a4135/pingapp-film.mp4';v.muted=true;v.loop=true;v.playsInline=true;v.preload='metadata';reelObserver.observe(v);reels.add(v);}});
+    document.querySelectorAll('section[data-framer-name="Showreel"] video').forEach(v=>{if(!v.dataset.pingReel){v.dataset.pingReel='true';v.src='/assets/media/pingapp-film.mp4';v.muted=true;v.loop=true;v.playsInline=true;v.preload='metadata';reelObserver.observe(v);reels.add(v);}});
     document.querySelectorAll('form:not(.ping-protocol)').forEach(form => {
       form.classList.add('ping-protocol');
       const fields = Array.from(form.querySelectorAll('.framer-form-input-wrapper')), steps = ['01 · Verify a protected phone identity', '02 · Publish a stealth meta-address', '03 · Shield funds with keys you control', '04 · Review, prove, and send. Each payment derives a fresh destination. Relayers broadcast proofs; your spending key stays yours. Requests, payroll, receive preferences, and a capped card lane build on the same private account.'];

@@ -1,7 +1,15 @@
-import { createFileRoute } from "@tanstack/react-router";
-import Marketing from "@/marketing";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { sitePageResponse } from "@/lib/site-pages.server";
 
 export const Route = createFileRoute("/")({
+  server: {
+    handlers: {
+      GET: ({ request, next }) => sitePageResponse(new URL(request.url)) ?? next(),
+    },
+  },
+  beforeLoad: ({ location }) => {
+    if (!import.meta.env.SSR) throw redirect({ href: location.href, reloadDocument: true });
+  },
   head: () => ({
     meta: [
       { title: "PingApp — Send Crypto Like a Text" },
@@ -20,9 +28,4 @@ export const Route = createFileRoute("/")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  component: Home,
 });
-
-function Home() {
-  return <Marketing page="home" />;
-}

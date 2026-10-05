@@ -2,6 +2,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "./routing";
 import { flushSync } from "react-dom";
+import { isStandaloneMarketingPath } from "./lib/marketing-paths";
 
 type Transition = { finished: Promise<void>; skipTransition: () => void };
 type TransitionDocument = Document & {
@@ -60,7 +61,11 @@ export default function PageTransitions({ children }: { children: React.ReactNod
     const doc = document as TransitionDocument;
     const go = (href: string) => {
       const url = new URL(href, location.href);
-      if (url.origin !== location.origin || reserved(url.pathname)) {
+      if (
+        url.origin !== location.origin ||
+        reserved(url.pathname) ||
+        isStandaloneMarketingPath(url.pathname)
+      ) {
         location.assign(url.href);
         return;
       }
@@ -140,7 +145,7 @@ export default function PageTransitions({ children }: { children: React.ReactNod
     };
     const warm = (event: Event) => {
       const a = getAnchor(event);
-      if (!a || !eligible(a)) return;
+      if (!a || !eligible(a) || isStandaloneMarketingPath(a.pathname)) return;
       const path = a.pathname + a.search;
       if (prefetched.current.has(path)) return;
       prefetched.current.add(path);

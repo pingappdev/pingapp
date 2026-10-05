@@ -1,5 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import Marketing from "@/marketing";
+import { sitePageResponse } from "@/lib/site-pages.server";
+import { isStandaloneMarketingPath } from "@/lib/marketing-paths";
 
 const pages = [
   "what-we-do",
@@ -77,6 +79,16 @@ const pageFromParams = (splat: string | undefined) =>
   (splat ?? "").replace(/^\//, "").replace(/\/$/, "");
 
 export const Route = createFileRoute("/$")({
+  server: {
+    handlers: {
+      GET: ({ request, next }) => sitePageResponse(new URL(request.url)) ?? next(),
+    },
+  },
+  beforeLoad: ({ location }) => {
+    if (!import.meta.env.SSR && isStandaloneMarketingPath(location.pathname)) {
+      throw redirect({ href: location.href, reloadDocument: true });
+    }
+  },
   head: ({ params }) => {
     const page = pageFromParams((params as { _splat?: string })._splat);
     const info = meta[page] ?? {

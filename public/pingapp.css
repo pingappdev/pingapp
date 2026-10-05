@@ -133,3 +133,9 @@ img[src*="/assets/icons/label-"]{object-fit:contain!important;object-position:ce
 .framer-aMymp:not(.framer-v-tdez24):not(.framer-v-1sx0pxf) .framer-1o9ubl5{top:100%}
 .framer-Pl3zo .framer-1mdzwho{overflow:visible!important}
 @media(max-width:359px){.framer-2NkUf .framer-tmm2it h1{font-size:17vw!important}}
+/* Keep the app entry reachable in the desktop and mobile navigation. */
+nav [data-framer-name="Menu Wrapper"]{gap:20px!important;width:auto!important;flex-shrink:0!important}
+nav .ping-open-app{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:10px 16px;border:1px solid #ffffff70;border-radius:6px;background:#ffffff16;color:#fff;font:600 14px/1.2 Inter,Arial,sans-serif;white-space:nowrap;text-decoration:none}
+nav .ping-open-app:hover{background:#ffffff30}
+nav .ping-open-app:focus-visible{outline:2px solid #fff;outline-offset:4px}
+@media(max-width:809px){nav [data-framer-name="Menu Wrapper"]{gap:12px!important}nav .ping-open-app{padding:8px 12px;font-size:13px}}
