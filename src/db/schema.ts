@@ -3,6 +3,8 @@ import {
   boolean,
   check,
   index,
+  foreignKey,
+  unique,
   integer,
   jsonb,
   numeric,
@@ -231,3 +233,142 @@ export type AuditEvent = typeof auditEvents.$inferSelect;
 export type NewAuditEvent = typeof auditEvents.$inferInsert;
 export type KeyValue = typeof kv.$inferSelect;
 export type NewKeyValue = typeof kv.$inferInsert;
+
+// Card financial history survives account deletion; only the optional profile cascades.
+const cardMoney = (name: string) => numeric(name, { precision: 38, scale: 18, mode: 'string' });
+const cardTime = (name: string) => timestamp(name, { withTimezone: true });
+export const cardProfiles = pgTable('card_profiles', {
+  userId: uuid('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  emailEnc: text('email_enc').notNull(),
+  createdAt: createdAt(),
+  updatedAt: cardTime('updated_at').notNull().defaultNow(),
+});
+
+export const cards = pgTable('cards', {
+  id: id(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  providerScope: text('provider_scope').notNull(),
+  providerCardId: text('provider_card_id'),
+  clientCardRef: uuid('client_card_ref').notNull(),
+  product: text('product').notNull(),
+  currency: text('currency').notNull().default('USD'),
+  issueStatus: text('issue_status').notNull().default('created'),
+  providerIssueStatus: text('provider_issue_status'),
+  last4: text('last4'),
+  isFrozen: boolean('is_frozen'),
+  balanceUsd: cardMoney('balance_usd'),
+  pendingTopupUsd: cardMoney('pending_topup_usd'),
+  balanceSource: text('balance_source'),
+  balanceAsOf: cardTime('balance_as_of'),
+  issuedAt: cardTime('issued_at'),
+  nextSyncAt: cardTime('next_sync_at').notNull().defaultNow(),
+  syncLeaseUntil: cardTime('sync_lease_until'),
+  syncToken: uuid('sync_token'),
+  historySyncedAt: cardTime('history_synced_at'),
+  createdAt: createdAt(),
+  updatedAt: cardTime('updated_at').notNull().defaultNow(),
+}, (t) => [
+  unique('cards_owner_scope_unique').on(t.id, t.userId, t.providerScope),
+  unique('cards_id_scope_unique').on(t.id, t.providerScope),
+  uniqueIndex('cards_provider_id_unique').on(t.providerScope, t.providerCardId),
+  uniqueIndex('cards_client_ref_unique').on(t.providerScope, t.clientCardRef),
+  uniqueIndex('cards_active_slot_unique').on(t.userId, t.providerScope, t.product)
+    .where(sql`${t.issueStatus} <> 'failed'`),
+  index('cards_owner_scope_idx').on(t.userId, t.providerScope),
+  index('cards_next_sync_idx').on(t.nextSyncAt),
+  check('cards_currency_check', sql`${t.currency} = 'USD'`),
+  check('cards_product_check', sql`${t.product} = 'visa'`),
+  check('cards_last4_check', sql`${t.last4} is null or ${t.last4} ~ '^[0-9]{4}$'`),
+]);
+
+export const cardOperations = pgTable('card_operations', {
+  id: id(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  cardId: uuid('card_id').notNull(),
+  providerScope: text('provider_scope').notNull(),
+  kind: text('kind').notNull(),
+  status: text('status').notNull().default('created'),
+  requestId: uuid('request_id').notNull(),
+  providerIdempotencyKey: uuid('provider_idempotency_key').notNull(),
+  requestHash: text('request_hash').notNull(),
+  requestEnc: text('request_enc').notNull(),
+  providerPaymentId: text('provider_payment_id'),
+  providerTopupId: text('provider_topup_id'),
+  amountUsd: cardMoney('amount_usd'),
+  amountOnCardUsd: cardMoney('amount_on_card_usd'),
+  network: text('network').notNull(),
+  payCurrency: text('pay_currency').notNull(),
+  invoiceUrl: text('invoice_url'),
+  invoiceAddress: text('invoice_address'),
+  invoiceAmount: cardMoney('invoice_amount'),
+  invoiceExpiresAt: cardTime('invoice_expires_at'),
+  leaseUntil: cardTime('lease_until'),
+  leaseToken: uuid('lease_token'),
+  attempts: integer('attempts').notNull().default(0),
+  nextAttemptAt: cardTime('next_attempt_at').notNull().defaultNow(),
+  submittedAt: cardTime('submitted_at'),
+  error: text('error'),
+  createdAt: createdAt(),
+  updatedAt: cardTime('updated_at').notNull().defaultNow(),
+}, (t) => [
+  foreignKey({ columns: [t.cardId, t.userId, t.providerScope], foreignColumns: [cards.id, cards.userId, cards.providerScope], name: 'card_operations_owner_fk' }),
+  foreignKey({ columns: [t.cardId, t.providerScope], foreignColumns: [cards.id, cards.providerScope], name: 'card_operations_card_fk' }),
+  uniqueIndex('card_operations_request_unique').on(t.userId, t.kind, t.requestId),
+  uniqueIndex('card_operations_provider_key_unique').on(t.providerScope, t.providerIdempotencyKey),
+  uniqueIndex('card_operations_payment_unique').on(t.providerScope, t.providerPaymentId),
+  uniqueIndex('card_operations_topup_unique').on(t.providerScope, t.providerTopupId),
+  uniqueIndex('card_operations_open_unique').on(t.cardId).where(sql`${t.status} not in ('completed', 'failed')`),
+  index('card_operations_owner_created_idx').on(t.userId, t.createdAt.desc()),
+  index('card_operations_status_attempt_idx').on(t.status, t.nextAttemptAt),
+  check('card_operations_kind_check', sql`${t.kind} in ('issue', 'topup')`),
+  check('card_operations_status_check', sql`${t.status} in ('created', 'submitting', 'awaiting_payment', 'processing', 'completed', 'failed', 'expired', 'review')`),
+  check('card_operations_network_check', sql`(${t.network}, ${t.payCurrency}) in (('tron', 'usdttrc20'), ('bsc', 'usdtbsc'), ('ethereum', 'usdterc20'), ('polygon', 'usdtpoly'))`),
+]);
+
+export const cardTransactions = pgTable('card_transactions', {
+  id: id(),
+  cardId: uuid('card_id').notNull(),
+  providerScope: text('provider_scope').notNull(),
+  providerTransactionId: text('provider_transaction_id').notNull(),
+  type: text('type').notNull(),
+  status: text('status').notNull(),
+  amount: cardMoney('amount').notNull(),
+  currency: text('currency').notNull(),
+  billedUsd: cardMoney('billed_usd'),
+  merchant: text('merchant'),
+  direction: text('direction').notNull(),
+  occurredAt: cardTime('occurred_at').notNull(),
+  sourceUpdatedAt: cardTime('source_updated_at'),
+  isFinal: boolean('is_final').notNull().default(false),
+  syncedAt: cardTime('synced_at').notNull().defaultNow(),
+}, (t) => [
+  foreignKey({ columns: [t.cardId, t.providerScope], foreignColumns: [cards.id, cards.providerScope], name: 'card_transactions_card_fk' }),
+  uniqueIndex('card_transactions_provider_unique').on(t.providerScope, t.cardId, t.providerTransactionId),
+  index('card_transactions_card_occurred_idx').on(t.cardId, t.occurredAt.desc(), t.id),
+  check('card_transactions_direction_check', sql`${t.direction} in ('debit', 'credit')`),
+]);
+
+export const cardWebhookEvents = pgTable('card_webhook_events', {
+  id: id(),
+  providerScope: text('provider_scope').notNull(),
+  providerEventId: text('provider_event_id').notNull(),
+  eventType: text('event_type').notNull(),
+  eventAt: cardTime('event_at'),
+  payloadHash: text('payload_hash').notNull(),
+  payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+  cardId: uuid('card_id').references(() => cards.id),
+  operationId: uuid('operation_id').references(() => cardOperations.id),
+  status: text('status').notNull().default('pending'),
+  attempts: integer('attempts').notNull().default(0),
+  nextAttemptAt: cardTime('next_attempt_at').notNull().defaultNow(),
+  lastError: text('last_error'),
+  receivedAt: cardTime('received_at').notNull().defaultNow(),
+  processedAt: cardTime('processed_at'),
+}, (t) => [
+  uniqueIndex('card_webhook_events_provider_unique').on(t.providerScope, t.providerEventId),
+  index('card_webhook_events_pending_idx').on(t.status, t.nextAttemptAt),
+]);
+
+export type Card = typeof cards.$inferSelect;
+export type CardOperation = typeof cardOperations.$inferSelect;
+export type CardTransaction = typeof cardTransactions.$inferSelect;

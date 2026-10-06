@@ -1,10 +1,10 @@
 import { and, asc, desc, eq, gt, inArray, ne, sql } from 'drizzle-orm';
 import { audit } from '../../db/audit.js';
 import { db } from '../../db/client.js';
-import { intents, phoneClaims, sessions, users } from '../../db/schema.js';
+import { cardOperations, cards, intents, phoneClaims, sessions, users } from '../../db/schema.js';
 import type { DbTransaction } from '../../db/tx.js';
 import { sha256Hex } from '../../lib/crypto.js';
-import { errors } from '../../lib/errors.js';
+import { AppError, errors } from '../../lib/errors.js';
 import { lockPhoneMutation } from '../phone/lock.js';
 
 const DISALLOWED_NAME_PARTS = [
@@ -131,6 +131,15 @@ export async function deleteAccount(userId: string, currentSessionId: string, ip
     const [user] = await tx.select({ address: users.address }).from(users)
       .where(eq(users.id, userId)).for('update').limit(1);
     if (!user) throw errors.unauthenticated();
+
+    // The user lock also serializes card/profile creation. Financial rows never cascade.
+    const [cardHistory] = await tx.select({ id: cards.id }).from(cards)
+      .where(and(eq(cards.userId, userId), ne(cards.issueStatus, 'failed'))).limit(1);
+    const [financialHistory] = await tx.select({ id: cardOperations.id }).from(cardOperations)
+      .where(and(eq(cardOperations.userId, userId), sql`(${cardOperations.status} <> 'failed' or ${cardOperations.providerPaymentId} is not null or ${cardOperations.invoiceAddress} is not null)`)).limit(1);
+    if (cardHistory || financialHistory) {
+      throw new AppError('CARD_ACCOUNT_ACTIVE', 409, 'This account has an active card or payment requiring review. Contact support before deleting it.');
+    }
 
     await tx.update(intents).set({ status: 'cancelled' }).where(and(
       eq(intents.senderUserId, userId), inArray(intents.status, ['pending', 'ready']),

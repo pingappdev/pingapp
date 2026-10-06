@@ -35,7 +35,19 @@ const envSchema = z.object({
   MIN_SEND_USD: decimal('2'),
   MIN_SEND_ETH_FALLBACK: decimal('0.001'),
   ADMIN_TOKEN: z.string().default(''),
+  CARDS_ENABLED: boolean(false),
+  IZIPAY_API_KEY: z.string().default(''),
+  IZIPAY_API_SECRET: z.string().default(''),
+  IZIPAY_WEBHOOK_SECRET: z.string().default(''),
+  CARD_DATA_ENC_KEY: z.union([hexKey, z.literal('')]).default(''),
+  IZIPAY_MODE: z.enum(['sandbox', 'live']).default('sandbox'),
+  IZIPAY_ACCOUNT_REF: z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/).default('primary'),
 }).superRefine((value, context) => {
+  if (value.IZIPAY_API_KEY && !value.IZIPAY_API_KEY.startsWith(
+    value.IZIPAY_MODE === 'sandbox' ? 'izpk_test_' : 'izpk_live_',
+  )) {
+    context.addIssue({ code: 'custom', path: ['IZIPAY_API_KEY'], message: 'key must match IZIPAY_MODE' });
+  }
   if (value.SMS_DRIVER === 'seven' && !value.SEVEN_API_KEY) {
     context.addIssue({ code: 'custom', path: ['SEVEN_API_KEY'], message: 'required when SMS_DRIVER=seven' });
   }

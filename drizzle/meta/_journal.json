@@ -8,6 +8,13 @@
       "when": 1790680632674,
       "tag": "0000_cute_omega_sentinel",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791314066837,
+      "tag": "0001_cards_persistence",
+      "breakpoints": true
     }
   ]
 }
