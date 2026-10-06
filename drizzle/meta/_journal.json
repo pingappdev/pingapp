@@ -15,6 +15,13 @@
       "when": 1791314066837,
       "tag": "0001_cards_persistence",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791317708355,
+      "tag": "0002_card_products_and_private_name",
+      "breakpoints": true
     }
   ]
 }

@@ -252,9 +252,9 @@ export async function syncOneHistory() {
 }
 export async function refreshPricing() {
   const [saved] = await db.select().from(kv).where(eq(kv.key, pricingKey));
-  if (saved && Date.now() - saved.updatedAt.getTime() < 15 * 60_000) return;
+  if (saved && 'mastercardIssuePriceUsd' in record(saved.value) && Date.now() - saved.updatedAt.getTime() < 15 * 60_000) return;
   const data = record(await provider.pricing());
-  const value = { issuePriceUsd: decimal(record(data.pricing).visa_issue_usd) };
+  const value = { issuePriceUsd: decimal(record(data.pricing).visa_issue_usd), mastercardIssuePriceUsd: decimal(record(data.pricing).mastercard_issue_usd) };
   await db.insert(kv).values({ key: pricingKey, value }).onConflictDoUpdate({ target: kv.key, set: { value, updatedAt: new Date() } });
   const limit = Number(record(data.limits).rate_limit_per_min);
   if (Number.isSafeInteger(limit) && limit > 0) await redis.set(`${providerRedisPrefix}:limit`, String(Math.max(1, Math.min(24, Math.floor(limit * 0.8)))), 'EX', 3600);

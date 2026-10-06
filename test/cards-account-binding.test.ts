@@ -58,4 +58,25 @@ describe('card forms bind their rendered account to the cookie account', () => {
   it('accepts the same UUID regardless of casing', () => {
     expect(() => requireExpectedAccount(owner, owner.toUpperCase())).not.toThrow();
   });
+  it.each(['visa', 'mastercard_standard', 'visa_us', 'mastercard'])('accepts %s and an ISO profile version before enforcing account ownership', async (product) => {
+    const response = await app.inject({ method: 'POST', url: '/v1/cards/issue', payload: {
+      ...issue, product, expectedUserId: owner, profileUpdatedAt: '2026-10-06T18:00:00.000Z',
+    } });
+    expect(response.statusCode).toBe(409);
+    expect(response.json().code).toBe('ACCOUNT_CHANGED');
+    expect(mutations.transaction).not.toHaveBeenCalled();
+  });
+  it.each([{ cardholderName: 'Private Name' }, { profileUpdatedAt: 'yesterday' }, { product: 'unknown' }])('rejects invalid issuance fields before side effects: %j', async (extra) => {
+    const response = await app.inject({ method: 'POST', url: '/v1/cards/issue', payload: { ...issue, expectedUserId: owner, ...extra } });
+    expect(response.statusCode).toBe(400);
+    expect(mutations.transaction).not.toHaveBeenCalled();
+    expect(mutations.encrypt).not.toHaveBeenCalled();
+  });
+  it('rejects an overlong private profile name', async () => {
+    const response = await app.inject({ method: 'PATCH', url: '/v1/cards/profile', payload: {
+      email: 'owner@example.com', expectedUserId: owner, cardholderName: 'x'.repeat(101),
+    } });
+    expect(response.statusCode).toBe(400);
+    expect(mutations.encrypt).not.toHaveBeenCalled();
+  });
 });

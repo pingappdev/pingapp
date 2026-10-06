@@ -7,6 +7,7 @@ import type { DbTransaction } from '../../db/tx.js';
 import { AppError, errors } from '../../lib/errors.js';
 import { decimal, hash, networks, payCurrency, record, requireExpectedAccount, string, usdInput, type CardNetwork } from './domain.js';
 import { provider } from './provider.js';
+import { issueRequestBody, issueRequestHash, productCatalog, productNetwork, profileVersionSchema, type CardProduct } from './products.js';
 import { cardsEnabled, decryptCardData, encryptCardData, providerScope, requireCards, unavailable } from './settings.js';
 
 export const pricingKey = `cards:pricing:${providerScope}`;
@@ -25,10 +26,10 @@ export function serializeOperation(op: CardOperation) {
 export async function getCardsConfig() {
   const enabled = cardsEnabled();
   const [cached] = enabled ? await db.select().from(kv).where(eq(kv.key, pricingKey)).limit(1) : [];
-  const price = cached && Date.now() - cached.updatedAt.getTime() < 60 * 60 * 1000 ? decimal(record(cached.value).issuePriceUsd) : null;
+  const prices = cached && Date.now() - cached.updatedAt.getTime() < 60 * 60 * 1000 ? cached.value : null;
   return {
     enabled, sandbox: config.IZIPAY_MODE === 'sandbox',
-    products: enabled ? [{ id: 'visa', name: 'Virtual Visa', network: 'visa', currency: 'USD', issuePriceUsd: price }] : [],
+    products: enabled ? productCatalog(prices) : [],
     networks: enabled ? networks : [], capabilities: { freeze: false, spendingLimits: false },
     webhookDelivery: config.IZIPAY_WEBHOOK_SECRET ? 'unverified' : 'not_configured',
   };
@@ -42,9 +43,10 @@ async function duplicate(tx: DbTransaction, userId: string, kind: string, reques
   if (existing && existing.requestHash !== requestHash) throw new AppError('IDEMPOTENCY_CONFLICT', 409, 'This request ID was already used for different card details.');
   return existing;
 }
-export async function issueCard(userId: string, input: { product: 'visa'; network: CardNetwork; requestId: string; expectedUserId: string }) {
+export async function issueCard(userId: string, input: { product: CardProduct; network: CardNetwork; requestId: string; expectedUserId: string; profileUpdatedAt?: string }) {
   requireExpectedAccount(userId, input.expectedUserId);
-  const requestHash = hash(JSON.stringify({ providerScope, product: input.product, network: input.network }));
+  const profileUpdatedAt = profileVersionSchema.parse(input.profileUpdatedAt);
+  const requestHash = issueRequestHash(providerScope, { ...input, profileUpdatedAt });
   return db.transaction(async (tx) => {
     await lockUser(tx, userId);
     const existing = await duplicate(tx, userId, 'issue', input.requestId, requestHash);
@@ -52,11 +54,15 @@ export async function issueCard(userId: string, input: { product: 'visa'; networ
     requireCards();
     const [profile] = await tx.select().from(cardProfiles).where(eq(cardProfiles.userId, userId)).limit(1);
     if (!profile) throw new AppError('CARD_EMAIL_REQUIRED', 400, 'Add your card contact email before requesting a card.');
+    if (profileUpdatedAt !== undefined && profile.updatedAt.toISOString() !== profileUpdatedAt) {
+      throw new AppError('CARD_PROFILE_CHANGED', 409, 'Your card profile changed. Review the latest name and email before requesting a card.');
+    }
     const [active] = await tx.select({ id: cards.id }).from(cards).where(and(eq(cards.userId, userId), eq(cards.providerScope, providerScope), eq(cards.product, input.product), ne(cards.issueStatus, 'failed'))).limit(1);
     if (active) throw new AppError('CARD_ALREADY_EXISTS', 409, 'You already have a card or card request for this product.');
     const cardId = randomUUID(), operationId = randomUUID();
-    const body = JSON.stringify({ cardholder_email: decryptCardData(profile.emailEnc, `profile:${userId}`), cardholder_alias: 'PingApp cardholder',
-      client_card_ref: cardId, card_type: input.product, pay_currency: payCurrency(input.network) });
+    const body = issueRequestBody({ email: decryptCardData(profile.emailEnc, `profile:${userId}`),
+      cardholderName: profile.cardholderNameEnc ? decryptCardData(profile.cardholderNameEnc, `profile-name:${userId}`) : null,
+      cardId, product: input.product, network: input.network });
     await tx.insert(cards).values({ id: cardId, userId, providerScope, clientCardRef: cardId, product: input.product, issueStatus: 'requested' });
     const [op] = await tx.insert(cardOperations).values({ id: operationId, userId, cardId, providerScope, kind: 'issue',
       requestId: input.requestId, providerIdempotencyKey: randomUUID(), requestHash, requestEnc: encryptCardData(body, `operation:${operationId}`),
@@ -100,7 +106,7 @@ export async function getOperation(userId: string, id: string) {
 function summary(card: Card, latest: CardOperation | undefined) {
   const now = new Date();
   return {
-    id: card.id, product: card.product, network: 'visa', currency: 'USD', issueStatus: card.issueStatus,
+    id: card.id, product: card.product, network: productNetwork(card.product), currency: 'USD', issueStatus: card.issueStatus,
     last4: card.last4, frozen: card.isFrozen, balanceUsd: decimal(card.balanceUsd), pendingTopupUsd: decimal(card.pendingTopupUsd),
     balanceAsOf: card.balanceAsOf?.toISOString() ?? null, issuedAt: card.issuedAt?.toISOString() ?? null, createdAt: card.createdAt.toISOString(),
     latestOperation: latest ? serializeOperation(latest) : null,

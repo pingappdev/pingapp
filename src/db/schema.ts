@@ -240,6 +240,7 @@ const cardTime = (name: string) => timestamp(name, { withTimezone: true });
 export const cardProfiles = pgTable('card_profiles', {
   userId: uuid('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
   emailEnc: text('email_enc').notNull(),
+  cardholderNameEnc: text('cardholder_name_enc'),
   createdAt: createdAt(),
   updatedAt: cardTime('updated_at').notNull().defaultNow(),
 });
@@ -277,7 +278,7 @@ export const cards = pgTable('cards', {
   index('cards_owner_scope_idx').on(t.userId, t.providerScope),
   index('cards_next_sync_idx').on(t.nextSyncAt),
   check('cards_currency_check', sql`${t.currency} = 'USD'`),
-  check('cards_product_check', sql`${t.product} = 'visa'`),
+  check('cards_product_check', sql`${t.product} in ('visa', 'mastercard_standard', 'visa_us', 'mastercard')`),
   check('cards_last4_check', sql`${t.last4} is null or ${t.last4} ~ '^[0-9]{4}$'`),
 ]);
 
