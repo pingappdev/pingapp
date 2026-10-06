@@ -3,7 +3,8 @@ import { decimal, hash, payCurrency, record, type CardNetwork } from './domain.j
 
 export const productSchema = z.enum(['visa', 'mastercard_standard', 'visa_us', 'mastercard']);
 export type CardProduct = z.infer<typeof productSchema>;
-export const cardholderNameSchema = z.string().trim().max(100).transform((value) => value || null).nullable().optional();
+export const cardholderNameSchema = z.string().regex(/^[^\p{Cc}]*$/u, 'Cardholder name must not contain control characters.')
+  .trim().max(100).transform((value) => value || null).nullable().optional();
 export const profileVersionSchema = z.iso.datetime({ offset: true }).transform((value) => new Date(value).toISOString()).optional();
 
 const products = [

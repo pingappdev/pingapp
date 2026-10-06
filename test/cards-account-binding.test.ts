@@ -79,4 +79,12 @@ describe('card forms bind their rendered account to the cookie account', () => {
     expect(response.statusCode).toBe(400);
     expect(mutations.encrypt).not.toHaveBeenCalled();
   });
+  it.each(['Invalid\u0001Name', 'Name\u007f', '\tName', 'Name\n', 'Name\u0085'])('rejects profile name control characters before encryption', async (cardholderName) => {
+    const response = await app.inject({ method: 'PATCH', url: '/v1/cards/profile', payload: {
+      email: 'owner@example.com', expectedUserId: owner, cardholderName,
+    } });
+    expect(response.statusCode).toBe(400);
+    expect(mutations.transaction).not.toHaveBeenCalled();
+    expect(mutations.encrypt).not.toHaveBeenCalled();
+  });
 });
