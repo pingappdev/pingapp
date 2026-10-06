@@ -63,16 +63,13 @@ export function clearCardRequest(userId: string, requestId: string) {
 }
 
 export function isConfirmedRejection(error: unknown) {
+  // An outage can happen after an earlier attempt was accepted. Never discard
+  // its key on unavailable/5xx responses, even when the error code looks known.
+  // Pending operations and idempotency conflicts also need the original key
+  // retained: they do not establish that no earlier request was accepted.
   return (
     error instanceof ApiError &&
-    [
-      "VALIDATION",
-      "CARD_EMAIL_REQUIRED",
-      "CARD_NOT_READY",
-      "CARD_ALREADY_EXISTS",
-      "CARD_OPERATION_PENDING",
-      "IDEMPOTENCY_CONFLICT",
-      "CARDS_UNAVAILABLE",
-    ].includes(error.code)
+    ((error.status === 400 && ["VALIDATION", "CARD_EMAIL_REQUIRED"].includes(error.code)) ||
+      (error.status === 409 && ["CARD_NOT_READY", "CARD_ALREADY_EXISTS"].includes(error.code)))
   );
 }
