@@ -11,6 +11,7 @@ import { pricingKey } from './service.js';
 import { cardsEnabled, decryptCardData, providerScope } from './settings.js';
 
 const REVIEW = 'We are checking the outcome of this request. Do not make another payment. Contact support if it does not update.';
+const FUNDING_REVIEW = 'The provider used an unexpected funding source. Contact support before continuing.';
 const REJECTED = 'The card provider could not accept this request. Please check the details or contact support.';
 const later = (ms: number) => new Date(Date.now() + ms);
 async function lockCard(tx: DbTransaction, id: string) {
@@ -22,9 +23,9 @@ async function lockOperation(tx: DbTransaction, id: string) {
   return op;
 }
 async function setOperation(tx: DbTransaction, op: CardOperation, status: OperationStatus, extra: Partial<typeof cardOperations.$inferInsert> = {}) {
-  const next = advanceStatus(op.status, status);
+  const next = op.error === FUNDING_REVIEW ? 'review' : advanceStatus(op.status, status);
   await tx.update(cardOperations).set({ ...extra, status: next, updatedAt: new Date(),
-    error: next === 'completed' ? null : next === 'review' ? REVIEW : extra.error ?? op.error,
+    error: next === 'completed' ? null : next === 'review' ? extra.error ?? op.error ?? REVIEW : extra.error === undefined ? op.error : extra.error,
   }).where(eq(cardOperations.id, op.id));
 }
 
@@ -63,19 +64,19 @@ export async function submitOne(): Promise<boolean> {
   try {
     const data = record(result), info = normalizeCard(data);
     const topupId = identifier(data.topup_id);
-    const sandboxCredit = op.kind === 'topup' && config.IZIPAY_MODE === 'sandbox' && data.sandbox === true && data.funded_from === 'balance' && data.status === 'credited' && topupId;
+    const sandboxCredit = op.kind === 'topup' && config.IZIPAY_MODE === 'sandbox' && data.sandbox === true && data.funded_from === 'balance' && data.status === 'credited' && topupId && decimal(data.amount_usd) === decimal(op.amountUsd) && decimal(data.amount_on_card) !== null;
     // This sandbox-only deviation contains no payment instructions to display.
-    const invoice = sandboxCredit ? null : normalizeInvoice(data, op.network as CardNetwork);
+    const balanceFunded = data.funded_from === 'balance';
+    const invoice = balanceFunded ? null : normalizeInvoice(data, op.network as CardNetwork);
     await db.transaction(async (tx) => {
       const card = await lockCard(tx, op.cardId), current = await lockOperation(tx, op.id);
       if (current.leaseToken !== op.leaseToken) return;
       if (!info.providerCardId || card.providerCardId && card.providerCardId !== info.providerCardId) throw new Error('Card correlation mismatch');
       if (info.clientCardRef && info.clientCardRef !== card.clientCardRef) throw new Error('Card reference mismatch');
-      const balanceFunded = data.funded_from === 'balance';
       let status: OperationStatus = op.kind === 'issue' ? issueOperationStatus(info.issueStatus) : sandboxCredit ? 'completed' : 'awaiting_payment';
       if (balanceFunded && !sandboxCredit || op.kind === 'topup' && !sandboxCredit && !invoice?.address && !invoice?.url) status = 'review';
       if (op.kind === 'issue' && status === 'awaiting_payment' && !invoice?.address && !current.invoiceAddress && !invoice?.url && !current.invoiceUrl) status = 'review';
-      const extra: Partial<typeof cardOperations.$inferInsert> = { leaseUntil: null, leaseToken: null, nextAttemptAt: later(60_000), error: status === 'review' ? REVIEW : null };
+      const extra: Partial<typeof cardOperations.$inferInsert> = { leaseUntil: null, leaseToken: null, nextAttemptAt: later(60_000), error: balanceFunded && !sandboxCredit ? FUNDING_REVIEW : status === 'review' ? REVIEW : null };
       if (topupId) extra.providerTopupId = topupId;
       if (sandboxCredit) extra.amountOnCardUsd = decimal(data.amount_on_card);
       // Duplicate issue responses omit invoices; never erase already persisted instructions.
@@ -95,9 +96,31 @@ export async function submitOne(): Promise<boolean> {
       }).where(eq(cards.id, card.id));
     });
   } catch {
-    // DB conflicts or malformed success bodies may follow an accepted mutation. Preserve uncertainty.
-    await db.update(cardOperations).set({ status: 'review', error: REVIEW, leaseUntil: null, leaseToken: null, updatedAt: new Date() })
-      .where(and(eq(cardOperations.id, op.id), eq(cardOperations.leaseToken, op.leaseToken!), ne(cardOperations.status, 'completed')));
+    // Even an invalid invoice can follow an accepted mutation. Retain correlated IDs for support
+    // and later callbacks, but never persist its unvalidated address/network/payment instructions.
+    try {
+      await db.transaction(async (tx) => {
+        const card = await lockCard(tx, op.cardId), current = await lockOperation(tx, op.id);
+        if (current.leaseToken !== op.leaseToken) return;
+        const data = record(result), info = normalizeCard(data);
+        const correlated = info.providerCardId && (!card.providerCardId || card.providerCardId === info.providerCardId) &&
+          (!info.clientCardRef || info.clientCardRef === card.clientCardRef);
+        const paymentId = identifier(record(data.payment).payment_id ?? data.payment_id);
+        const topupId = identifier(data.topup_id);
+        await setOperation(tx, current, 'review', { leaseToken: null, leaseUntil: null,
+          ...(correlated && !current.providerPaymentId && paymentId ? { providerPaymentId: paymentId } : {}),
+          ...(correlated && !current.providerTopupId && topupId ? { providerTopupId: topupId } : {}),
+        });
+        if (correlated) await tx.update(cards).set({ providerCardId: info.providerCardId,
+          ...(op.kind === 'issue' && card.issueStatus !== 'issued' ? { issueStatus: 'unknown' } : {}),
+          nextSyncAt: new Date(), updatedAt: new Date(),
+        }).where(eq(cards.id, card.id));
+      });
+    } catch {
+      // A conflicting provider ID itself needs review; do not attach it to a second owner.
+      await db.update(cardOperations).set({ status: 'review', error: REVIEW, leaseUntil: null, leaseToken: null, updatedAt: new Date() })
+        .where(and(eq(cardOperations.id, op.id), eq(cardOperations.leaseToken, op.leaseToken!), ne(cardOperations.status, 'completed')));
+    }
   }
   return true;
 }
@@ -109,20 +132,23 @@ export async function recoverExpiredLeases() {
 async function applyCard(tx: DbTransaction, card: Card, value: unknown, fetchedAt: Date) {
   const info = normalizeCard(value);
   if (!info.providerCardId || info.providerCardId !== card.providerCardId || info.clientCardRef && info.clientCardRef !== card.clientCardRef) throw new Error('Card correlation mismatch');
+  const [issue] = await tx.select().from(cardOperations).where(and(eq(cardOperations.cardId, card.id), eq(cardOperations.kind, 'issue'))).for('update');
+  const fundingReview = issue?.error === FUNDING_REVIEW;
   const newer = !card.balanceAsOf || fetchedAt >= card.balanceAsOf;
   await tx.update(cards).set({
-    issueStatus: card.issueStatus === 'issued' ? 'issued' : info.issueStatus,
+    issueStatus: fundingReview ? 'unknown' : card.issueStatus === 'issued' ? 'issued' : info.issueStatus,
     providerIssueStatus: info.issueStatus,
     ...(info.last4 ? { last4: info.last4 } : {}), ...(info.isFrozen !== null ? { isFrozen: info.isFrozen } : {}),
     ...(info.issuedAt ? { issuedAt: new Date(info.issuedAt) } : {}),
     ...(newer && info.balanceUsd !== null ? { balanceUsd: info.balanceUsd, balanceAsOf: fetchedAt, balanceSource: info.balanceSource } : {}),
     ...(newer && info.pendingTopupUsd !== null ? { pendingTopupUsd: info.pendingTopupUsd } : {}), updatedAt: new Date(),
   }).where(eq(cards.id, card.id));
-  const [issue] = await tx.select().from(cardOperations).where(and(eq(cardOperations.cardId, card.id), eq(cardOperations.kind, 'issue'))).for('update');
   if (issue) {
     const status = issueOperationStatus(info.issueStatus);
     // Details and duplicate responses cannot reconstruct a lost issuance invoice.
-    await setOperation(tx, issue, status === 'awaiting_payment' && !issue.invoiceAddress && !issue.invoiceUrl ? 'review' : status);
+    const paymentId = identifier(record(value).payment_id);
+    const extra = !issue.providerPaymentId && paymentId ? { providerPaymentId: paymentId } : {};
+    await setOperation(tx, issue, status === 'awaiting_payment' && !issue.invoiceAddress && !issue.invoiceUrl ? 'review' : status, extra);
   }
   // A card's absolute balance never establishes which top-up was credited.
 }
@@ -248,7 +274,7 @@ export async function processOneEvent(): Promise<boolean> {
       const incoming = event.eventType === 'card.issued' ? 'completed' : event.eventType === 'card.paid' ? 'processing' : event.eventType === 'card.failed' ? 'failed' : null;
       if (incoming) {
         await setOperation(tx, op, incoming);
-        if (card.issueStatus !== 'issued') await tx.update(cards).set({ issueStatus: incoming === 'completed' ? 'issued' : incoming === 'processing' ? 'paid_pending_issue' : 'failed' }).where(eq(cards.id, card.id));
+        if (card.issueStatus !== 'issued' && op.error !== FUNDING_REVIEW) await tx.update(cards).set({ issueStatus: incoming === 'completed' ? 'issued' : incoming === 'processing' ? 'paid_pending_issue' : 'failed' }).where(eq(cards.id, card.id));
       }
     } else if (event.eventType === 'topup.completed') {
       const paymentId = identifier(payload.payment_id), topupId = identifier(payload.topup_id);
