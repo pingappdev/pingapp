@@ -1,5 +1,6 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
+import { AppError } from '../../lib/errors.js';
 
 export const networks = [
   { id: 'tron', label: 'TRON', payCurrency: 'usdttrc20' },
@@ -35,6 +36,11 @@ export function usdInput(value: string): string {
   const cents = BigInt(whole) * 100n + BigInt(fraction.padEnd(2, '0'));
   if (cents <= 0n || cents > 1_000_000n) throw new Error('Invalid amount');
   return `${cents / 100n}.${(cents % 100n).toString().padStart(2, '0')}`;
+}
+export function requireExpectedAccount(userId: string, expectedUserId: string): void {
+  if (userId.toLowerCase() !== expectedUserId.toLowerCase()) {
+    throw new AppError('ACCOUNT_CHANGED', 409, 'Your signed-in account changed. Return to the account that opened this card form and try again.');
+  }
 }
 export function emailInput(value: string): string {
   const email = z.email().max(254).parse(value.trim());

@@ -5,7 +5,7 @@ import { db } from '../../db/client.js';
 import { cardOperations, cardProfiles, cards, cardTransactions, kv, users, type Card, type CardOperation } from '../../db/schema.js';
 import type { DbTransaction } from '../../db/tx.js';
 import { AppError, errors } from '../../lib/errors.js';
-import { decimal, hash, networks, payCurrency, record, string, usdInput, type CardNetwork } from './domain.js';
+import { decimal, hash, networks, payCurrency, record, requireExpectedAccount, string, usdInput, type CardNetwork } from './domain.js';
 import { provider } from './provider.js';
 import { cardsEnabled, decryptCardData, encryptCardData, providerScope, requireCards, unavailable } from './settings.js';
 
@@ -42,7 +42,8 @@ async function duplicate(tx: DbTransaction, userId: string, kind: string, reques
   if (existing && existing.requestHash !== requestHash) throw new AppError('IDEMPOTENCY_CONFLICT', 409, 'This request ID was already used for different card details.');
   return existing;
 }
-export async function issueCard(userId: string, input: { product: 'visa'; network: CardNetwork; requestId: string }) {
+export async function issueCard(userId: string, input: { product: 'visa'; network: CardNetwork; requestId: string; expectedUserId: string }) {
+  requireExpectedAccount(userId, input.expectedUserId);
   const requestHash = hash(JSON.stringify({ providerScope, product: input.product, network: input.network }));
   return db.transaction(async (tx) => {
     await lockUser(tx, userId);

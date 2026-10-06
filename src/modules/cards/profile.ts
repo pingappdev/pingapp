@@ -2,15 +2,16 @@ import { eq } from 'drizzle-orm';
 import { db } from '../../db/client.js';
 import { cardProfiles, users } from '../../db/schema.js';
 import { errors } from '../../lib/errors.js';
-import { emailInput } from './domain.js';
+import { emailInput, requireExpectedAccount } from './domain.js';
 import { decryptCardData, encryptCardData } from './settings.js';
 
 export async function getProfile(userId: string) {
   const [row] = await db.select().from(cardProfiles).where(eq(cardProfiles.userId, userId)).limit(1);
   return row ? { email: decryptCardData(row.emailEnc, `profile:${userId}`) } : null;
 }
-export async function saveProfile(userId: string, value: string) {
-  const email = emailInput(value);
+export async function saveProfile(userId: string, input: { email: string; expectedUserId: string }) {
+  requireExpectedAccount(userId, input.expectedUserId);
+  const email = emailInput(input.email);
   const emailEnc = encryptCardData(email, `profile:${userId}`);
   await db.transaction(async (tx) => {
     const [user] = await tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for('update');
