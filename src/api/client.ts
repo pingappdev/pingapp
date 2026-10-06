@@ -1,4 +1,4 @@
-import { config } from "../config";
+import { config } from "../env";
 import type {
   ApiRequestOptions,
   BalancesResponse,

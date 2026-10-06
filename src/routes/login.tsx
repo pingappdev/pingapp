@@ -1,7 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { lazy, Suspense } from "react";
+import { useEffect, useState } from "react";
+import { useSession } from "../api/hooks";
+import LoginForm from "../auth/login-form";
+import { safeReturnTo } from "../auth/return-to";
+import { useRouter } from "../routing";
+import type ClientLogin from "../wallet/client-login";
 
-const ClientLogin = import.meta.env.SSR ? null : lazy(() => import("../wallet/client-login"));
+// Wallet SDKs must stay out of both initial browser loading and server builds.
+const loadWalletLogin = import.meta.env.SSR ? null : () => import("../wallet/client-login");
 
 type LoginSearch = { returnTo?: string };
 
@@ -22,9 +28,44 @@ export const Route = createFileRoute("/login")({
 
 function Login() {
   const { returnTo } = Route.useSearch();
+  const router = useRouter();
+  const session = useSession();
+  const [WalletLogin, setWalletLogin] = useState<typeof ClientLogin | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (session.isSuccess && session.data && !WalletLogin) router.replace(safeReturnTo(returnTo));
+  }, [session.isSuccess, session.data, WalletLogin, returnTo, router]);
+
+  if (WalletLogin) return <WalletLogin returnTo={returnTo} autoConnect />;
+
   return (
-    <Suspense fallback={<main className="contact-page section">Checking your session…</main>}>
-      {ClientLogin && <ClientLogin returnTo={returnTo} />}
-    </Suspense>
+    <LoginForm
+      status={
+        session.isPending
+          ? "loading"
+          : session.isError
+            ? "error"
+            : session.data
+              ? "signed-in"
+              : "signed-out"
+      }
+      sessionError={session.error?.message}
+      actionError={error}
+      busy={busy}
+      onRetry={() => void session.refetch()}
+      onConnect={() => {
+        if (busy || !loadWalletLogin) return;
+        setBusy(true);
+        setError("");
+        void loadWalletLogin()
+          .then((module) => setWalletLogin(() => module.default))
+          .catch(() => {
+            setError("Couldn’t load wallet sign-in. Check your connection and try again.");
+          })
+          .finally(() => setBusy(false));
+      }}
+    />
   );
 }

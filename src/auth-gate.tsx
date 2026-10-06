@@ -2,8 +2,10 @@ import { useEffect, useState, type ReactNode } from "react";
 import { RefreshCw } from "lucide-react";
 import { useAuth, safeReturnTo } from "./auth/useAuth";
 import { trimAddress } from "./dashboard/format";
+import { useRouter } from "./routing";
 
 export default function AuthGate({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const { status, me, address, error: sessionError, retrySession, signIn, signOut } = useAuth();
   const [busy, setBusy] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -12,8 +14,8 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (status !== "signed-out" || switching) return;
     const returnTo = safeReturnTo(window.location.pathname + window.location.search);
-    window.location.replace(`/login?returnTo=${encodeURIComponent(returnTo)}`);
-  }, [status, switching]);
+    router.replace(`/login?returnTo=${encodeURIComponent(returnTo)}`);
+  }, [status, switching, router]);
 
   if (status === "loading" || (status === "signed-out" && !switching)) {
     return (

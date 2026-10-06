@@ -8,6 +8,7 @@ import type { Me } from "../api/types";
 import { chain } from "../config";
 import { openConnect } from "../wallet/appkit";
 import { safeReturnTo } from "./return-to";
+import { useRouter } from "../routing";
 
 export { safeReturnTo } from "./return-to";
 
@@ -25,6 +26,7 @@ export function useAuth(): {
   withReauth: <T>(fn: () => Promise<T>) => Promise<T>;
 } {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const session = useSession();
   const account = useAccount();
   const { disconnectAsync } = useDisconnect();
@@ -93,12 +95,12 @@ export function useAuth(): {
           window.location.pathname.startsWith("/dashboard/") ||
           window.location.pathname.startsWith("/claim/")
         )
-          window.location.replace(`/login?returnTo=${encodeURIComponent(returnTo)}`);
+          router.replace(`/login?returnTo=${encodeURIComponent(returnTo)}`);
       });
     };
     window.addEventListener("pingapp:unauthenticated", unauthenticated);
     return () => window.removeEventListener("pingapp:unauthenticated", unauthenticated);
-  }, [queryClient]);
+  }, [queryClient, router]);
 
   const status: AuthStatus = session.isPending
     ? "loading"
