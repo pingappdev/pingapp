@@ -8,6 +8,7 @@ import { AppError, errors } from '../../lib/errors.js';
 import { decimal, hash, networks, payCurrency, record, requireExpectedAccount, string, usdInput, type CardNetwork } from './domain.js';
 import { provider } from './provider.js';
 import { issueRequestBody, issueRequestHash, productCatalog, productNetwork, profileVersionSchema, type CardProduct } from './products.js';
+import { scheduleStaleBalanceReads } from './refresh.js';
 import { cardsEnabled, decryptCardData, encryptCardData, providerScope, requireCards, unavailable } from './settings.js';
 
 export const pricingKey = `cards:pricing:${providerScope}`;
@@ -118,15 +119,14 @@ export async function listCards(userId: string) {
   const rows = await db.select().from(cards).where(and(eq(cards.userId, userId), eq(cards.providerScope, providerScope))).orderBy(desc(cards.createdAt));
   if (!rows.length) return [];
   const operations = await db.select().from(cardOperations).where(and(eq(cardOperations.userId, userId), inArray(cardOperations.cardId, rows.map((row) => row.id)))).orderBy(desc(cardOperations.createdAt), desc(cardOperations.id));
+  await scheduleStaleBalanceReads(userId, rows.map((row) => row.id));
   return rows.map((row) => summary(row, operations.find((op) => op.cardId === row.id)));
 }
 export async function getCard(userId: string, id: string) {
   const card = await ownCard(userId, id);
   const [op] = await db.select().from(cardOperations).where(eq(cardOperations.cardId, id)).orderBy(desc(cardOperations.createdAt), desc(cardOperations.id)).limit(1);
   // Screen reads only schedule a bounded shared refresh; they never call the issuer directly.
-  if (cardsEnabled() && (!card.balanceAsOf || Date.now() - card.balanceAsOf.getTime() > 60_000)) {
-    await db.update(cards).set({ nextSyncAt: new Date() }).where(and(eq(cards.id, id), sql`${cards.nextSyncAt} > now()`));
-  }
+  await scheduleStaleBalanceReads(userId, [id]);
   return summary(card, op);
 }
 export async function getTransactions(userId: string, id: string, limit: number, cursor?: string) {

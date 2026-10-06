@@ -67,6 +67,13 @@ describe('card product catalog and private profile contract', () => {
     expect(() => cardholderNameSchema.parse('x'.repeat(101))).toThrow();
     expect(cardholderNameSchema.parse(' ' + 'x'.repeat(100) + ' ')).toHaveLength(100);
   });
+  it('prefers the dedicated Visa US price and only falls back when absent', () => {
+    const us = (pricing: unknown) => productCatalog(pricing).find((product) => product.id === 'visa_us')!.issuePriceUsd;
+    expect(us({ issuePriceUsd: '10', visaUsIssuePriceUsd: '12' })).toBe('12');
+    expect(us({ issuePriceUsd: '10' })).toBe('10');
+    expect(us({ issuePriceUsd: '10', visaUsIssuePriceUsd: null })).toBeNull();
+    expect(us({ issuePriceUsd: '10', visaUsIssuePriceUsd: 'invalid' })).toBeNull();
+  });
   it('advances profile versions even for concurrent saves in the same millisecond or a clock rollback', () => {
     const first = nextProfileUpdatedAt(oldTime, oldTime);
     expect(first.getTime()).toBe(oldTime.getTime() + 1);

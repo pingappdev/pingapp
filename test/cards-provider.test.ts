@@ -65,6 +65,13 @@ describe('provider transport safety', () => {
     await expect(async () => provider.card('../payments/secret')).rejects.toMatchObject({ outcome: 'not_sent' });
     expect(mocks.fetch).not.toHaveBeenCalled();
   });
+  it('uses and signs the live card query for authoritative refresh requests', async () => {
+    mocks.fetch.mockResolvedValue(new Response('{"success":true,"data":{"card_id":"card_123"}}'));
+    await provider.card('card_123', true);
+    expect(mocks.fetch.mock.calls[0][0]).toBe('https://izipay.me/api/v1/cards/card_123?live=1');
+    const init = mocks.fetch.mock.calls[0][1];
+    expect(init.headers['x-signature']).toBe(signRequest('unit-test-placeholder', init.headers['x-timestamp'], 'GET', '/api/v1/cards/card_123?live=1', ''));
+  });
   it('strips provider validation details from errors', async () => {
     mocks.fetch.mockResolvedValue(new Response('{"email":"private@example.com","cvv":"123"}', { status: 400 }));
     const error = await provider.issue('{}', 'durable-key').catch((error: unknown) => error);
@@ -74,6 +81,7 @@ describe('provider transport safety', () => {
 });
 
 import { decryptCardData, encryptCardData } from '../src/modules/cards/settings.js';
+import { signRequest } from '../src/modules/cards/domain.js';
 describe('card encryption context', () => {
   it('encrypts card email and binds it to its owner or immutable operation', () => {
     const value = encryptCardData('user@example.com', 'profile:owner-one');

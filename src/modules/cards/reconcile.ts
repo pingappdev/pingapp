@@ -8,6 +8,7 @@ import { redis } from '../../lib/redis.js';
 import { advanceStatus, decimal, identifier, issueOperationStatus, normalizeCard, normalizeInvoice, normalizeTransaction, record, transactionUpdate, type CardNetwork, type OperationStatus } from './domain.js';
 import { provider, ProviderError, providerRedisPrefix } from './provider.js';
 import { pricingKey } from './service.js';
+import { balanceRefreshKey, requestBalanceRefresh } from './refresh.js';
 import { cardsEnabled, decryptCardData, providerScope } from './settings.js';
 
 const REVIEW = 'We are checking the outcome of this request. Do not make another payment. Contact support if it does not update.';
@@ -31,6 +32,7 @@ async function setOperation(tx: DbTransaction, op: CardOperation, status: Operat
     // Both accepted HTTP credits and matched completion callbacks use this transition.
     // Start from the newest page even when an older pagination cycle is in progress.
     await requestHistoryRefresh(tx, op.cardId);
+    await requestBalanceRefresh(tx, op.cardId);
   }
 }
 
@@ -163,27 +165,38 @@ async function applyCard(tx: DbTransaction, card: Card, value: unknown, fetchedA
     await setOperation(tx, issue, status === 'awaiting_payment' && !issue.invoiceAddress && !issue.invoiceUrl ? 'review' : status, extra);
   }
   // A card's absolute balance never establishes which top-up was credited.
+  return info;
 }
 export async function syncOneCard() {
-  const card = await db.transaction(async (tx) => {
+  const work = await db.transaction(async (tx) => {
     const [row] = await tx.select().from(cards).where(and(eq(cards.providerScope, providerScope), sql`${cards.providerCardId} is not null`, lt(cards.nextSyncAt, new Date()),
       or(isNull(cards.syncLeaseUntil), lt(cards.syncLeaseUntil, new Date())))).orderBy(asc(cards.nextSyncAt)).for('update', { skipLocked: true }).limit(1);
     if (!row) return null;
     const [claimed] = await tx.update(cards).set({ syncLeaseUntil: later(60_000), syncToken: randomUUID(), nextSyncAt: later(120_000) }).where(eq(cards.id, row.id)).returning();
-    return claimed;
+    const [refresh] = await tx.select().from(kv).where(eq(kv.key, balanceRefreshKey(row.id)));
+    return { card: claimed, live: record(refresh?.value).live === true };
   });
-  if (!card) return;
+  if (!work) return;
+  const { card, live } = work;
   const fetchedAt = new Date();
   try {
-    const value = await provider.card(card.providerCardId!);
+    const value = await provider.card(card.providerCardId!, live);
     await db.transaction(async (tx) => {
       const current = await lockCard(tx, card.id);
       if (current.syncToken !== card.syncToken) return;
-      await applyCard(tx, current, value, fetchedAt);
-      await tx.update(cards).set({ syncLeaseUntil: null, syncToken: null, nextSyncAt: later(current.issueStatus === 'issued' ? 120_000 : 30_000) }).where(eq(cards.id, current.id));
+      const info = await applyCard(tx, current, value, fetchedAt);
+      const fulfilled = info.balanceUsd !== null && (!current.balanceAsOf || fetchedAt >= current.balanceAsOf);
+      if (live && fulfilled) await tx.delete(kv).where(eq(kv.key, balanceRefreshKey(card.id)));
+      const retryAt = live && !fulfilled ? later(60_000) : null;
+      await tx.update(cards).set({ syncLeaseUntil: retryAt, syncToken: null,
+        nextSyncAt: retryAt ?? later(info.issueStatus === 'issued' ? 120_000 : 30_000),
+      }).where(eq(cards.id, current.id));
     });
   } catch {
-    await db.update(cards).set({ syncLeaseUntil: null, syncToken: null, nextSyncAt: later(60_000) }).where(and(eq(cards.id, card.id), eq(cards.syncToken, card.syncToken!)));
+    // Keep the durable live request, and use the lease as a cooldown so list polling
+    // cannot turn a provider failure or shared-budget refusal into a retry loop.
+    const retryAt = later(60_000);
+    await db.update(cards).set({ syncLeaseUntil: retryAt, syncToken: null, nextSyncAt: retryAt }).where(and(eq(cards.id, card.id), eq(cards.syncToken, card.syncToken!)));
   }
 }
 
@@ -252,9 +265,11 @@ export async function syncOneHistory() {
 }
 export async function refreshPricing() {
   const [saved] = await db.select().from(kv).where(eq(kv.key, pricingKey));
-  if (saved && 'mastercardIssuePriceUsd' in record(saved.value) && Date.now() - saved.updatedAt.getTime() < 15 * 60_000) return;
+  if (saved && 'mastercardIssuePriceUsd' in record(saved.value) && 'visaUsIssuePriceUsd' in record(saved.value) && Date.now() - saved.updatedAt.getTime() < 15 * 60_000) return;
   const data = record(await provider.pricing());
-  const value = { issuePriceUsd: decimal(record(data.pricing).visa_issue_usd), mastercardIssuePriceUsd: decimal(record(data.pricing).mastercard_issue_usd) };
+  const pricing = record(data.pricing);
+  const value = { issuePriceUsd: decimal(pricing.visa_issue_usd), mastercardIssuePriceUsd: decimal(pricing.mastercard_issue_usd),
+    visaUsIssuePriceUsd: decimal(pricing.visa_us_issue_usd === undefined ? pricing.visa_issue_usd : pricing.visa_us_issue_usd) };
   await db.insert(kv).values({ key: pricingKey, value }).onConflictDoUpdate({ target: kv.key, set: { value, updatedAt: new Date() } });
   const limit = Number(record(data.limits).rate_limit_per_min);
   if (Number.isSafeInteger(limit) && limit > 0) await redis.set(`${providerRedisPrefix}:limit`, String(Math.max(1, Math.min(24, Math.floor(limit * 0.8)))), 'EX', 3600);
@@ -307,7 +322,8 @@ export async function processOneEvent(): Promise<boolean> {
       if (transaction) await upsertTransaction(tx, card, transaction, event.eventAt);
     }
     // Events schedule a current read; never apply a possibly stale absolute balance or a delta.
-    await tx.update(cards).set({ nextSyncAt: new Date(), updatedAt: new Date() }).where(eq(cards.id, card.id));
+    await requestBalanceRefresh(tx, card.id);
+    await tx.update(cards).set({ updatedAt: new Date() }).where(eq(cards.id, card.id));
     await tx.update(cardWebhookEvents).set({ status: 'processed', cardId: card.id, operationId, processedAt: new Date(), attempts: event.attempts + 1, lastError: null }).where(eq(cardWebhookEvents.id, event.id));
     return true;
   }); } catch {

@@ -20,7 +20,8 @@ export function productNetwork(product: string): string {
 export function productCatalog(cachedPricing: unknown) {
   const pricing = record(cachedPricing);
   return products.map((product) => ({ ...product, currency: 'USD' as const,
-    issuePriceUsd: decimal(product.id === 'mastercard' ? pricing.mastercardIssuePriceUsd : pricing.issuePriceUsd),
+    issuePriceUsd: decimal(product.id === 'mastercard' ? pricing.mastercardIssuePriceUsd :
+      product.id === 'visa_us' && pricing.visaUsIssuePriceUsd !== undefined ? pricing.visaUsIssuePriceUsd : pricing.issuePriceUsd),
   }));
 }
 export function nextProfileUpdatedAt(previous: Date | null, now = new Date()): Date {
