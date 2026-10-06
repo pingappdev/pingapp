@@ -78,6 +78,7 @@ export async function submitOne(): Promise<boolean> {
   try {
     const data = record(result), info = normalizeCard(data);
     const topupId = identifier(data.topup_id);
+    const transactionId = op.kind === 'topup' ? identifier(data.transaction_id) : null;
     const sandboxCredit = op.kind === 'topup' && config.IZIPAY_MODE === 'sandbox' && data.sandbox === true && data.funded_from === 'balance' && data.status === 'credited' && topupId && decimal(data.amount_usd) === decimal(op.amountUsd) && decimal(data.amount_on_card) !== null;
     // This sandbox-only deviation contains no payment instructions to display.
     const balanceFunded = data.funded_from === 'balance';
@@ -92,6 +93,7 @@ export async function submitOne(): Promise<boolean> {
       if (op.kind === 'issue' && status === 'awaiting_payment' && !invoice?.address && !current.invoiceAddress && !invoice?.url && !current.invoiceUrl) status = 'review';
       const extra: Partial<typeof cardOperations.$inferInsert> = { leaseUntil: null, leaseToken: null, nextAttemptAt: later(60_000), error: balanceFunded && !sandboxCredit ? FUNDING_REVIEW : status === 'review' ? REVIEW : null };
       if (topupId) extra.providerTopupId = topupId;
+      if (transactionId) extra.providerTransactionId = transactionId;
       if (sandboxCredit) extra.amountOnCardUsd = decimal(data.amount_on_card);
       // Duplicate issue responses omit invoices; never erase already persisted instructions.
       if (invoice) {
@@ -121,9 +123,11 @@ export async function submitOne(): Promise<boolean> {
           (!info.clientCardRef || info.clientCardRef === card.clientCardRef);
         const paymentId = identifier(record(data.payment).payment_id ?? data.payment_id);
         const topupId = identifier(data.topup_id);
+        const transactionId = op.kind === 'topup' ? identifier(data.transaction_id) : null;
         await setOperation(tx, current, 'review', { leaseToken: null, leaseUntil: null,
           ...(correlated && !current.providerPaymentId && paymentId ? { providerPaymentId: paymentId } : {}),
           ...(correlated && !current.providerTopupId && topupId ? { providerTopupId: topupId } : {}),
+          ...(correlated && !current.providerTransactionId && transactionId ? { providerTransactionId: transactionId } : {}),
         });
         if (correlated) await tx.update(cards).set({ providerCardId: info.providerCardId,
           ...(op.kind === 'issue' && card.issueStatus !== 'issued' ? { issueStatus: 'unknown' } : {}),
@@ -310,12 +314,21 @@ export async function processOneEvent(): Promise<boolean> {
         if (card.issueStatus !== 'issued' && op.error !== FUNDING_REVIEW) await tx.update(cards).set({ issueStatus: incoming === 'completed' ? 'issued' : incoming === 'processing' ? 'paid_pending_issue' : 'failed' }).where(eq(cards.id, card.id));
       }
     } else if (event.eventType === 'topup.completed') {
-      const paymentId = identifier(payload.payment_id), topupId = identifier(payload.topup_id);
-      const ids = [paymentId ? eq(cardOperations.providerPaymentId, paymentId) : undefined, topupId ? eq(cardOperations.providerTopupId, topupId) : undefined].filter((item) => item !== undefined);
+      const paymentId = identifier(payload.payment_id), topupId = identifier(payload.topup_id), transactionId = identifier(payload.transaction_id);
+      const ids = [paymentId ? eq(cardOperations.providerPaymentId, paymentId) : undefined, topupId ? eq(cardOperations.providerTopupId, topupId) : undefined,
+        transactionId ? eq(cardOperations.providerTransactionId, transactionId) : undefined].filter((item) => item !== undefined);
       const matches = ids.length ? await tx.select().from(cardOperations).where(and(eq(cardOperations.cardId, card.id), eq(cardOperations.kind, 'topup'), or(...ids))).for('update') : [];
       if (matches.length !== 1) { await defer(); return true; }
-      operationId = matches[0].id;
-      await setOperation(tx, matches[0], 'completed');
+      const op = matches[0];
+      // One known identifier must match this card's operation; any other known
+      // identifier must agree. Never choose an operation from amount or balance.
+      if (paymentId && op.providerPaymentId && paymentId !== op.providerPaymentId ||
+          topupId && op.providerTopupId && topupId !== op.providerTopupId ||
+          transactionId && op.providerTransactionId && transactionId !== op.providerTransactionId) {
+        await defer(); return true;
+      }
+      operationId = op.id;
+      await setOperation(tx, op, 'completed', transactionId && !op.providerTransactionId ? { providerTransactionId: transactionId } : {});
     } else if (event.eventType === 'card.transaction') {
       // Stored payload is already normalized and contains only explicitly allowed fields.
       const transaction = payload.transaction as ReturnType<typeof normalizeTransaction>;

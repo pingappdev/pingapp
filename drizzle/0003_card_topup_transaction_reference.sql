@@ -1,0 +1,2 @@
+ALTER TABLE "card_operations" ADD COLUMN "provider_transaction_id" text;--> statement-breakpoint
+CREATE UNIQUE INDEX "card_operations_transaction_unique" ON "card_operations" USING btree ("provider_scope","card_id","provider_transaction_id");

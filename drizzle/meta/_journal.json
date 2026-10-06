@@ -22,6 +22,13 @@
       "when": 1791317708355,
       "tag": "0002_card_products_and_private_name",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791319512039,
+      "tag": "0003_card_topup_transaction_reference",
+      "breakpoints": true
     }
   ]
 }
