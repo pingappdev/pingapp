@@ -32,10 +32,10 @@ function CardDashboard({
   userId: string;
   withReauth: ReturnType<typeof useAuth>["withReauth"];
 }) {
-  const configQuery = useCardsConfig(userId);
-  const cardsQuery = useCards(userId);
-  const config = configQuery.data;
   const request = useCardRequest(userId);
+  const configQuery = useCardsConfig(userId, !request.accountChanged);
+  const cardsQuery = useCards(userId, !request.accountChanged);
+  const config = configQuery.data;
   const [modal, setModal] = useState<"issue" | "topup" | "details" | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const cards = [...(cardsQuery.data ?? [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -71,6 +71,20 @@ function CardDashboard({
     void cardsQuery.refetch();
     void configQuery.refetch();
   };
+
+  if (request.accountChanged)
+    return (
+      <section className="card card-recovery" role="alert">
+        <h2>Your signed-in account changed</h2>
+        <p>
+          Refresh your session before continuing. To recover this application, switch back to the
+          account that started it. Any pending request remains saved for that account.
+        </p>
+        <button type="button" className="button outline" onClick={() => window.location.reload()}>
+          Refresh session
+        </button>
+      </section>
+    );
 
   return (
     <div className="card-view">

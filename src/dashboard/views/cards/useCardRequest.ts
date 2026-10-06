@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { cardKeys, cardsApi, type CardOperation, type CardNetwork } from "@/api/cards";
 import { qk, sessionRevision } from "@/api/hooks";
+import { ApiError } from "@/api/client";
 import type { Me } from "@/api/types";
 import {
   clearCardRequest,
@@ -17,6 +18,8 @@ export function useCardRequest(userId: string) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [accepted, setAccepted] = useState<CardOperation | null>(null);
+  const [accountChanged, setAccountChanged] = useState(false);
+  const accountBlocked = useRef(false);
   const lock = useRef(false);
   const mounted = useRef(true);
   useEffect(() => {
@@ -35,7 +38,7 @@ export function useCardRequest(userId: string) {
         | { kind: "issue"; email: string; network: CardNetwork }
         | { kind: "topup"; cardId: string; amountUsd: string; network: CardNetwork },
     ) => {
-      if (lock.current) return false;
+      if (lock.current || accountBlocked.current) return false;
       lock.current = true;
       setBusy(true);
       setError(null);
@@ -53,7 +56,7 @@ export function useCardRequest(userId: string) {
               "No unresolved request was found. Refresh the card screen before continuing.",
             );
           if (input.kind === "issue") {
-            await cardsApi.saveProfile(input.email);
+            await cardsApi.saveProfile(input.email, userId);
             if (!current()) return false;
           }
           // Recheck after saving the profile: another tab may have submitted.
@@ -66,6 +69,7 @@ export function useCardRequest(userId: string) {
                     product: "visa",
                     network: input.network,
                     requestId: crypto.randomUUID(),
+                    expectedUserId: userId,
                   },
                 }
               : {
@@ -83,7 +87,7 @@ export function useCardRequest(userId: string) {
         if (!current()) return false;
         const { operation } =
           request.kind === "issue"
-            ? await cardsApi.issue(request.input)
+            ? await cardsApi.issue({ ...request.input, expectedUserId: userId })
             : await cardsApi.topup(request.cardId, request.input);
         if (
           !operation?.id ||
@@ -105,6 +109,14 @@ export function useCardRequest(userId: string) {
         return true;
       } catch (err) {
         if (!current()) return false;
+        if (err instanceof ApiError && err.code === "ACCOUNT_CHANGED") {
+          accountBlocked.current = true;
+          setAccountChanged(true);
+          // Do not refetch B's data into A's cache or retry A's request under B.
+          // A full session refresh is an explicit user action in the card view.
+          void queryClient.cancelQueries({ queryKey: cardKeys.account(userId) });
+          return false;
+        }
         if (request && isConfirmedRejection(err)) {
           clearCardRequest(userId, request.input.requestId);
           setPending(readCardRequest(userId));
@@ -121,5 +133,5 @@ export function useCardRequest(userId: string) {
     },
     [queryClient, userId],
   );
-  return { pending, busy, error, accepted, submit };
+  return { pending, busy, error, accepted, accountChanged, submit };
 }

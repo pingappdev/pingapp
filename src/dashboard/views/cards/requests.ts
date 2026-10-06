@@ -24,7 +24,9 @@ export function readCardRequest(userId: string): CardRequest | null {
       requestId: value.input.requestId as string,
     };
     if (value.kind === "issue" && value.input.product === "visa")
-      return { kind: "issue", input: { ...common, product: "visa" } };
+      // Legacy drafts retain their key and are bound to their storage owner,
+      // never to whichever account the shared session cookie currently names.
+      return { kind: "issue", input: { ...common, product: "visa", expectedUserId: userId } };
     if (
       value.kind === "topup" &&
       typeof value.cardId === "string" &&
@@ -65,7 +67,7 @@ export function clearCardRequest(userId: string, requestId: string) {
 export function isConfirmedRejection(error: unknown) {
   // An outage can happen after an earlier attempt was accepted. Never discard
   // its key on unavailable/5xx responses, even when the error code looks known.
-  // Pending operations and idempotency conflicts also need the original key
+  // Account changes, pending operations and idempotency conflicts need the original key
   // retained: they do not establish that no earlier request was accepted.
   return (
     error instanceof ApiError &&

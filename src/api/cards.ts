@@ -78,7 +78,12 @@ export type CardDetails = {
   cvv: string;
   holderName: string | null;
 };
-export type IssueCardInput = { product: "visa"; network: CardNetwork; requestId: string };
+export type IssueCardInput = {
+  product: "visa";
+  network: CardNetwork;
+  requestId: string;
+  expectedUserId: string;
+};
 export type TopupCardInput = { amountUsd: string; network: CardNetwork; requestId: string };
 
 const cardPath = (id: string) => `/v1/cards/${encodeURIComponent(id)}`;
@@ -86,10 +91,10 @@ export const cardsApi = {
   config: (options?: ApiRequestOptions) => api<CardsConfig>("/v1/cards/config", options),
   profile: (options?: ApiRequestOptions) =>
     api<{ profile: { email: string } | null }>("/v1/cards/profile", options),
-  saveProfile: (email: string, options?: ApiRequestOptions) =>
+  saveProfile: (email: string, expectedUserId: string, options?: ApiRequestOptions) =>
     api<{ profile: { email: string } | null }>("/v1/cards/profile", {
       method: "PATCH",
-      body: { email },
+      body: { email, expectedUserId },
       ...options,
     }),
   list: (options?: ApiRequestOptions) => api<{ items: CardSummary[] }>("/v1/cards", options),
@@ -136,18 +141,20 @@ export function isOperationPending(operation: CardOperation | null | undefined) 
   return Boolean(operation && !["completed", "failed", "expired"].includes(operation.status));
 }
 
-export function useCardsConfig(userId: string) {
+export function useCardsConfig(userId: string, enabled = true) {
   return useQuery({
     queryKey: cardKeys.config(userId),
     queryFn: ({ signal }) => cardsApi.config({ signal }),
     staleTime: 60_000,
+    enabled,
   });
 }
-export function useCards(userId: string) {
+export function useCards(userId: string, enabled = true) {
   return useQuery({
     queryKey: cardKeys.list(userId),
     queryFn: async ({ signal }) => (await cardsApi.list({ signal })).items,
-    refetchInterval: 15_000,
+    refetchInterval: enabled ? 15_000 : false,
+    enabled,
   });
 }
 export function useCardOperation(userId: string, id: string | undefined) {
