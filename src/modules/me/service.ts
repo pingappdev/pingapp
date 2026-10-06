@@ -136,7 +136,7 @@ export async function deleteAccount(userId: string, currentSessionId: string, ip
     const [cardHistory] = await tx.select({ id: cards.id }).from(cards)
       .where(and(eq(cards.userId, userId), ne(cards.issueStatus, 'failed'))).limit(1);
     const [financialHistory] = await tx.select({ id: cardOperations.id }).from(cardOperations)
-      .where(and(eq(cardOperations.userId, userId), sql`(${cardOperations.status} <> 'failed' or ${cardOperations.providerPaymentId} is not null or ${cardOperations.invoiceAddress} is not null)`)).limit(1);
+      .where(and(eq(cardOperations.userId, userId), sql`(${cardOperations.status} <> 'failed' or ${cardOperations.providerPaymentId} is not null or ${cardOperations.invoiceAddress} is not null or ${cardOperations.invoiceUrl} is not null)`)).limit(1);
     if (cardHistory || financialHistory) {
       throw new AppError('CARD_ACCOUNT_ACTIVE', 409, 'This account has an active card or payment requiring review. Contact support before deleting it.');
     }
