@@ -27,6 +27,18 @@ async function setOperation(tx: DbTransaction, op: CardOperation, status: Operat
   await tx.update(cardOperations).set({ ...extra, status: next, updatedAt: new Date(),
     error: next === 'completed' ? null : next === 'review' ? extra.error ?? op.error ?? REVIEW : extra.error === undefined ? op.error : extra.error,
   }).where(eq(cardOperations.id, op.id));
+  if (op.kind === 'topup' && next === 'completed' && op.status !== 'completed') {
+    // Both accepted HTTP credits and matched completion callbacks use this transition.
+    // Start from the newest page even when an older pagination cycle is in progress.
+    await requestHistoryRefresh(tx, op.cardId);
+  }
+}
+
+export async function requestHistoryRefresh(tx: DbTransaction, cardId: string) {
+  await tx.update(cards).set({ historySyncedAt: null, nextSyncAt: new Date() }).where(eq(cards.id, cardId));
+  const key = `cards:history-offset:${cardId}`;
+  const value = { offset: 0, generation: randomUUID() };
+  await tx.insert(kv).values({ key, value }).onConflictDoUpdate({ target: kv.key, set: { value, updatedAt: new Date() } });
 }
 
 export async function submitOne(): Promise<boolean> {
@@ -211,11 +223,12 @@ export async function upsertTransaction(tx: DbTransaction, card: Card, normalize
 }
 export async function syncOneHistory() {
   const [card] = await db.select().from(cards).where(and(eq(cards.providerScope, providerScope), eq(cards.issueStatus, 'issued'), sql`${cards.providerCardId} is not null`,
-    or(isNull(cards.historySyncedAt), lt(cards.historySyncedAt, new Date(Date.now() - 300_000))))).orderBy(asc(cards.historySyncedAt)).limit(1);
+    or(isNull(cards.historySyncedAt), lt(cards.historySyncedAt, new Date(Date.now() - 300_000))))).orderBy(sql`${cards.historySyncedAt} asc nulls first`, asc(cards.id)).limit(1);
   if (!card) return;
   const key = `cards:history-offset:${card.id}`;
   const [saved] = await db.select().from(kv).where(eq(kv.key, key));
-  const offset = Math.max(0, Math.min(1_000_000, Number(record(saved?.value).offset) || 0));
+  const savedState = record(saved?.value);
+  const offset = Math.max(0, Math.min(1_000_000, Number(savedState.offset) || 0));
   const raw = await provider.transactions(card.providerCardId!, offset), data = record(raw);
   if (data.card_id && data.card_id !== card.providerCardId) throw new Error('History correlation mismatch');
   const list = Array.isArray(data.transactions) ? data.transactions : Array.isArray(raw) ? raw : null;
@@ -228,7 +241,11 @@ export async function syncOneHistory() {
       const normalized = normalizeTransaction(item);
       if (normalized) await upsertTransaction(tx, current, normalized);
     }
-    await tx.insert(kv).values({ key, value: { offset: nextOffset } }).onConflictDoUpdate({ target: kv.key, set: { value: { offset: nextOffset }, updatedAt: new Date() } });
+    const [cursor] = await tx.select().from(kv).where(eq(kv.key, key));
+    // A completion during the provider read must keep its new refresh request due.
+    if (record(cursor?.value).generation !== savedState.generation) return;
+    const value = { offset: nextOffset, ...(savedState.generation ? { generation: savedState.generation } : {}) };
+    await tx.insert(kv).values({ key, value }).onConflictDoUpdate({ target: kv.key, set: { value, updatedAt: new Date() } });
     await tx.update(cards).set({ historySyncedAt: nextOffset ? new Date(Date.now() - 295_000) : new Date() }).where(eq(cards.id, current.id));
   });
 }
