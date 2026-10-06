@@ -220,7 +220,7 @@ function DashboardLayout() {
                   : view === "send"
                     ? "Prepare a transfer. Review and approve it in your wallet."
                     : view === "card"
-                      ? "Explore your card, spending, and top-up preview."
+                      ? "Manage your card, payments, and spending."
                       : view === "contacts"
                         ? "Manage your private address book and saved recipients."
                         : view === "activity"

@@ -73,6 +73,223 @@
   overflow-y: auto;
 }
 
+.card-full-width {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.premium-workspace .card-view .card-balance-amount {
+  overflow-wrap: anywhere;
+}
+
+.premium-workspace .card-empty,
+.premium-workspace .card-recovery {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.premium-workspace .card-empty {
+  align-items: center;
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.card-empty h2,
+.card-recovery h2 {
+  font-size: 22px;
+}
+
+.card-empty p,
+.card-recovery p {
+  max-width: 560px;
+  line-height: 1.6;
+}
+
+.card-operations,
+.card-application,
+.card-invoice {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.card-operation > [role="status"] {
+  margin-bottom: 16px;
+}
+
+.card-invoice-values {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.card-invoice-values > div {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  min-width: 0;
+}
+
+.card-invoice-values dt,
+.card-operation-footer small,
+.card-account-status {
+  color: var(--ping-text-2);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.card-invoice-values dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.card-invoice-address {
+  display: block;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--ping-surface-2);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.card-invoice-qr {
+  align-self: center;
+  background: white;
+  padding: 12px;
+  border-radius: 12px;
+}
+
+.card-invoice-qr svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.card-operation-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.card-operation-footer span,
+.card-recovery small,
+.card-info-row strong {
+  overflow-wrap: anywhere;
+}
+
+.card-sandbox {
+  background: var(--ping-accent-soft);
+  color: var(--ping-accent);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0 0 16px;
+}
+
+.card-error {
+  color: #f19c9c;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.card-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.card-field input,
+.card-field select,
+.card-dialog.ping-dialog .card-field input {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  margin: 0;
+  border: 1px solid #ffffff20;
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--ping-surface-2);
+  color: var(--ping-text);
+  font-size: 16px;
+  font-weight: 400;
+  color-scheme: dark;
+}
+
+.card-confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ping-text-2);
+}
+
+.card-dialog.ping-dialog .card-confirm input {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  margin: 2px 0 0;
+  accent-color: var(--ping-accent);
+}
+
+.card-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.card-form-actions > .button {
+  flex: 1;
+}
+
+.card-view button:disabled,
+.card-dialog button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.card-view :is(button, select):focus-visible,
+.card-dialog :is(input, select, button):focus-visible {
+  outline: 2px solid var(--ping-accent);
+  outline-offset: 3px;
+}
+
+.premium-workspace .card-view .ping-card-visual {
+  cursor: default;
+}
+
+.premium-workspace .card-view .ping-card-visual:active {
+  transform: none;
+}
+
+.premium-workspace .card-view .card-tx-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) minmax(0, auto);
+}
+
+.premium-workspace .card-view .card-tx-row > div,
+.premium-workspace .card-view .card-tx-amount {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.premium-workspace .card-view .card-tx-row small {
+  white-space: normal;
+}
+
 .card-dialog.ping-dialog > * {
   flex-shrink: 0;
 }
