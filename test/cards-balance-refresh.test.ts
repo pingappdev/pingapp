@@ -57,7 +57,7 @@ function selection() {
 function fixtureTopup(): CardOperation {
   return { id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', cardId: card.id, userId, providerScope: 'test', kind: 'topup', status: 'created',
     amountUsd: '25', amountOnCardUsd: null, requestId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', providerIdempotencyKey: 'key', requestHash: 'hash', requestEnc: 'ciphertext',
-    providerPaymentId: null, providerTopupId: null, network: 'bsc', payCurrency: 'usdtbsc', invoiceUrl: null, invoiceAddress: null, invoiceAmount: null, invoiceExpiresAt: null,
+    providerPaymentId: null, providerTopupId: null, providerTransactionId: null, network: 'bsc', payCurrency: 'usdtbsc', invoiceUrl: null, invoiceAddress: null, invoiceAmount: null, invoiceExpiresAt: null,
     leaseUntil: null, leaseToken: null, attempts: 0, nextAttemptAt: new Date(start.getTime() - 1000), submittedAt: null, error: null, createdAt: start, updatedAt: start };
 }
 const snapshot = (balance: string | null) => ({ card_id: 'provider_card', issue_status: 'issued', card: {
