@@ -162,9 +162,19 @@ export function sanitizeEvent(value: unknown) {
 export function mayUpdateTransaction(existing: { isFinal: boolean; status: string; sourceUpdatedAt: Date | null }, incoming: { isFinal: boolean; status: string; sourceUpdatedAt: Date | null }): boolean {
   if (existing.isFinal && !incoming.isFinal) return false;
   if (existing.sourceUpdatedAt && incoming.sourceUpdatedAt && incoming.sourceUpdatedAt < existing.sourceUpdatedAt) return false;
+  // History can authoritatively finalize a pending webhook even when it omits update time.
+  if (!existing.isFinal && incoming.isFinal) return true;
   // Conflicting final states without source ordering are ambiguous; leave history incomplete.
   if (existing.isFinal && incoming.isFinal && existing.status !== incoming.status &&
       (!incoming.sourceUpdatedAt || !existing.sourceUpdatedAt || incoming.sourceUpdatedAt <= existing.sourceUpdatedAt)) return false;
   if (existing.sourceUpdatedAt && !incoming.sourceUpdatedAt && existing.status !== incoming.status) return false;
   return true;
+}
+
+export function transactionUpdate<T extends { isFinal: boolean; status: string; sourceUpdatedAt: Date | null }>(
+  existing: { isFinal: boolean; status: string; sourceUpdatedAt: Date | null }, incoming: T,
+): T | null {
+  if (!mayUpdateTransaction(existing, incoming)) return null;
+  // Unversioned history may correct values, but cannot erase the last known ordering boundary.
+  return { ...incoming, sourceUpdatedAt: incoming.sourceUpdatedAt ?? existing.sourceUpdatedAt };
 }

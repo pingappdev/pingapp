@@ -5,7 +5,7 @@ import { db } from '../../db/client.js';
 import { cardOperations, cards, cardTransactions, cardWebhookEvents, kv, type Card, type CardOperation } from '../../db/schema.js';
 import type { DbTransaction } from '../../db/tx.js';
 import { redis } from '../../lib/redis.js';
-import { advanceStatus, decimal, identifier, issueOperationStatus, mayUpdateTransaction, normalizeCard, normalizeInvoice, normalizeTransaction, record, type CardNetwork, type OperationStatus } from './domain.js';
+import { advanceStatus, decimal, identifier, issueOperationStatus, normalizeCard, normalizeInvoice, normalizeTransaction, record, transactionUpdate, type CardNetwork, type OperationStatus } from './domain.js';
 import { provider, ProviderError, providerRedisPrefix } from './provider.js';
 import { pricingKey } from './service.js';
 import { cardsEnabled, decryptCardData, providerScope } from './settings.js';
@@ -217,9 +217,10 @@ export async function upsertTransaction(tx: DbTransaction, card: Card, normalize
     sourceUpdatedAt: normalized.sourceUpdatedAt ? new Date(normalized.sourceUpdatedAt) : eventAt, syncedAt: new Date() };
   const [existing] = await tx.select().from(cardTransactions).where(and(eq(cardTransactions.cardId, card.id), eq(cardTransactions.providerTransactionId, normalized.providerTransactionId))).for('update');
   if (!existing) { await tx.insert(cardTransactions).values(incoming); return; }
-  if (!mayUpdateTransaction(existing, incoming)) return;
-  // Same status may legitimately correct an amount; explicit versions must not regress.
-  await tx.update(cardTransactions).set(incoming).where(eq(cardTransactions.id, existing.id));
+  const update = transactionUpdate(existing, incoming);
+  if (!update) return;
+  // Same status may legitimately correct an amount; preserve its last known source ordering.
+  await tx.update(cardTransactions).set(update).where(eq(cardTransactions.id, existing.id));
 }
 export async function syncOneHistory() {
   const [card] = await db.select().from(cards).where(and(eq(cards.providerScope, providerScope), eq(cards.issueStatus, 'issued'), sql`${cards.providerCardId} is not null`,

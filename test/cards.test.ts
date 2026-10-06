@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { advanceStatus, decimal, emailInput, invoiceUrl, iso, mayUpdateTransaction, normalizeCard, normalizeInvoice, normalizeTransaction, parseProviderJson, payCurrency, sanitizeEvent, signRequest, usdInput, verifyWebhook } from '../src/modules/cards/domain.js';
+import { advanceStatus, decimal, emailInput, invoiceUrl, iso, mayUpdateTransaction, normalizeCard, normalizeInvoice, normalizeTransaction, parseProviderJson, payCurrency, sanitizeEvent, signRequest, transactionUpdate, usdInput, verifyWebhook } from '../src/modules/cards/domain.js';
 
 const issue = { card_id: 'card_test_123', issue_status: 'pending_payment', payment: { provider: 'izipay_gateway_sandbox',
   payment_id: 'gwtest_123', deposit_address: 'TEST-DEPOSIT-ADDRESS', pay_amount: '10.123456789012345678',
@@ -91,5 +91,29 @@ describe('card reconciliation', () => {
     expect(mayUpdateTransaction(settled, { ...settled, sourceUpdatedAt: new Date('2026-10-06T18:00:00Z') })).toBe(false);
     expect(mayUpdateTransaction(settled, { ...settled, status: 'reversed', sourceUpdatedAt: new Date('2026-10-06T20:00:00Z') })).toBe(true);
     expect(mayUpdateTransaction(settled, settled)).toBe(true); // later same-status corrected amounts can update
+  });
+});
+
+describe('transaction history and webhook ordering regressions', () => {
+  it('advances timestamped pending webhooks from unversioned final history without allowing a downgrade', () => {
+    const pending = { status: 'pending', isFinal: false, amount: '10', sourceUpdatedAt: new Date('2026-10-06T19:00:00Z') };
+    const settled = transactionUpdate(pending, { ...pending, status: 'success', isFinal: true, amount: '12', sourceUpdatedAt: null });
+    expect(settled).toEqual({ ...pending, status: 'success', isFinal: true, amount: '12' });
+    expect(transactionUpdate(settled!, { ...pending, sourceUpdatedAt: new Date('2026-10-06T20:00:00Z') })).toBeNull();
+    expect(transactionUpdate(pending, { ...pending, status: 'success', isFinal: true, sourceUpdatedAt: new Date('2026-10-06T18:00:00Z') })).toBeNull();
+  });
+  it('retains the newest known source timestamp across unversioned history corrections', () => {
+    const finalWebhook = { status: 'success', isFinal: true, amount: '10', sourceUpdatedAt: new Date('2026-10-06T19:00:00Z') };
+    const correctedHistory = transactionUpdate(finalWebhook, { ...finalWebhook, amount: '12', sourceUpdatedAt: null });
+    expect(correctedHistory?.amount).toBe('12');
+    expect(correctedHistory?.sourceUpdatedAt).toEqual(finalWebhook.sourceUpdatedAt);
+    const oldCallback = { ...finalWebhook, amount: '9', sourceUpdatedAt: new Date('2026-10-06T18:00:00Z') };
+    expect(transactionUpdate(correctedHistory!, oldCallback)).toBeNull();
+    expect(transactionUpdate(correctedHistory!, { ...finalWebhook, amount: '13', sourceUpdatedAt: new Date('2026-10-06T20:00:00Z') }))
+      .toMatchObject({ amount: '13', sourceUpdatedAt: new Date('2026-10-06T20:00:00Z') });
+  });
+  it('keeps conflicting unversioned final states unresolved', () => {
+    const settled = { status: 'success', isFinal: true, sourceUpdatedAt: new Date('2026-10-06T19:00:00Z') };
+    expect(transactionUpdate(settled, { ...settled, status: 'reversed', sourceUpdatedAt: null })).toBeNull();
   });
 });
