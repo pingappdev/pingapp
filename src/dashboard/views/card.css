@@ -228,21 +228,67 @@
   color-scheme: dark;
 }
 
-.card-confirm {
+.card-dialog.ping-dialog .card-application .card-field {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  color: var(--ping-text-2);
+  font-size: 13px;
+}
+
+.card-dialog.ping-dialog .card-sandbox,
+.card-dialog.ping-dialog .card-application .field-help,
+.card-dialog.ping-dialog .card-application .card-error {
+  margin: 0;
+}
+
+.card-dialog.ping-dialog .card-application .card-confirm {
+  display: flex;
+  flex-direction: row;
   align-items: flex-start;
   gap: 10px;
+  margin: 0;
   font-size: 13px;
   line-height: 1.6;
   color: var(--ping-text-2);
 }
 
+.card-dialog.ping-dialog .card-confirm > span {
+  flex: 1;
+  min-width: 0;
+}
+
 .card-dialog.ping-dialog .card-confirm input {
+  flex: 0 0 20px;
   width: 20px;
   height: 20px;
   min-width: 20px;
+  min-height: 20px;
+  padding: 0;
   margin: 2px 0 0;
   accent-color: var(--ping-accent);
+}
+
+.card-dialog.ping-dialog .card-application .card-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 12px 0;
+  border-block: 1px solid #ffffff15;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.card-dialog.ping-dialog .card-info-row > span {
+  color: var(--ping-text-2);
+}
+
+.card-dialog.ping-dialog .card-info-row > strong {
+  color: var(--ping-text);
+  font-weight: 600;
 }
 
 .card-form-actions {
