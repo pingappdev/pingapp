@@ -468,7 +468,7 @@
         },
         "card_operations_network_check": {
           "name": "card_operations_network_check",
-          "value": "(\"card_operations\".\"network\", \"card_operations\".\"pay_currency\") in (('tron', 'usdttrc20'), ('bsc', 'usdtbep20'), ('ethereum', 'usdterc20'), ('polygon', 'usdtpoly'))"
+          "value": "(\"card_operations\".\"network\", \"card_operations\".\"pay_currency\") in (('tron', 'usdttrc20'), ('bsc', 'usdtbsc'), ('ethereum', 'usdterc20'), ('polygon', 'usdtpoly'))"
         }
       },
       "isRLSEnabled": false

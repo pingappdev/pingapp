@@ -29,7 +29,7 @@ CREATE TABLE "card_operations" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "card_operations_kind_check" CHECK ("card_operations"."kind" in ('issue', 'topup')),
 	CONSTRAINT "card_operations_status_check" CHECK ("card_operations"."status" in ('created', 'submitting', 'awaiting_payment', 'processing', 'completed', 'failed', 'expired', 'review')),
-	CONSTRAINT "card_operations_network_check" CHECK (("card_operations"."network", "card_operations"."pay_currency") in (('tron', 'usdttrc20'), ('bsc', 'usdtbep20'), ('ethereum', 'usdterc20'), ('polygon', 'usdtpoly')))
+	CONSTRAINT "card_operations_network_check" CHECK (("card_operations"."network", "card_operations"."pay_currency") in (('tron', 'usdttrc20'), ('bsc', 'usdtbsc'), ('ethereum', 'usdterc20'), ('polygon', 'usdtpoly')))
 );
 --> statement-breakpoint
 CREATE TABLE "card_profiles" (
@@ -130,3 +130,16 @@ CREATE UNIQUE INDEX "cards_client_ref_unique" ON "cards" USING btree ("provider_
 CREATE UNIQUE INDEX "cards_active_slot_unique" ON "cards" USING btree ("user_id","provider_scope","product") WHERE "cards"."issue_status" <> 'failed';--> statement-breakpoint
 CREATE INDEX "cards_owner_scope_idx" ON "cards" USING btree ("user_id","provider_scope");--> statement-breakpoint
 CREATE INDEX "cards_next_sync_idx" ON "cards" USING btree ("next_sync_at");
+--> statement-breakpoint
+-- Preserve the exact submission intent, including its encrypted email snapshot.
+CREATE FUNCTION prevent_card_operation_rewrite() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF ROW(NEW.card_id, NEW.provider_scope, NEW.kind, NEW.request_id, NEW.provider_idempotency_key, NEW.request_hash, NEW.request_enc, NEW.network, NEW.pay_currency)
+    IS DISTINCT FROM ROW(OLD.card_id, OLD.provider_scope, OLD.kind, OLD.request_id, OLD.provider_idempotency_key, OLD.request_hash, OLD.request_enc, OLD.network, OLD.pay_currency) THEN
+    RAISE EXCEPTION 'Card operation intent is immutable';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+--> statement-breakpoint
+CREATE TRIGGER card_operation_immutable BEFORE UPDATE ON card_operations FOR EACH ROW EXECUTE FUNCTION prevent_card_operation_rewrite();

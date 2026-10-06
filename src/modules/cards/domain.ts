@@ -125,9 +125,9 @@ export function normalizeTransaction(value: unknown) {
   const occurredAt = iso(data.occurred_at ?? data.date ?? data.created_at);
   const currency = string(data.currency, 8);
   if (!providerTransactionId || amount === null || !occurredAt || !currency || !/^[A-Z]{3,8}$/.test(currency)) return null;
-  const rawType = string(data.type);
+  const rawType = string(data.type)?.toLowerCase();
   const type = rawType && ['purchase', 'refund', 'topup', 'fee', 'withdrawal', 'reversal', 'authorization'].includes(rawType) ? rawType : 'other';
-  const rawStatus = string(data.status);
+  const rawStatus = string(data.status)?.toLowerCase();
   const status = rawStatus && ['pending', 'success', 'failed', 'reversed', 'settled', 'completed', 'declined'].includes(rawStatus) ? rawStatus : 'unknown';
   return {
     providerTransactionId, type, status, amount: amount.replace(/^-/, ''), currency,
