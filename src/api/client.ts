@@ -41,6 +41,7 @@ export class ApiError extends Error {
 type ApiOptions = ApiRequestOptions & {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
+  cache?: RequestCache;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -69,6 +70,7 @@ export async function api<T>(path: string, opts: ApiOptions = {}): Promise<T> {
       method,
       credentials: "include",
       headers,
+      ...(opts.cache === undefined ? {} : { cache: opts.cache }),
       ...(method === "GET" ? {} : { body: JSON.stringify(opts.body ?? {}) }),
       ...(opts.signal === undefined ? {} : { signal: opts.signal }),
     });
