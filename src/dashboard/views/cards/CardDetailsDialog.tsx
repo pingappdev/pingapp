@@ -6,6 +6,7 @@ import { qk, sessionRevision } from "@/api/hooks";
 import type { Me } from "@/api/types";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { copyText } from "./format";
+import { revealWhenVisible } from "./reveal";
 
 export function CardDetailsDialog({
   userId,
@@ -28,6 +29,7 @@ export function CardDetailsDialog({
   const expires = useRef(0);
   const controller = useRef<AbortController | null>(null);
   const requestLock = useRef(false);
+  const mounted = useRef(false);
   const revision = useRef(sessionRevision(queryClient));
   function clear() {
     generation.current += 1;
@@ -38,23 +40,30 @@ export function CardDetailsDialog({
   }
   function current(token: number) {
     return (
+      mounted.current &&
       generation.current === token &&
       sessionRevision(queryClient) === revision.current &&
       queryClient.getQueryData<Me | null>(qk.session)?.id === userId
     );
   }
   useEffect(() => {
+    mounted.current = true;
     const hide = () => {
       if (document.hidden) {
-        generation.current += 1;
+        // An app switch is expected during mobile wallet authentication. Only
+        // invalidate details already exposed, not the pending authentication.
+        if (expires.current > 0) {
+          generation.current += 1;
+          controller.current?.abort();
+          setBusy(false);
+        }
         expires.current = 0;
-        controller.current?.abort();
         setDetails(null);
-        setBusy(false);
       }
     };
     document.addEventListener("visibilitychange", hide);
     return () => {
+      mounted.current = false;
       generation.current += 1;
       expires.current = 0;
       controller.current?.abort();
@@ -63,8 +72,10 @@ export function CardDetailsDialog({
   }, []);
   useEffect(() => {
     if (!details) return;
+    const token = generation.current;
     const timer = window.setTimeout(
       () => {
+        if (generation.current !== token) return;
         generation.current += 1;
         expires.current = 0;
         setDetails(null);
@@ -83,11 +94,13 @@ export function CardDetailsDialog({
     setBusy(true);
     setMessage(null);
     try {
-      const result = await withReauth(() => {
-        if (!current(token) || signal.aborted) throw new Error("Card details request cancelled.");
-        return cardsApi.reveal(cardId, { signal });
-      });
-      if (current(token) && !signal.aborted) {
+      const result = await withReauth(() =>
+        revealWhenVisible(() => cardsApi.reveal(cardId, { signal }), {
+          signal,
+          isCurrent: () => current(token),
+        }),
+      );
+      if (current(token) && !signal.aborted && !document.hidden) {
         expires.current = Date.now() + 60_000;
         setDetails(result);
       }
@@ -101,7 +114,7 @@ export function CardDetailsDialog({
   }
   async function copy(value: string) {
     const token = generation.current;
-    if (!current(token) || Date.now() >= expires.current) {
+    if (!current(token) || document.hidden || Date.now() >= expires.current) {
       clear();
       return;
     }
