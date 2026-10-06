@@ -30,6 +30,8 @@ const security: FastifyPluginAsync = async (app) => {
     }
 
     if (['GET', 'HEAD', 'OPTIONS'].includes(request.method)) return;
+    // This exact provider callback authenticates its raw bytes with a separate HMAC secret.
+    if (request.method === 'POST' && request.url.split('?', 1)[0] === '/v1/webhooks/izipay') return;
     if (request.headers['x-pingapp'] !== '1' ||
       typeof request.headers.origin !== 'string' ||
       !config.CORS_ORIGINS.includes(request.headers.origin)) {

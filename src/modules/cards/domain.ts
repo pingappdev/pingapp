@@ -132,7 +132,7 @@ export function normalizeTransaction(value: unknown) {
   return {
     providerTransactionId, type, status, amount: amount.replace(/^-/, ''), currency,
     billedUsd: decimal(data.billed_usd, true), merchant: string(data.merchant, 200),
-    direction: (['refund', 'topup', 'reversal'].includes(type) ? 'credit' : 'debit') as 'credit' | 'debit',
+    direction: (typeof data.is_credit === 'boolean' ? data.is_credit ? 'credit' : 'debit' : ['refund', 'topup', 'reversal'].includes(type) ? 'credit' : 'debit') as 'credit' | 'debit',
     occurredAt, sourceUpdatedAt: iso(data.updated_at),
     isFinal: ['success', 'failed', 'reversed', 'settled', 'completed', 'declined'].includes(status),
   };
@@ -151,4 +151,14 @@ export function sanitizeEvent(value: unknown) {
   // Never persist original objects: details, email and OTPs are not part of this allowlist.
   if (type === 'card.transaction') payload.transaction = normalizeTransaction(data);
   return { eventId, type, eventAt, payload };
+}
+
+export function mayUpdateTransaction(existing: { isFinal: boolean; status: string; sourceUpdatedAt: Date | null }, incoming: { isFinal: boolean; status: string; sourceUpdatedAt: Date | null }): boolean {
+  if (existing.isFinal && !incoming.isFinal) return false;
+  if (existing.sourceUpdatedAt && incoming.sourceUpdatedAt && incoming.sourceUpdatedAt < existing.sourceUpdatedAt) return false;
+  // Conflicting final states without source ordering are ambiguous; leave history incomplete.
+  if (existing.isFinal && incoming.isFinal && existing.status !== incoming.status &&
+      (!incoming.sourceUpdatedAt || !existing.sourceUpdatedAt || incoming.sourceUpdatedAt <= existing.sourceUpdatedAt)) return false;
+  if (existing.sourceUpdatedAt && !incoming.sourceUpdatedAt && existing.status !== incoming.status) return false;
+  return true;
 }

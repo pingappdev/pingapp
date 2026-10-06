@@ -7,6 +7,7 @@ export const QUEUES = {
   intents: 'intents',
   tokens: 'tokens',
   maintenance: 'maintenance',
+  cards: 'cards',
 } as const;
 
 export type QueueName = keyof typeof QUEUES;
