@@ -1,18 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowDown, ArrowUpRight, CreditCard, Plus, Snowflake } from "lucide-react";
-import {
-  isOperationPending,
-  useCards,
-  useCardsConfig,
-  useCardTransactions,
-  type CardSummary,
-  type CardOperation,
-} from "@/api/cards";
+import { useCards, useCardsConfig, useCardTransactions, type CardSummary } from "@/api/cards";
 import { useAuth } from "@/auth/useAuth";
 import { CardApplication } from "./cards/CardApplication";
 import { CardDetailsDialog } from "./cards/CardDetailsDialog";
 import { CardOperationPanel } from "./cards/CardOperationPanel";
 import { useCardRequest } from "./cards/useCardRequest";
+import { useCardLiveState } from "./cards/useCardLiveState";
 import { readCardRequest } from "./cards/requests";
 import { dateTime, statusLabel, usd } from "./cards/format";
 import "./card.css";
@@ -38,35 +32,45 @@ function CardDashboard({
   const config = configQuery.data;
   const [modal, setModal] = useState<"issue" | "topup" | "details" | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const cards = [...(cardsQuery.data ?? [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const live = useCardLiveState(
+    userId,
+    cardsQuery.data ?? [],
+    request.accepted,
+    !request.accountChanged,
+  );
+  const cards = [...live.cards].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const card =
     cards.find((item) => item.id === selectedId) ??
     cards.find((item) => item.issueStatus !== "failed") ??
     cards[0];
   const issued = card?.issueStatus === "issued";
-  const canCreate = Boolean(
-    cardsQuery.isSuccess && cards.every((item) => item.issueStatus === "failed"),
+  const ownedProducts = cards
+    .filter((item) => item.issueStatus !== "failed")
+    .map((item) => item.product);
+  const availableProducts =
+    config?.products.filter((item) => !ownedProducts.includes(item.id)) ?? [];
+  const canCreate = cardsQuery.isSuccess && availableProducts.length > 0;
+  const supported = Boolean(config?.enabled && config.networks.length);
+  const visibleOperations = live.observations.filter(
+    ({ operation }) => !(operation.kind === "issue" && operation.status === "completed"),
   );
-  const supported = Boolean(
-    config?.enabled && config.products.some((item) => item.id === "visa") && config.networks.length,
+  const canMutate = supported && !request.busy && !request.pending;
+  const pendingTopup = live.observations.some(
+    ({ operation }) =>
+      operation.cardId === card?.id &&
+      operation.status !== "completed" &&
+      operation.status !== "failed",
   );
-  const operations = new Map<string, CardOperation>();
-  for (const item of cards)
-    if (item.latestOperation) operations.set(item.latestOperation.id, item.latestOperation);
-  if (request.accepted) {
-    const latest = cards.find((item) => item.id === request.accepted?.cardId)?.latestOperation;
-    const existing = operations.get(request.accepted.id);
-    if (
-      (!latest || request.accepted.createdAt >= latest.createdAt) &&
-      (!existing || request.accepted.updatedAt > existing.updatedAt)
-    )
-      operations.set(request.accepted.id, request.accepted);
-  }
-  const visibleOperations = [...operations.values()].sort((a, b) =>
-    b.createdAt.localeCompare(a.createdAt),
-  );
-  const pendingOperation = visibleOperations.some((operation) => isOperationPending(operation));
-  const canMutate = supported && !request.busy && !request.pending && !pendingOperation;
+  const canTopup = issued && canMutate && !pendingTopup;
+  const cardName = (item: CardSummary) =>
+    config?.products.find((product) => product.id === item.product)?.name ??
+    statusLabel(item.product);
+  const cardNetwork = card
+    ? (config?.products.find((product) => product.id === card.product)?.network ?? card.network)
+    : "";
+  useEffect(() => {
+    if (request.accepted?.cardId) setSelectedId(request.accepted.cardId);
+  }, [request.accepted?.cardId]);
   const refresh = () => {
     void cardsQuery.refetch();
     void configQuery.refetch();
@@ -152,16 +156,13 @@ function CardDashboard({
             <CreditCard size={28} />
           </span>
           <h2>Your everyday card</h2>
-          <p>Create a virtual Visa card and fund it with USDT on an available network.</p>
+          <p>Choose a virtual card and fund it with USDT on an available network.</p>
           <p className="field-help">
             Your contact email is only requested when you choose to create a card.
           </p>
-          {config?.products.find((item) => item.id === "visa")?.issuePriceUsd != null && (
+          {config?.products.length === 1 && config.products[0].issuePriceUsd != null && (
             <p>
-              Issue price:{" "}
-              <strong>
-                {usd(config.products.find((item) => item.id === "visa")!.issuePriceUsd)}
-              </strong>
+              Issue price: <strong>{usd(config.products[0].issuePriceUsd)}</strong>
             </p>
           )}
           <button
@@ -189,7 +190,7 @@ function CardDashboard({
                 >
                   {cards.map((item) => (
                     <option key={item.id} value={item.id}>
-                      {item.last4 ? `•••• ${item.last4}` : "Card application"} ·{" "}
+                      {cardName(item)} · {item.last4 ? `•••• ${item.last4}` : "Card application"} ·{" "}
                       {statusLabel(item.issueStatus)} · {dateTime(item.createdAt)}
                     </option>
                   ))}
@@ -198,7 +199,7 @@ function CardDashboard({
             )}
             <div
               className={"ping-card-visual" + (card.frozen === true ? " frozen" : "")}
-              aria-label={`Virtual ${card.network} card ${card.last4 ? `ending ${card.last4}` : "awaiting details"}`}
+              aria-label={`${cardName(card)} ${card.last4 ? `ending ${card.last4}` : "awaiting details"}`}
             >
               <span className="ping-card-shine" />
               <span className="ping-card-inner">
@@ -212,7 +213,7 @@ function CardDashboard({
                       <Snowflake size={10} /> FROZEN
                     </span>
                   ) : (
-                    <span className="ping-card-network">{card.network}</span>
+                    <span className="ping-card-network">{cardNetwork}</span>
                   )}
                 </span>
                 <span className="ping-card-number">•••• •••• •••• {card.last4 ?? "••••"}</span>
@@ -238,6 +239,11 @@ function CardDashboard({
                 {config?.sandbox ? "TEST CARD BALANCE" : "CARD BALANCE"}
               </span>
               <div className="card-balance-amount">{usd(card.balanceUsd)}</div>
+              {live.refreshingBalances.has(card.id) && (
+                <p className="field-help" role="status">
+                  Top-up confirmed. Refreshing the provider balance…
+                </p>
+              )}
               <p className="field-help">
                 {card.balanceAsOf
                   ? `Updated ${dateTime(card.balanceAsOf)}`
@@ -256,11 +262,7 @@ function CardDashboard({
                   : "Not frozen"}
             </p>
             <div className="card-actions">
-              <button
-                type="button"
-                disabled={!issued || !canMutate}
-                onClick={() => setModal("topup")}
-              >
+              <button type="button" disabled={!canTopup} onClick={() => setModal("topup")}>
                 <span className="card-action-icon">
                   <Plus size={20} />
                 </span>
@@ -285,7 +287,7 @@ function CardDashboard({
                 disabled={!canMutate}
                 onClick={() => setModal("issue")}
               >
-                Create card
+                <Plus size={16} /> Add card
               </button>
             )}
           </div>
@@ -311,8 +313,8 @@ function CardDashboard({
             <div className="panel-heading">
               <h2>Card info</h2>
             </div>
-            <InfoRow label="Type" value={`Virtual · ${card.product}`} />
-            <InfoRow label="Network" value={card.network} />
+            <InfoRow label="Type" value={cardName(card)} />
+            <InfoRow label="Network" value={cardNetwork} />
             <InfoRow label="Currency" value={card.currency} />
             <InfoRow label="Issued" value={dateTime(card.issuedAt)} />
             <InfoRow label="Funding" value="Provider invoices · USDT" />
@@ -325,11 +327,18 @@ function CardDashboard({
       )}
       {visibleOperations.length > 0 && (
         <div className="card-operations card-full-width">
-          {visibleOperations.map((operation) => (
+          {visibleOperations.map(({ operation, refreshing, refreshError, refresh }) => (
             <CardOperationPanel
               key={operation.id}
-              userId={userId}
-              initial={operation}
+              operation={operation}
+              refreshing={refreshing}
+              refreshError={refreshError}
+              onRefresh={refresh}
+              cardLabel={
+                cards.find((item) => item.id === operation.cardId)
+                  ? cardName(cards.find((item) => item.id === operation.cardId)!)
+                  : "Card request"
+              }
               config={config}
             />
           ))}
@@ -340,15 +349,28 @@ function CardDashboard({
           key={`${modal}:${card?.id ?? "new"}`}
           config={config}
           kind={modal}
+          ownedProducts={ownedProducts}
           busy={request.busy}
-          available={canMutate && (modal === "issue" ? canCreate : issued)}
+          available={modal === "issue" ? canMutate && canCreate : canTopup}
           error={request.error}
           onClose={() => setModal(null)}
           onSubmit={async (input) => {
-            if (!canMutate || (modal === "issue" ? !canCreate : !issued || !card)) return;
+            if (
+              !canMutate ||
+              (modal === "issue"
+                ? !canCreate || ownedProducts.includes(input.product)
+                : !canTopup || !card)
+            )
+              return;
             const accepted = await request.submit(
               modal === "issue"
-                ? { kind: "issue", email: input.email, network: input.network }
+                ? {
+                    kind: "issue",
+                    email: input.email,
+                    cardholderName: input.cardholderName,
+                    product: input.product,
+                    network: input.network,
+                  }
                 : {
                     kind: "topup",
                     cardId: card!.id,

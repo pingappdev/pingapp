@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { Copy, ExternalLink } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
-import { cardKeys, useCardOperation, type CardOperation, type CardsConfig } from "@/api/cards";
+import type { CardOperation, CardsConfig } from "@/api/cards";
 import { copyText, dateTime, usd } from "./format";
 
 const messages: Record<CardOperation["status"], { title: string; text: string }> = {
@@ -42,29 +41,25 @@ const messages: Record<CardOperation["status"], { title: string; text: string }>
 };
 
 export function CardOperationPanel({
-  userId,
-  initial,
+  operation,
+  refreshing,
+  refreshError,
+  onRefresh,
+  cardLabel,
   config,
 }: {
-  userId: string;
-  initial: CardOperation;
+  operation: CardOperation;
+  refreshing: boolean;
+  refreshError: boolean;
+  onRefresh: () => void;
+  cardLabel: string;
   config: CardsConfig | undefined;
 }) {
-  const queryClient = useQueryClient();
-  const query = useCardOperation(userId, initial.id);
-  // The list can learn a newer state than the operation query (webhook/reload).
-  const operation = query.data && query.data.updatedAt >= initial.updatedAt ? query.data : initial;
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(timer);
   }, []);
-  useEffect(() => {
-    void queryClient.invalidateQueries({ queryKey: cardKeys.list(userId) });
-    void queryClient.invalidateQueries({
-      queryKey: cardKeys.transactions(userId, operation.cardId),
-    });
-  }, [operation.status, operation.cardId, queryClient, userId]);
 
   const invoice = operation.invoice;
   const expired = Boolean(invoice?.expiresAt && Date.parse(invoice.expiresAt) <= now);
@@ -90,6 +85,21 @@ export function CardOperationPanel({
     }
   }
 
+  if (operation.status === "completed") {
+    if (operation.kind === "issue") return null;
+    return (
+      <p className="card-topup-confirmation" role="status">
+        <strong>{config?.sandbox ? "Sandbox test credit confirmed" : "Top-up confirmed"}</strong>
+        <span>
+          {cardLabel}
+          {config?.sandbox
+            ? " · Simulated funds; no real payment."
+            : " · The provider confirmed this credit."}
+        </span>
+      </p>
+    );
+  }
+
   return (
     <section
       className="card card-operation"
@@ -97,25 +107,18 @@ export function CardOperationPanel({
     >
       <div className="panel-heading">
         <h2>{operation.kind === "issue" ? "Card application" : "Top-up"}</h2>
+        <span className="field-help">{cardLabel}</span>
       </div>
       <div role="status">
-        <strong>
-          {config?.sandbox && operation.kind === "topup" && operation.status === "completed"
-            ? "Sandbox test credit confirmed"
-            : message.title}
-        </strong>
-        <p className="field-help">
-          {config?.sandbox && operation.kind === "topup" && operation.status === "completed"
-            ? "The provider confirmed a simulated sandbox credit. No real payment was made. The test balance and transactions refresh separately."
-            : message.text}
-        </p>
+        <strong>{message.title}</strong>
+        <p className="field-help">{message.text}</p>
       </div>
       {operation.error && (
         <p className="card-error" role="alert">
           {operation.error}
         </p>
       )}
-      {query.isError && (
+      {refreshError && (
         <p className="card-error" role="alert">
           Could not refresh this request. The last known status is shown.
         </p>
@@ -219,13 +222,8 @@ export function CardOperationPanel({
         <small>
           Request reference: <span>{operation.id}</span>
         </small>
-        <button
-          type="button"
-          className="button outline"
-          disabled={query.isFetching}
-          onClick={() => void query.refetch()}
-        >
-          {query.isFetching ? "Checking…" : "Refresh status"}
+        <button type="button" className="button outline" disabled={refreshing} onClick={onRefresh}>
+          {refreshing ? "Checking…" : "Refresh status"}
         </button>
       </div>
     </section>

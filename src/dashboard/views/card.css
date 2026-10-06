@@ -120,6 +120,22 @@
   margin-bottom: 16px;
 }
 
+.card-topup-confirmation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ping-text-2);
+}
+
+.card-topup-confirmation strong {
+  color: var(--ping-text);
+  font-weight: 500;
+}
+
 .card-invoice-values {
   display: grid;
   gap: 12px;

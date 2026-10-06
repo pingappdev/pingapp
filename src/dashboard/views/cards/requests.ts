@@ -1,4 +1,4 @@
-import type { CardNetwork, IssueCardInput, TopupCardInput } from "@/api/cards";
+import type { CardNetwork, CardProductId, IssueCardInput, TopupCardInput } from "@/api/cards";
 import { ApiError } from "@/api/client";
 
 // No email or card details. Persist before sending so a lost response/reload can
@@ -8,6 +8,7 @@ export type CardRequest =
   | { kind: "topup"; cardId: string; input: TopupCardInput };
 const key = (userId: string) => `pingapp:card-request:${userId}`;
 const networks: CardNetwork[] = ["tron", "bsc", "ethereum", "polygon"];
+const products: CardProductId[] = ["visa", "mastercard_standard", "visa_us", "mastercard"];
 
 export function readCardRequest(userId: string): CardRequest | null {
   try {
@@ -23,10 +24,20 @@ export function readCardRequest(userId: string): CardRequest | null {
       network: value.input.network as CardNetwork,
       requestId: value.input.requestId as string,
     };
-    if (value.kind === "issue" && value.input.product === "visa")
+    if (value.kind === "issue" && products.includes(value.input.product))
       // Legacy drafts retain their key and are bound to their storage owner,
       // never to whichever account the shared session cookie currently names.
-      return { kind: "issue", input: { ...common, product: "visa", expectedUserId: userId } };
+      return {
+        kind: "issue",
+        input: {
+          ...common,
+          product: value.input.product as CardProductId,
+          expectedUserId: userId,
+          ...(typeof value.input.profileUpdatedAt === "string"
+            ? { profileUpdatedAt: value.input.profileUpdatedAt }
+            : {}),
+        },
+      };
     if (
       value.kind === "topup" &&
       typeof value.cardId === "string" &&
@@ -47,7 +58,27 @@ export function readCardRequest(userId: string): CardRequest | null {
 
 export function storeCardRequest(userId: string, request: CardRequest) {
   try {
-    localStorage.setItem(key(userId), JSON.stringify(request));
+    // Explicit allowlist: names/email live only in the encrypted server profile.
+    const common = { network: request.input.network, requestId: request.input.requestId };
+    const safe =
+      request.kind === "issue"
+        ? {
+            kind: "issue",
+            input: {
+              ...common,
+              product: request.input.product,
+              expectedUserId: userId,
+              ...(request.input.profileUpdatedAt === undefined
+                ? {}
+                : { profileUpdatedAt: request.input.profileUpdatedAt }),
+            },
+          }
+        : {
+            kind: "topup",
+            cardId: request.cardId,
+            input: { ...common, amountUsd: request.input.amountUsd },
+          };
+    localStorage.setItem(key(userId), JSON.stringify(safe));
   } catch {
     throw new Error(
       "Allow browser storage before requesting an invoice so this request can be recovered after a reload.",
@@ -72,6 +103,7 @@ export function isConfirmedRejection(error: unknown) {
   return (
     error instanceof ApiError &&
     ((error.status === 400 && ["VALIDATION", "CARD_EMAIL_REQUIRED"].includes(error.code)) ||
-      (error.status === 409 && ["CARD_NOT_READY", "CARD_ALREADY_EXISTS"].includes(error.code)))
+      (error.status === 409 &&
+        ["CARD_NOT_READY", "CARD_ALREADY_EXISTS", "CARD_PROFILE_CHANGED"].includes(error.code)))
   );
 }

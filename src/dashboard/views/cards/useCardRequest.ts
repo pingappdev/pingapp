@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { cardKeys, cardsApi, type CardOperation, type CardNetwork } from "@/api/cards";
+import {
+  cardKeys,
+  cardsApi,
+  type CardOperation,
+  type CardNetwork,
+  type CardProductId,
+} from "@/api/cards";
 import { qk, sessionRevision } from "@/api/hooks";
 import { ApiError } from "@/api/client";
 import type { Me } from "@/api/types";
@@ -35,7 +41,13 @@ export function useCardRequest(userId: string) {
   const submit = useCallback(
     async (
       input?:
-        | { kind: "issue"; email: string; network: CardNetwork }
+        | {
+            kind: "issue";
+            email: string;
+            cardholderName: string | null;
+            product: CardProductId;
+            network: CardNetwork;
+          }
         | { kind: "topup"; cardId: string; amountUsd: string; network: CardNetwork },
     ) => {
       if (lock.current || accountBlocked.current) return false;
@@ -55,9 +67,19 @@ export function useCardRequest(userId: string) {
             throw new Error(
               "No unresolved request was found. Refresh the card screen before continuing.",
             );
+          let profileUpdatedAt: string | undefined;
           if (input.kind === "issue") {
-            await cardsApi.saveProfile(input.email, userId);
+            const { profile } = await cardsApi.saveProfile(
+              input.email,
+              userId,
+              input.cardholderName,
+            );
             if (!current()) return false;
+            if (!profile?.updatedAt || !Number.isFinite(Date.parse(profile.updatedAt)))
+              throw new Error(
+                "Could not confirm your saved card details. Please review the application and submit again.",
+              );
+            profileUpdatedAt = profile.updatedAt;
           }
           // Recheck after saving the profile: another tab may have submitted.
           request =
@@ -66,10 +88,11 @@ export function useCardRequest(userId: string) {
               ? {
                   kind: "issue",
                   input: {
-                    product: "visa",
+                    product: input.product,
                     network: input.network,
                     requestId: crypto.randomUUID(),
                     expectedUserId: userId,
+                    profileUpdatedAt,
                   },
                 }
               : {
@@ -122,7 +145,11 @@ export function useCardRequest(userId: string) {
           setPending(readCardRequest(userId));
         }
         setError(
-          err instanceof Error ? err.message : "Could not confirm the request. Try recovering it.",
+          err instanceof ApiError && err.code === "CARD_PROFILE_CHANGED"
+            ? "Your card contact details changed. Open the card application again to review them before submitting."
+            : err instanceof Error
+              ? err.message
+              : "Could not confirm the request. Try recovering it.",
         );
         void queryClient.invalidateQueries({ queryKey: cardKeys.list(userId) });
         return false;

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { cardsApi, type CardsConfig, type CardNetwork } from "@/api/cards";
+import { cardsApi, type CardsConfig, type CardNetwork, type CardProductId } from "@/api/cards";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { usd } from "./format";
 
@@ -9,6 +9,7 @@ export function CardApplication({
   busy,
   available,
   error,
+  ownedProducts,
   onClose,
   onSubmit,
 }: {
@@ -17,23 +18,39 @@ export function CardApplication({
   busy: boolean;
   available: boolean;
   error: string | null;
+  ownedProducts: string[];
   onClose: () => void;
-  onSubmit: (input: { email: string; network: CardNetwork; amountUsd: string }) => Promise<void>;
+  onSubmit: (input: {
+    email: string;
+    cardholderName: string | null;
+    product: CardProductId;
+    network: CardNetwork;
+    amountUsd: string;
+  }) => Promise<void>;
 }) {
   const [email, setEmail] = useState("");
+  const [cardholderName, setCardholderName] = useState("");
+  const [productId, setProductId] = useState<CardProductId>(
+    config.products.find((item) => !ownedProducts.includes(item.id))?.id ??
+      config.products[0]?.id ??
+      "visa",
+  );
   const [network, setNetwork] = useState<CardNetwork | "">(config.networks[0]?.id ?? "");
   const [amount, setAmount] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(kind === "issue");
   const [profileError, setProfileError] = useState(false);
-  const product = config.products.find((item) => item.id === "visa");
+  const product = config.products.find((item) => item.id === productId);
   useEffect(() => {
     if (kind !== "issue") return;
     const controller = new AbortController();
     void cardsApi
       .profile({ signal: controller.signal })
       .then(({ profile }) => {
-        if (!controller.signal.aborted) setEmail(profile?.email ?? "");
+        if (!controller.signal.aborted) {
+          setEmail(profile?.email ?? "");
+          setCardholderName(profile?.cardholderName ?? "");
+        }
       })
       .catch(() => {
         if (!controller.signal.aborted) setProfileError(true);
@@ -48,7 +65,14 @@ export function CardApplication({
   const validNetwork = config.networks.some((item) => item.id === network);
   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const valid =
-    validNetwork && (kind === "issue" ? validEmail && confirmed && Boolean(product) : validAmount);
+    validNetwork &&
+    (kind === "issue"
+      ? validEmail &&
+        confirmed &&
+        Boolean(product) &&
+        !ownedProducts.includes(productId) &&
+        cardholderName.trim().length <= 100
+      : validAmount);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!valid || busy || !available) return;
@@ -58,6 +82,8 @@ export function CardApplication({
     const [whole, fraction = ""] = amount.split(".");
     await onSubmit({
       email: normalized,
+      cardholderName: cardholderName.trim() || null,
+      product: productId,
       network: network as CardNetwork,
       amountUsd: `${whole.replace(/^0+(?=\d)/, "")}.${fraction.padEnd(2, "0")}`,
     });
@@ -86,6 +112,47 @@ export function CardApplication({
         <form className="card-application" onSubmit={submit}>
           {kind === "issue" ? (
             <>
+              <label className="card-field">
+                Card type
+                <select
+                  value={productId}
+                  disabled={busy}
+                  onChange={(event) => setProductId(event.target.value as CardProductId)}
+                >
+                  {config.products.map((item) => (
+                    <option
+                      key={item.id}
+                      value={item.id}
+                      disabled={ownedProducts.includes(item.id)}
+                    >
+                      {item.name}
+                      {ownedProducts.includes(item.id) ? " · Already requested" : ""}
+                      {item.id === "mastercard" ? " · Apple Pay setup unavailable" : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {product?.description && <p className="field-help">{product.description}</p>}
+              {productId === "mastercard" && (
+                <p className="card-sandbox" role="note">
+                  Apple Pay setup is not available in PingApp yet. Selecting this card does not add
+                  it to Apple Wallet.
+                </p>
+              )}
+              <p className="field-help">
+                This creates a new card. Existing cards keep their card type.
+              </p>
+              <label className="card-field">
+                Cardholder name (optional)
+                <input
+                  type="text"
+                  autoComplete="cc-name"
+                  maxLength={100}
+                  value={cardholderName}
+                  disabled={busy || loadingProfile}
+                  onChange={(event) => setCardholderName(event.target.value)}
+                />
+              </label>
               <label className="card-field">
                 Contact email
                 <input
@@ -121,7 +188,7 @@ export function CardApplication({
                 </span>
               </label>
               <div className="card-info-row">
-                <span>{product?.name ?? "Visa"} issue price</span>
+                <span>{product?.name ?? "Card"} issue price</span>
                 <strong>
                   {product?.issuePriceUsd != null
                     ? usd(product.issuePriceUsd)
