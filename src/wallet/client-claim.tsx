@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowUpRight, Check, LoaderCircle, RefreshCw, Wallet } from "lucide-react";
 import { ApiError } from "../api/client";
-import { qk, useClaim } from "../api/hooks";
+import { qk, sessionRevision, useClaim, useClaimEscrow, useEscrows } from "../api/hooks";
 import type { ClaimView, Me } from "../api/types";
 import { useAuth, safeReturnTo } from "../auth/useAuth";
 import { explorerAddress } from "../config";
@@ -10,6 +10,7 @@ import { WalletProvider } from "./appkit";
 import ClaimSafetyBox from "./ClaimSafetyBox";
 import PhoneLinkFlow from "../dashboard/components/PhoneLinkFlow";
 import TokenIcon from "../dashboard/components/TokenIcon";
+import { errorMessage } from "../dashboard/views/send/errors";
 
 export default function ClientClaim({ code }: { code: string }) {
   return (
@@ -80,7 +81,22 @@ function ClaimContent({ code }: { code: string }) {
                 </button>
               </p>
             )}
-            {claimQuery.data.status === "completed" ? (
+            {claimQuery.data.kind === "escrow" &&
+            ["claimed", "refunded", "void"].includes(claimQuery.data.status) ? (
+              <div className="claim-state">
+                <h2>
+                  {claimQuery.data.status === "claimed"
+                    ? "This escrow has been claimed."
+                    : claimQuery.data.status === "refunded"
+                      ? "This escrow has been refunded to the sender."
+                      : "This escrow was not deposited."}
+                </h2>
+                <p>No claim is available from this invite.</p>
+                <a className="button outline" href="/dashboard">
+                  Open dashboard <ArrowUpRight size={15} />
+                </a>
+              </div>
+            ) : claimQuery.data.status === "completed" ? (
               <div className="claim-state">
                 <span className="claim-status-icon">
                   <Check size={17} />
@@ -238,9 +254,11 @@ function ClaimSummary({ claim }: { claim: ClaimView }) {
           {claim.amount} {claim.token.symbol}
         </span>
       </div>
-      <p className="eyebrow">PENDING SEND INVITE</p>
+      <p className="eyebrow">{claim.kind === "escrow" ? "ESCROW INVITE" : "PENDING SEND INVITE"}</p>
       <h1>
-        {claim.senderDisplayName} wants to send you {claim.amount} {claim.token.symbol}
+        {claim.kind === "escrow"
+          ? `${claim.senderDisplayName} created a ${claim.amount} ${claim.token.symbol} escrow for the phone number below.`
+          : `${claim.senderDisplayName} wants to send you ${claim.amount} ${claim.token.symbol}`}
       </h1>
       {claim.note && <blockquote>“{claim.note}”</blockquote>}
       <p className="claim-meta">
@@ -321,8 +339,10 @@ function ClaimSessionStep({
       <div className="claim-state">
         <h2>Connect a wallet to continue.</h2>
         <p>
-          Sign in and verify the phone number this invite was sent to. {claim.senderDisplayName} may
-          then choose to complete this pending send.
+          Sign in and verify the phone number this invite was sent to.{" "}
+          {claim.kind === "escrow"
+            ? "If the escrow is claimable by your verified number, you can claim to your wallet without ETH for gas."
+            : `${claim.senderDisplayName} may then choose to complete this pending send.`}
         </p>
         <button className="button accent" type="button" onClick={auth.signIn}>
           <Wallet size={15} /> Connect wallet
@@ -360,9 +380,15 @@ function ClaimSignedIn({
   refetchClaim: () => Promise<unknown>;
 }) {
   const queryClient = useQueryClient();
+  const incoming = useEscrows("incoming", claim.kind === "escrow");
+  const claimEscrow = useClaimEscrow();
+  const [claimError, setClaimError] = useState("");
+  // A public code, phone suffix, or public status never proves entitlement.
+  const owned = incoming.data?.find((row) => row.id === claim.id);
   const [linkStatus, setLinkStatus] = useState<"idle" | "checking" | "checked">("idle");
   const refreshAfterLink = useCallback(() => {
     setLinkStatus("checking");
+    void queryClient.invalidateQueries({ queryKey: qk.escrowsPrefix });
     void queryClient.invalidateQueries({ queryKey: qk.claim(code), exact: true }).then(
       () => setLinkStatus("checked"),
       () => setLinkStatus("checked"),
@@ -373,8 +399,9 @@ function ClaimSignedIn({
     <div className="claim-state">
       <h2>Verify the phone number for this invite.</h2>
       <p>
-        This invite is for {claim.recipientPhoneMasked}. Verify that number to notify{" "}
-        {claim.senderDisplayName} that the recipient is ready.
+        {claim.kind === "escrow"
+          ? `This invite is for ${claim.recipientPhoneMasked}. Verify that number to check whether this escrow is claimable by your wallet.`
+          : `This invite is for ${claim.recipientPhoneMasked}. Verify that number to notify ${claim.senderDisplayName} that the recipient is ready.`}
       </p>
       {linkStatus !== "idle" && (
         <p className="claim-link-feedback" role="status">
@@ -383,12 +410,45 @@ function ClaimSignedIn({
             : "Phone verification finished. If this invite is still waiting, confirm that the verified number matches the number shown above."}
         </p>
       )}
-      {me.phone && claim.status === "pending" && (
+      {me.phone && (claim.status === "pending" || claim.kind === "escrow") && (
         <p className="claim-phone-hint">
           If the linked number is different, use “Change number” below to verify the invite number.
         </p>
       )}
       <PhoneLinkFlow compact onLinked={refreshAfterLink} />
+      {claim.kind === "escrow" && (
+        <div className="claim-state">
+          {incoming.isPending && <p role="status">Checking your claimable escrows…</p>}
+          {incoming.error && <p role="alert">{incoming.error.message}</p>}
+          {(claimError || claimEscrow.error) && (
+            <p role="alert">{claimError || errorMessage(claimEscrow.error)}</p>
+          )}
+          {owned?.status === "claiming" && (
+            <p role="status">
+              Claim requested. Waiting for confirmation; the relayer pays the network fee.
+            </p>
+          )}
+          {owned?.status === "deposited" && !owned.refundable && (
+            <button
+              className="button accent"
+              disabled={claimEscrow.isPending}
+              onClick={() => {
+                const revision = sessionRevision(queryClient);
+                setClaimError("");
+                void claimEscrow.mutateAsync(owned.id).catch((error: unknown) => {
+                  if (sessionRevision(queryClient) === revision) setClaimError(errorMessage(error));
+                });
+              }}
+            >
+              {claimEscrow.isPending ? "Requesting claim…" : "Claim to my wallet"}
+            </button>
+          )}
+          {owned?.refundable && <p>This escrow has expired and can be refunded to the sender.</p>}
+          {!incoming.isPending && !incoming.error && !owned && (
+            <p>No escrow from this invite is currently claimable by your verified number.</p>
+          )}
+        </div>
+      )}
       <div className="claim-actions">
         <button className="button outline" type="button" onClick={() => void refetchClaim()}>
           <RefreshCw size={15} /> Refresh invite status

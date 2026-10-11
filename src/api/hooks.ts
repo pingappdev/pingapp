@@ -231,6 +231,11 @@ export function useClaim(code: string | undefined) {
       return endpoints.claims.get(code, { signal });
     },
     enabled: Boolean(code),
+    refetchInterval: (query) =>
+      query.state.data?.kind === "escrow" &&
+      ["authorized", "deposited", "claiming"].includes(query.state.data.status)
+        ? 4_000
+        : false,
   });
 }
 
@@ -423,7 +428,9 @@ export function useLogout() {
 }
 
 export function useAuthorizeSend() {
-  return useMutation({ mutationFn: (input: AuthorizeSendInput) => endpoints.sends.authorize(input) });
+  return useMutation({
+    mutationFn: (input: AuthorizeSendInput) => endpoints.sends.authorize(input),
+  });
 }
 
 export function useEscrows(role: "sent" | "incoming", enabled = true) {
@@ -439,21 +446,24 @@ export function useClaimEscrow() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => endpoints.escrows.claim(id),
-    onSuccess: () => Promise.all([
-      queryClient.invalidateQueries({ queryKey: qk.escrowsPrefix }),
-      queryClient.invalidateQueries({ queryKey: ["pingapp", "claims"] }),
-      queryClient.invalidateQueries({ queryKey: qk.balancesPrefix }),
-    ]),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: qk.escrowsPrefix }),
+        queryClient.invalidateQueries({ queryKey: ["pingapp", "claims"] }),
+        queryClient.invalidateQueries({ queryKey: qk.balancesPrefix }),
+      ]),
   });
 }
 
 export function useEscrowSubmitted() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, txHash }: { id: string; txHash: Address }) => endpoints.escrows.submitted(id, txHash),
-    onSuccess: () => Promise.all([
-      queryClient.invalidateQueries({ queryKey: qk.escrowsPrefix }),
-      queryClient.invalidateQueries({ queryKey: qk.balancesPrefix }),
-    ]),
+    mutationFn: ({ id, txHash }: { id: string; txHash: Address }) =>
+      endpoints.escrows.submitted(id, txHash),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: qk.escrowsPrefix }),
+        queryClient.invalidateQueries({ queryKey: qk.balancesPrefix }),
+      ]),
   });
 }

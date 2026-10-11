@@ -8,8 +8,8 @@ export const Route = createFileRoute("/claim/$code")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "You have a pending transfer — PingApp" },
-      { name: "description", content: "Review a pending send invite on PingApp." },
+      { title: "Transfer invite — PingApp" },
+      { name: "description", content: "Review a transfer invite on PingApp." },
       { name: "robots", content: "noindex" },
     ],
   }),
