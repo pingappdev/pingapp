@@ -29,6 +29,7 @@ export type ReviewedSend = {
   amountRaw: string;
   intentId?: string;
   router?: ConfigResponse["router"];
+  escrowTtlDays?: number;
 };
 
 type PendingRecord = { sender: string; mode?: "direct"; input: TransferCreateInput }

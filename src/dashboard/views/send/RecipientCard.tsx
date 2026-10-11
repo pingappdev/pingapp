@@ -10,12 +10,14 @@ export default function RecipientCard({
   resolving,
   error,
   pendingUrl,
+  escrowEnabled = false,
 }: {
   recipient: Recipient | null;
   resolution?: ResolveResponse | null;
   resolving?: boolean;
   error?: string;
   pendingUrl?: string;
+  escrowEnabled?: boolean;
 }) {
   if (resolving)
     return (
@@ -36,10 +38,12 @@ export default function RecipientCard({
         <div>
           <strong>{resolution.phoneMasked} isn&apos;t on PingApp yet.</strong>
           <p>
+            {escrowEnabled ? "Send now — held safely until they join. They can claim after verifying this phone number." : <>
             Nothing can be sent to a phone number until its owner links a wallet. You can create a
             pending send: we&apos;ll text them an invite and notify you when they&apos;re ready.
+            </>}
           </p>
-          {resolution.canCreateIntent && pendingUrl && (
+          {!escrowEnabled && resolution.canCreateIntent && pendingUrl && (
             <a className="button outline" href={pendingUrl}>
               Create pending send
             </a>
