@@ -110,6 +110,61 @@ export const tokens = pgTable('tokens', {
   check('tokens_kind_check', sql`${table.kind} in ('native', 'stable', 'wrapped', 'stock')`),
 ]);
 
+// Preserve router financial records when an app account is deleted.
+export const routerAuths = pgTable('router_auths', {
+  id: text('id').primaryKey(),
+  senderUserId: uuid('sender_user_id').references(() => users.id, { onDelete: 'set null' }),
+  senderAddress: text('sender_address').notNull(),
+  recipientUserId: uuid('recipient_user_id').references(() => users.id, { onDelete: 'set null' }),
+  recipientAddress: text('recipient_address').notNull(),
+  recipientPhoneHmac: text('recipient_phone_hmac').notNull(),
+  recipientPhoneMasked: text('recipient_phone_masked').notNull(),
+  contactName: text('contact_name'),
+  tokenAddress: text('token_address').notNull().references(() => tokens.address),
+  amountRaw: numeric('amount_raw', { precision: 78, scale: 0, mode: 'string' }).notNull(),
+  deadline: timestamp('deadline', { withTimezone: true }).notNull(),
+  createdAt: createdAt(),
+}, (table) => [
+  check('router_auths_id_format_check', sql`${table.id} ~ '^0x[0-9a-f]{64}$'`),
+]);
+
+export const escrows = pgTable('escrows', {
+  id: text('id').primaryKey(),
+  code: text('code').notNull().unique(),
+  senderUserId: uuid('sender_user_id').references(() => users.id, { onDelete: 'set null' }),
+  senderAddress: text('sender_address').notNull(),
+  recipientPhoneHmac: text('recipient_phone_hmac').notNull(),
+  recipientPhoneEnc: text('recipient_phone_enc').notNull(),
+  recipientPhoneMasked: text('recipient_phone_masked').notNull(),
+  recipientUserId: uuid('recipient_user_id').references(() => users.id, { onDelete: 'set null' }),
+  tokenAddress: text('token_address').notNull().references(() => tokens.address),
+  amountRaw: numeric('amount_raw', { precision: 78, scale: 0, mode: 'string' }).notNull(),
+  claimTipWei: numeric('claim_tip_wei', { precision: 78, scale: 0, mode: 'string' }).notNull(),
+  feeWei: numeric('fee_wei', { precision: 78, scale: 0, mode: 'string' }).notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  authDeadline: timestamp('auth_deadline', { withTimezone: true }).notNull(),
+  note: text('note'),
+  status: text('status').notNull().default('authorized'),
+  smsStatus: text('sms_status').notNull().default('failed'),
+  depositTxHash: text('deposit_tx_hash').unique(),
+  claimTxHash: text('claim_tx_hash'),
+  refundTxHash: text('refund_tx_hash'),
+  claimedToAddress: text('claimed_to_address'),
+  depositedAt: timestamp('deposited_at', { withTimezone: true }),
+  claimedAt: timestamp('claimed_at', { withTimezone: true }),
+  refundedAt: timestamp('refunded_at', { withTimezone: true }),
+  createdAt: createdAt(),
+}, (table) => [
+  check('escrows_id_format_check', sql`${table.id} ~ '^0x[0-9a-f]{64}$'`),
+  check('escrows_code_format_check', sql`${table.code} ~ '^[A-Za-z0-9]{10}$'`),
+  check('escrows_note_length_check', sql`${table.note} is null or char_length(${table.note}) <= 140`),
+  check('escrows_status_check', sql`${table.status} in ('authorized', 'deposited', 'claiming', 'claimed', 'refunded', 'void')`),
+  check('escrows_sms_status_check', sql`${table.smsStatus} in ('sent', 'skipped_rate_limit', 'failed', 'disabled')`),
+  index('escrows_recipient_phone_status_idx').on(table.recipientPhoneHmac, table.status),
+  index('escrows_sender_created_at_idx').on(table.senderUserId, table.createdAt.desc()),
+  index('escrows_status_expires_at_idx').on(table.status, table.expiresAt),
+]);
+
 export const transfers = pgTable('transfers', {
   id: id(),
   senderUserId: uuid('sender_user_id').references(() => users.id, { onDelete: 'set null' }),
@@ -124,6 +179,7 @@ export const transfers = pgTable('transfers', {
   status: text('status').notNull().default('submitted'),
   blockNumber: bigint('block_number', { mode: 'bigint' }),
   intentId: uuid('intent_id'),
+  routerId: text('router_id').unique(),
   contactName: text('contact_name'),
   createdAt: createdAt(),
   confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
@@ -173,7 +229,7 @@ export const notifications = pgTable('notifications', {
   readAt: timestamp('read_at', { withTimezone: true }),
   createdAt: createdAt(),
 }, (table) => [
-  check('notifications_type_check', sql`${table.type} in ('intent_ready', 'intent_expired', 'intent_incoming', 'transfer_received', 'transfer_failed', 'phone_claim_attempt', 'phone_claim_resolved', 'phone_removed_by_review')`),
+  check('notifications_type_check', sql`${table.type} in ('intent_ready', 'intent_expired', 'intent_incoming', 'transfer_received', 'transfer_failed', 'phone_claim_attempt', 'phone_claim_resolved', 'phone_removed_by_review', 'escrow_ready', 'escrow_incoming', 'escrow_claimed', 'escrow_received', 'escrow_refunded')`),
   index('notifications_user_created_at_idx').on(table.userId, table.createdAt.desc()),
 ]);
 
@@ -225,6 +281,8 @@ export type Transfer = typeof transfers.$inferSelect;
 export type NewTransfer = typeof transfers.$inferInsert;
 export type Intent = typeof intents.$inferSelect;
 export type NewIntent = typeof intents.$inferInsert;
+export type Escrow = typeof escrows.$inferSelect;
+export type RouterAuth = typeof routerAuths.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type NewNotification = typeof notifications.$inferInsert;
 export type SmsLogEntry = typeof smsLog.$inferSelect;
