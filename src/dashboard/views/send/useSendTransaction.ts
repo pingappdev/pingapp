@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { erc20Abi } from "viem";
 import { getAccount, getPublicClient } from "wagmi/actions";
-import { useSendTransaction as useWagmiSend, useSwitchChain, useWriteContract } from "wagmi";
+import { useSwitchChain, useWriteContract } from "wagmi";
 import { endpoints } from "../../../api/client";
 import {
   qk,
@@ -14,7 +14,6 @@ import {
 } from "../../../api/hooks";
 import type {
   Address,
-  Intent,
   Me,
   ResolveResponse,
   TransferCreateInput,
@@ -29,9 +28,7 @@ import { fromResolved, recipientChanged } from "./types";
 import { errorMessage } from "./errors";
 
 export type ReviewedSend = {
-  recipient:
-    | Recipient
-    | (Omit<Recipient, "kind" | "address"> & { kind: "escrow"; phone: string; address?: never });
+  recipient: Recipient | (Omit<Recipient, "kind"> & { kind: "escrow"; phone: string });
   token: Token;
   amount: string;
   amountRaw: string;
@@ -88,7 +85,6 @@ export function useSendTransaction(
   ) => void,
 ) {
   const queryClient = useQueryClient();
-  const { sendTransactionAsync } = useWagmiSend();
   const { writeContractAsync } = useWriteContract();
   const { switchChainAsync } = useSwitchChain();
   const record = useRecordTransfer();
@@ -271,28 +267,10 @@ export function useSendTransaction(
         throw new Error("Sending settings changed. Refresh and review again.");
       }
 
-      if (review.intentId) {
-        if (routerSettings.enabled)
-          throw new Error("Legacy pending sends are read-only. Start a new send by phone.");
-        if (review.recipient.kind !== "intent")
-          throw new Error("This pending send changed. Review it again from Requests.");
-        const { items } = await endpoints.intents.list("open");
-        if (!currentAccount(me, expectedRevision)) throw new Error(sessionChangedMessage);
-        const fresh: Intent | undefined = items.find((item) => item.id === review.intentId);
-        if (
-          !fresh ||
-          fresh.status !== "ready" ||
-          !fresh.recipient ||
-          !Number.isFinite(Date.parse(fresh.expiresAt)) ||
-          Date.parse(fresh.expiresAt) <= Date.now() ||
-          fresh.recipient.address.toLowerCase() !== review.recipient.address.toLowerCase() ||
-          fresh.token.address.toLowerCase() !== review.token.address.toLowerCase() ||
-          fresh.amountRaw !== review.amountRaw
-        ) {
-          onChangedRecipient(null);
-          throw new Error("This pending send changed or expired. Review it again from Requests.");
-        }
-      } else {
+      if (review.intentId)
+        throw new Error("Legacy pending sends are read-only. Start a new send by phone.");
+      if (!routerSettings.enabled) throw new Error("Sending is temporarily unavailable.");
+      {
         if (
           (review.recipient.kind !== "phone" && review.recipient.kind !== "escrow") ||
           !review.recipient.phone
@@ -307,7 +285,7 @@ export function useSendTransaction(
               response,
               review.recipient.phone,
             );
-            throw new Error("This person has joined PingApp. Review the direct transfer again.");
+            throw new Error("This person has joined PingApp. Review the transfer again.");
           }
         } else {
           if (response.status !== "registered") {
@@ -315,16 +293,12 @@ export function useSendTransaction(
             throw new Error("This number no longer points to a wallet. Please review again.");
           }
           const fresh = fromResolved(response, review.recipient.phone, review.recipient.contactId);
-          if (fresh.address.toLowerCase() !== review.recipient.address.toLowerCase()) {
-            onChangedRecipient(fresh, response);
-            throw new Error("This number now points to a different wallet. Please review again.");
-          }
           if (recipientChanged(review.recipient, fresh)) {
             onChangedRecipient(fresh, response);
             throw new Error(
               fresh.underReview && !review.recipient.underReview
-                ? "Ownership of this number is now under review. Check the address and review again."
-                : "This recipient's details changed. Check the address and review again.",
+                ? "Ownership of this number is now under review. Check the phone number and review again."
+                : "This recipient's details changed. Check the phone number and review again.",
             );
           }
         }
@@ -341,6 +315,7 @@ export function useSendTransaction(
           tokenAddress: review.token.address,
           amount: review.amount,
           expectedSenderAddress: me.address,
+          expectedRecipientRef: review.recipient.recipientRef ?? null,
           contactId: review.recipient.contactId,
         });
         if (!currentAccount(me, expectedRevision)) throw new Error(sessionChangedMessage);
@@ -349,22 +324,16 @@ export function useSendTransaction(
           authorization.auth.sender.toLowerCase() !== me.address.toLowerCase() ||
           authorization.auth.token.toLowerCase() !== review.token.address.toLowerCase() ||
           authorization.auth.amount !== review.amountRaw ||
-          (authorization.mode === "escrow") !== (review.recipient.kind === "escrow")
+          authorization.deliveryMode !==
+            (review.recipient.kind === "escrow" ? "claim" : "automatic")
         ) {
           throw new Error("The send details changed. Review the recipient and amount again.");
         }
         if (
-          authorization.mode === "direct" &&
-          authorization.auth.recipient.toLowerCase() !== review.recipient.address?.toLowerCase()
-        ) {
-          throw new Error("This number now points to a different wallet. Review again.");
-        }
-        if (
-          authorization.mode === "escrow" &&
-          (authorization.feeWei !== review.router?.escrowFeeWei ||
-            authorization.claimTipWei !== review.router?.claimTipWei)
+          authorization.feeWei !== review.router?.escrowFeeWei ||
+          authorization.claimTipWei !== review.router?.claimTipWei
         )
-          throw new Error("Escrow fees changed. Refresh and review again.");
+          throw new Error("Routing fees changed. Refresh and review again.");
         const client = getPublicClient(wagmiAdapter.wagmiConfig, { chainId: chain.id });
         if (!client) throw new Error("The network connection is unavailable.");
         if (authorization.approval) {
@@ -413,101 +382,30 @@ export function useSendTransaction(
           amount: BigInt(a.amount),
           deadline: BigInt(a.deadline),
         };
-        const hash =
-          authorization.mode === "direct"
-            ? await writeContractAsync({
-                account: me.address,
-                chainId: chain.id,
-                address: authorization.router,
-                abi: pingRouterAbi,
-                functionName: "send",
-                args: [
-                  { ...base, recipient: authorization.auth.recipient },
-                  authorization.signature,
-                ],
-                value: BigInt(authorization.value),
-              })
-            : await writeContractAsync({
-                account: me.address,
-                chainId: chain.id,
-                address: authorization.router,
-                abi: pingRouterAbi,
-                functionName: "escrow",
-                args: [
-                  {
-                    ...base,
-                    claimTip: BigInt(authorization.auth.claimTip),
-                    expiresAt: BigInt(authorization.auth.expiresAt),
-                  },
-                  authorization.signature,
-                ],
-                value: BigInt(authorization.value),
-              });
-        if (authorization.mode === "escrow") {
-          const draft: Extract<PendingRecord, { mode: "escrow" }> = {
-            sender: me.address,
-            mode: "escrow",
-            input: {
-              txHash: hash,
-              expectedSenderAddress: me.address,
-              escrowId: authorization.escrowId,
-            },
-          };
-          persist(draft);
-          await saveEscrow(draft.input, me, expectedRevision);
-        } else {
-          const input: TransferCreateInput = {
+        const hash = await writeContractAsync({
+          account: me.address,
+          chainId: chain.id,
+          address: authorization.router,
+          abi: pingRouterAbi,
+          functionName: "escrow",
+          args: [
+            { ...base, claimTip: BigInt(a.claimTip), expiresAt: BigInt(a.expiresAt) },
+            authorization.signature,
+          ],
+          value: BigInt(authorization.value),
+        });
+        const draft: Extract<PendingRecord, { mode: "escrow" }> = {
+          sender: me.address,
+          mode: "escrow",
+          input: {
             txHash: hash,
             expectedSenderAddress: me.address,
-            tokenAddress: review.token.address,
-            amountRaw: review.amountRaw,
-            toAddress: authorization.auth.recipient,
-            recipientPhone: review.recipient.phone,
-            contactId: review.recipient.contactId,
-            routerId: authorization.auth.id,
-          };
-          persist({ sender: me.address, input });
-          await save(input, me, expectedRevision);
-        }
-        return;
+            escrowId: authorization.escrowId,
+          },
+        };
+        persist(draft);
+        await saveEscrow(draft.input, me, expectedRevision);
       }
-      if (review.recipient.kind === "escrow") throw new Error("Escrow sends are not enabled.");
-      const inputBase = {
-        tokenAddress: review.token.address,
-        amountRaw: review.amountRaw,
-        toAddress: review.recipient.address,
-        ...(review.recipient.kind === "phone" ? { recipientPhone: review.recipient.phone } : {}),
-        ...(review.recipient.contactId ? { contactId: review.recipient.contactId } : {}),
-        ...(review.intentId ? { intentId: review.intentId } : {}),
-      };
-      const hash =
-        review.token.kind === "native"
-          ? await sendTransactionAsync({
-              account: me.address,
-              chainId: chain.id,
-              to: review.recipient.address,
-              value: BigInt(review.amountRaw),
-            })
-          : await writeContractAsync({
-              account: me.address,
-              chainId: chain.id,
-              address: review.token.address,
-              abi: erc20Abi,
-              functionName: "transfer",
-              args: [review.recipient.address, BigInt(review.amountRaw)],
-            });
-      const input: TransferCreateInput = {
-        ...inputBase,
-        txHash: hash,
-        expectedSenderAddress: me.address,
-      };
-      persist({ sender: me.address, input });
-      if (!currentAccount(me, expectedRevision)) {
-        setRecordFailure({ sender: me.address, message: sessionChangedMessage });
-        toast.error(sessionChangedMessage);
-        return;
-      }
-      await save(input, me, expectedRevision);
     } catch (error) {
       toast.error(errorMessage(error));
     } finally {

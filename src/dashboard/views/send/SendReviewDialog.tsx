@@ -42,9 +42,7 @@ export default function SendReviewDialog({
       <DialogContent className="ping-dialog max-h-[calc(100dvh-2rem)] overflow-y-auto">
         <DialogTitle>Review your transfer</DialogTitle>
         <DialogDescription>
-          {escrow
-            ? "Confirm the phone number and escrow charges, then approve in your wallet."
-            : "Confirm the recipient and full address, then approve the request in your wallet."}
+          Confirm the phone number and charges, then approve in your wallet.
         </DialogDescription>
         <div className="review-amount">
           {amount} <span>{token.symbol}</span>
@@ -56,21 +54,13 @@ export default function SendReviewDialog({
           <dt>Recipient</dt>
           <dd>
             {recipient.name}
-            {recipient.phoneMasked ? ` · ${recipient.phoneMasked}` : ""}
+            {recipient.phone ? ` · ${recipient.phone}` : ""}
           </dd>
-          {!escrow && (
+          {review.router && (
             <>
-              <dt>Full address</dt>
-              <dd>
-                <AddressText value={recipient.address} full />
-              </dd>
-            </>
-          )}
-          {escrow && review.router && (
-            <>
-              <dt>SMS fee (nonrefundable)</dt>
+              <dt>{escrow ? "SMS fee" : "Routing fee"} (nonrefundable)</dt>
               <dd>{formatEther(BigInt(review.router.escrowFeeWei))} ETH</dd>
-              <dt>Claim gas tip</dt>
+              <dt>Prepaid relay tip</dt>
               <dd>{formatEther(BigInt(review.router.claimTipWei))} ETH · refunded if unclaimed</dd>
             </>
           )}
@@ -90,11 +80,16 @@ export default function SendReviewDialog({
           <dt>Network fee</dt>
           <dd>Shown in your wallet</dd>
         </dl>
-        {escrow && (
+        {review.router && (
           <>
+            {!escrow && (
+              <p className="field-help">
+                Your deposit is paid to the recipient automatically after confirmation.
+              </p>
+            )}
             <p className="field-help">
-              If they don&apos;t claim within {review.escrowTtlDays ?? 14} days, you can refund it
-              (fees for the SMS are not refunded).
+              If delivery is not completed within {review.escrowTtlDays ?? 14} days, you can refund
+              the amount and unused relay tip. The {escrow ? "SMS" : "routing"} fee is not refunded.
             </p>
             <p className="field-help">
               PingApp&apos;s signer authorizes claims after phone verification. A compromised signer
@@ -109,11 +104,7 @@ export default function SendReviewDialog({
         ))}
         <label className="check-row">
           <Checkbox checked={checked} onCheckedChange={(value) => setChecked(value === true)} />
-          <span>
-            {escrow
-              ? "I checked the phone number, fees and escrow terms."
-              : "I checked the recipient and the full address."}
-          </span>
+          <span>I checked the phone number, fees and refund terms.</span>
         </label>
         {recipient.underReview && (
           <label className="check-row">
@@ -121,7 +112,7 @@ export default function SendReviewDialog({
               checked={confirmedReview}
               onCheckedChange={(value) => setConfirmedReview(value === true)}
             />
-            <span>I confirmed this address with the recipient directly.</span>
+            <span>I understand delivery is paused while ownership is reviewed.</span>
           </label>
         )}
         <button

@@ -68,7 +68,7 @@ export type Intent = {
   status: "pending" | "ready" | "completed" | "cancelled" | "expired";
   smsStatus: "sent" | "skipped_rate_limit" | "failed" | "disabled";
   recipientPhoneMasked: string;
-  recipient: null | { address: Address; displayName: string };
+  recipient: null | { displayName: string };
   token: Token;
   amountRaw: string;
   amount: string;
@@ -97,7 +97,7 @@ export type Contact = {
   phone: string | null;
   phoneMasked: string | null;
   address: Address | null;
-  onPingApp: null | { address: Address; displayName: string; linkedAt: string };
+  onPingApp: null | { displayName: string };
   createdAt: string;
 };
 
@@ -129,10 +129,8 @@ export type ResolveResponse =
       status: "registered";
       phoneMasked: string;
       recipient: {
-        address: Address;
+        recipientRef: string;
         displayName: string;
-        linkedAt: string;
-        recentlyLinked: boolean;
         underReview: boolean;
         previouslySentByMe: boolean;
       };
@@ -229,6 +227,7 @@ export type AuthorizeSendInput = {
   tokenAddress: Address;
   amount: string;
   expectedSenderAddress: Address;
+  expectedRecipientRef: string | null;
   contactId?: string;
   note?: string;
 };
@@ -245,23 +244,21 @@ type RouterAuthorizationBase = {
   value: string;
   approval: null | { token: Address; spender: Address; amount: string };
 };
-export type RouterAuthorization = RouterAuthorizationBase &
-  (
-    | { mode: "direct"; auth: RouterAuthBase & { recipient: Address } }
-    | {
-        mode: "escrow";
-        escrowId: string;
-        auth: RouterAuthBase & { claimTip: string; expiresAt: string };
-        feeWei: string;
-        claimTipWei: string;
-        expiresAt: string;
-      }
-  );
+export type RouterAuthorization = RouterAuthorizationBase & {
+  mode: "escrow";
+  deliveryMode: "automatic" | "claim";
+  escrowId: string;
+  auth: RouterAuthBase & { claimTip: string; expiresAt: string };
+  feeWei: string;
+  claimTipWei: string;
+  expiresAt: string;
+};
 export type Escrow = {
   id: Address;
   code: string;
   status: "authorized" | "deposited" | "claiming" | "claimed" | "refunded" | "void";
-  smsStatus: Intent["smsStatus"];
+  smsStatus: Intent["smsStatus"] | "not_required";
+  deliveryMode: "automatic" | "claim";
   recipientPhoneMasked: string | null;
   sender: { address: Address; displayName: string };
   token: Token;

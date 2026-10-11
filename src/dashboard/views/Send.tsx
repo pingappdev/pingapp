@@ -186,7 +186,7 @@ function SendSession({ me }: { me: Me | null }) {
   const currentResolution = e164 && resolutionPhone === e164 ? resolution : null;
   const escrowReady =
     !!config.data?.router?.enabled && currentResolution?.status === "not_registered" && !!e164;
-  const escrowCharges = escrowReady
+  const escrowCharges = config.data?.router?.enabled
     ? BigInt(config.data!.router.escrowFeeWei) + BigInt(config.data!.router.claimTipWei)
     : 0n;
 
@@ -230,10 +230,10 @@ function SendSession({ me }: { me: Me | null }) {
             ? sendMinimum(selectedAsset.token, minSendUsd)
             : raw !== null && raw > BigInt(selectedAsset.balanceRaw)
               ? "More than your balance."
-              : escrowReady &&
+              : config.data?.router?.enabled &&
                   raw !== null &&
                   ethRaw < escrowCharges + (selectedAsset.token.kind === "native" ? raw : 0n)
-                ? "You need enough ETH for the SMS fee, claim gas tip and network fee."
+                ? "You need enough ETH for the routing fee, prepaid relay tip and network fee."
                 : intent && raw !== null && raw.toString() !== intent.amountRaw
                   ? "This pending send amount changed. Review it from Requests."
                   : selectedAsset.token.kind !== "native" && ethRaw === 0n
@@ -250,7 +250,6 @@ function SendSession({ me }: { me: Me | null }) {
     ) {
       recipient = {
         kind: "intent",
-        address: intent.recipient.address,
         name: intent.recipient.displayName || "PingApp user",
         phoneMasked: intent.recipientPhoneMasked,
       };
@@ -262,20 +261,17 @@ function SendSession({ me }: { me: Me | null }) {
         : fromResolved(currentResolution, e164, selectedContact?.id);
   } else if (input.trim() && !e164) immediateError = "Enter a valid phone number.";
 
-  const pendingUrl = e164
-    ? `/dashboard/requests?new=1&phone=${encodeURIComponent(e164)}&token=${encodeURIComponent(selectedAsset?.token.address ?? "")}&amount=${encodeURIComponent(shownAmount)}`
-    : undefined;
   const blocked =
     !!amountError ||
     !raw ||
     (!recipient && !escrowReady) ||
-    !config.data ||
+    !config.data?.router?.enabled ||
     send.busy ||
     !!send.pending ||
     !!send.transferId ||
     !!send.pendingEscrow ||
     !!send.escrowId ||
-    (!!intentId && !!config.data?.router?.enabled);
+    !!intentId;
 
   function changeInput(value: string) {
     setInput(value);
@@ -338,11 +334,9 @@ function SendSession({ me }: { me: Me | null }) {
         {intentId &&
           (intents.isPending ? (
             <p className="field-help">Loading pending send…</p>
-          ) : recipient ? (
-            <div className="recipient-match">Completing your pending send to {recipient.name}</div>
           ) : (
             <div className="notice">
-              This pending send isn&apos;t ready yet.{" "}
+              Legacy pending sends are read-only. Start a new send by phone.{" "}
               <a href="/dashboard/requests">View requests</a>
             </div>
           ))}
@@ -370,7 +364,6 @@ function SendSession({ me }: { me: Me | null }) {
                   resolution={currentResolution}
                   resolving={resolving}
                   error={recipientError || prefillError || immediateError}
-                  pendingUrl={pendingUrl}
                   escrowEnabled={!!config.data?.router?.enabled}
                 />
               </>
@@ -440,8 +433,8 @@ function SendSession({ me }: { me: Me | null }) {
           <ShieldCheck />
           <h3>Review before sending</h3>
           <p>
-            A phone number points to a wallet its owner verified. Check the name and the full
-            address before approving; transfers can&apos;t be reversed.
+            Check the recipient&apos;s phone number and name before approving. The payout address
+            becomes public on-chain after your deposit. Delivered transfers can&apos;t be reversed.
           </p>
           <a href="/insights/safer-connections" className="text-link">
             Read the guide <ArrowUpRight size={15} />

@@ -9,7 +9,6 @@ import {
   Users,
 } from "lucide-react";
 import type { IncomingIntent, Intent } from "../../../api/types";
-import { trimAddress } from "../../format";
 import TokenIcon from "../../components/TokenIcon";
 import { daysUntil, shareInvite, copyInvite } from "./utils";
 
@@ -38,9 +37,7 @@ export function IntentCard({
             {ready ? ` to ${name}` : " pending"}
           </strong>
           <small>
-            {ready && recipient
-              ? `${trimAddress(recipient.address)} · `
-              : `${intent.recipientPhoneMasked} · `}
+            {intent.recipientPhoneMasked} ·
             {ready ? "Ready to send" : `Expires in ${daysUntil(intent.expiresAt)} days`}
           </small>
         </div>

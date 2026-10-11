@@ -1,6 +1,5 @@
 import { AlertTriangle, Check, UserRound } from "lucide-react";
 import type { ResolveResponse } from "../../../api/types";
-import AddressText from "../../components/AddressText";
 import type { Recipient } from "./types";
 import { recipientWarnings } from "./types";
 
@@ -9,14 +8,12 @@ export default function RecipientCard({
   resolution,
   resolving,
   error,
-  pendingUrl,
   escrowEnabled = false,
 }: {
   recipient: Recipient | null;
   resolution?: ResolveResponse | null;
   resolving?: boolean;
   error?: string;
-  pendingUrl?: string;
   escrowEnabled?: boolean;
 }) {
   if (resolving)
@@ -38,21 +35,10 @@ export default function RecipientCard({
         <div>
           <strong>{resolution.phoneMasked} isn&apos;t on PingApp yet.</strong>
           <p>
-            {escrowEnabled ? (
-              "Send now — held safely until they join. They can claim after verifying this phone number."
-            ) : (
-              <>
-                Nothing can be sent to a phone number until its owner links a wallet. You can create
-                a pending send: we&apos;ll text them an invite and notify you when they&apos;re
-                ready.
-              </>
-            )}
+            {escrowEnabled
+              ? "Send now — held safely until they join. They can claim after verifying this phone number."
+              : "Sending is temporarily unavailable."}
           </p>
-          {!escrowEnabled && resolution.canCreateIntent && pendingUrl && (
-            <a className="button outline" href={pendingUrl}>
-              Create pending send
-            </a>
-          )}
         </div>
       </div>
     );
@@ -64,10 +50,7 @@ export default function RecipientCard({
       <div>
         <strong>{recipient.name}</strong>
         <small>{recipient.phoneMasked ?? "On PingApp"}</small>
-        <AddressText value={recipient.address} full />
-        {recipient.linkedAt && (
-          <small>On PingApp since {new Date(recipient.linkedAt).toLocaleDateString()}</small>
-        )}
+        <small>Delivered automatically after your deposit confirms.</small>
         {warnings.map((warning) => (
           <p
             key={warning}

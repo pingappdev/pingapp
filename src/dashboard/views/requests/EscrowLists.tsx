@@ -139,7 +139,8 @@ export default function EscrowLists() {
                     <small>Expires {new Date(row.expiresAt).toLocaleString()}</small>
                     {role === "sent" && (
                       <small>
-                        SMS fee {formatEther(BigInt(row.feeWei))} ETH · claim tip{" "}
+                        {row.deliveryMode === "automatic" ? "Routing" : "SMS"} fee{" "}
+                        {formatEther(BigInt(row.feeWei))} ETH · relay tip{" "}
                         {formatEther(BigInt(row.claimTipWei))} ETH
                       </small>
                     )}
@@ -147,17 +148,27 @@ export default function EscrowLists() {
                 </div>
                 <div className="request-intent-actions">
                   <span className="pill">
-                    {refundHashes[row.id] ? "Refunded" : labels[row.status]}
+                    {refundHashes[row.id]
+                      ? "Refunded"
+                      : row.deliveryMode === "automatic" && row.status === "claimed"
+                        ? "Delivered"
+                        : row.deliveryMode === "automatic" &&
+                            ["deposited", "claiming"].includes(row.status)
+                          ? "Delivery pending"
+                          : labels[row.status]}
                   </span>
-                  {role === "incoming" && row.status === "deposited" && !row.refundable && (
-                    <button
-                      className="button accent"
-                      disabled={!!busyId}
-                      onClick={() => void act(row, "claim")}
-                    >
-                      {busyId === row.id ? "Requesting…" : "Claim"}
-                    </button>
-                  )}
+                  {role === "incoming" &&
+                    row.deliveryMode === "claim" &&
+                    row.status === "deposited" &&
+                    !row.refundable && (
+                      <button
+                        className="button accent"
+                        disabled={!!busyId}
+                        onClick={() => void act(row, "claim")}
+                      >
+                        {busyId === row.id ? "Requesting…" : "Claim"}
+                      </button>
+                    )}
                   {role === "sent" &&
                     !refundHashes[row.id] &&
                     (row.refundable ||

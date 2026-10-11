@@ -32,7 +32,6 @@ export default function Contacts({
     (contact) =>
       contact.name.toLowerCase().includes(search) ||
       contact.address?.toLowerCase().includes(search) ||
-      contact.onPingApp?.address.toLowerCase().includes(search) ||
       (digits.length > 0 &&
         [contact.phone, contact.phoneMasked].some((value) =>
           value?.replace(/\D/g, "").includes(digits),
@@ -70,11 +69,7 @@ export default function Contacts({
       ) : filtered.length ? (
         <div className="contact-grid">
           {filtered.map((contact) => {
-            const mismatch =
-              !!contact.address &&
-              !!contact.onPingApp &&
-              contact.address.toLowerCase() !== contact.onPingApp.address.toLowerCase();
-            const displayAddress = contact.address ?? contact.onPingApp?.address;
+            const displayAddress = contact.address;
             return (
               <section className="card contact-card" key={contact.id}>
                 <div className="panel-heading">
@@ -109,12 +104,6 @@ export default function Contacts({
                   <div className="address-copy">
                     <AddressText value={displayAddress} />
                   </div>
-                )}
-                {mismatch && (
-                  <p className="contact-mismatch">
-                    Saved address differs from their PingApp wallet. Sending by contact uses the
-                    PingApp wallet.
-                  </p>
                 )}
                 {contact.phone ? (
                   <a

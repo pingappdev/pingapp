@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -11,12 +11,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useCancelIntent, useConfig, useIncomingIntents, useIntents } from "../../api/hooks";
+import { useCancelIntent, useIncomingIntents, useIntents } from "../../api/hooks";
 import type { Intent } from "../../api/types";
-import { useSearchParams } from "../../routing";
 import TokenIcon from "../components/TokenIcon";
 import { IntentCard, IncomingIntentRow, QueryMessage, EmptyIntents } from "./requests/IntentRows";
-import IntentForm from "./requests/IntentForm";
 import { dateLabel } from "./requests/utils";
 import EscrowLists from "./requests/EscrowLists";
 
@@ -34,14 +32,10 @@ function smsStatusLabel(intent: Intent): string {
 }
 
 export default function Requests() {
-  const config = useConfig();
-  const routerEnabled = !!config.data?.router?.enabled;
-  const params = useSearchParams();
   const intents = useIntents("all");
   const incoming = useIncomingIntents();
   const cancelIntent = useCancelIntent();
   const cancelInFlight = useRef(false);
-  const [formOpen, setFormOpen] = useState(params.get("new") === "1");
   const [cancelTarget, setCancelTarget] = useState<Intent | null>(null);
 
   const openIntents = (intents.data ?? []).filter(
@@ -53,14 +47,6 @@ export default function Requests() {
     (intent) =>
       intent.status === "completed" || intent.status === "cancelled" || intent.status === "expired",
   );
-
-  useEffect(() => {
-    if (params.get("new") === "1") setFormOpen(true);
-  }, [params]);
-
-  useEffect(() => {
-    if (intents.isSuccess && intents.data.length === 0) setFormOpen(true);
-  }, [intents.data, intents.isSuccess]);
 
   async function confirmCancel() {
     if (!cancelTarget || cancelIntent.isPending || cancelInFlight.current) return;
@@ -83,16 +69,10 @@ export default function Requests() {
 
   return (
     <div className="request-page">
-      {routerEnabled ? (
-        <>
-          <EscrowLists />
-          <a className="button accent" href="/dashboard/send">
-            Send by phone
-          </a>
-        </>
-      ) : (
-        <IntentForm open={formOpen} onOpenChange={setFormOpen} />
-      )}
+      <EscrowLists />
+      <a className="button accent" href="/dashboard/send">
+        Send by phone
+      </a>
 
       {intentsLoading || intentsError ? (
         <section className="card">
@@ -116,11 +96,10 @@ export default function Requests() {
           <section className="card request-list-card">
             <div className="panel-heading">
               <div>
-                <h2>{routerEnabled ? "Legacy pending sends" : "Ready to send"}</h2>
+                <h2>Legacy pending sends</h2>
                 <p className="field-help">
-                  {routerEnabled
-                    ? "These older invites did not move funds. You can cancel them or start a new send by phone."
-                    : "Recipients linked the invited phone. Review and approve each transfer in your wallet."}
+                  These older invites did not move funds. You can cancel them or start a new send by
+                  phone.
                 </p>
               </div>
               <span className="pill">{readyIntents.length}</span>
@@ -131,7 +110,7 @@ export default function Requests() {
                   <IntentCard
                     key={intent.id}
                     intent={intent}
-                    readOnly={routerEnabled}
+                    readOnly
                     onCancel={setCancelTarget}
                     canceling={cancelIntent.isPending}
                   />
@@ -156,7 +135,7 @@ export default function Requests() {
                   <div className="request-pending-item" key={intent.id}>
                     <IntentCard
                       intent={intent}
-                      readOnly={routerEnabled}
+                      readOnly
                       onCancel={setCancelTarget}
                       canceling={cancelIntent.isPending}
                     />
