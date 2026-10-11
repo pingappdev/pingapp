@@ -10,6 +10,8 @@ import {
 import { ApiError, endpoints } from "./client";
 import type {
   ContactCreateInput,
+  AuthorizeSendInput,
+  Address,
   IntentCreateInput,
   IntentStatusFilter,
   Me,
@@ -32,6 +34,8 @@ export const qk = {
   transfers: (direction: TransferDirection = "all") => ["pingapp", "transfers", direction] as const,
   transfer: (id: string) => ["pingapp", "transfers", "detail", id] as const,
   intentsPrefix: ["pingapp", "intents"] as const,
+  escrowsPrefix: ["pingapp", "escrows"] as const,
+  escrows: (role: "sent" | "incoming") => ["pingapp", "escrows", role] as const,
   intents: (status: IntentStatusFilter = "open") => ["pingapp", "intents", status] as const,
   incomingIntents: ["pingapp", "intents", "incoming"] as const,
   claim: (code: string) => ["pingapp", "claims", code] as const,
@@ -415,5 +419,41 @@ export function useLogout() {
     onSuccess: async () => {
       await transitionSession(queryClient, null, { cancelSessionQuery: true });
     },
+  });
+}
+
+export function useAuthorizeSend() {
+  return useMutation({ mutationFn: (input: AuthorizeSendInput) => endpoints.sends.authorize(input) });
+}
+
+export function useEscrows(role: "sent" | "incoming", enabled = true) {
+  return useQuery({
+    queryKey: qk.escrows(role),
+    queryFn: async ({ signal }) => (await endpoints.escrows.list(role, { signal })).items,
+    enabled,
+    refetchInterval: 4_000,
+  });
+}
+
+export function useClaimEscrow() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => endpoints.escrows.claim(id),
+    onSuccess: () => Promise.all([
+      queryClient.invalidateQueries({ queryKey: qk.escrowsPrefix }),
+      queryClient.invalidateQueries({ queryKey: ["pingapp", "claims"] }),
+      queryClient.invalidateQueries({ queryKey: qk.balancesPrefix }),
+    ]),
+  });
+}
+
+export function useEscrowSubmitted() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, txHash }: { id: string; txHash: Address }) => endpoints.escrows.submitted(id, txHash),
+    onSuccess: () => Promise.all([
+      queryClient.invalidateQueries({ queryKey: qk.escrowsPrefix }),
+      queryClient.invalidateQueries({ queryKey: qk.balancesPrefix }),
+    ]),
   });
 }

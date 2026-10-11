@@ -1,6 +1,10 @@
 import { config } from "../env";
 import type {
   ApiRequestOptions,
+  Address,
+  AuthorizeSendInput,
+  RouterAuthorization,
+  Escrow,
   BalancesResponse,
   ClaimView,
   ConfigResponse,
@@ -128,6 +132,19 @@ function mutation<T>(path: string, method: "POST" | "PATCH" | "DELETE", body?: u
 }
 
 export const endpoints = {
+  sends: {
+    authorize: (input: AuthorizeSendInput, options?: ApiRequestOptions) =>
+      api<RouterAuthorization>("/v1/sends/authorize", { method: "POST", body: input, ...options }),
+  },
+  escrows: {
+    list: (role: "sent" | "incoming", options?: ApiRequestOptions) =>
+      api<{ items: Escrow[] }>(withQuery("/v1/escrows", { role }), options),
+    claim: (id: string, options?: ApiRequestOptions) =>
+      api<{ escrow: { id: string; status: "claiming" } }>(`/v1/escrows/${encodeURIComponent(id)}/claim`, { method: "POST", ...options }),
+    submitted: (id: string, txHash: Address, options?: ApiRequestOptions) =>
+      api<{ escrow: { id: string; status: string; depositTxHash: Address } }>(`/v1/escrows/${encodeURIComponent(id)}/submitted`,
+        { method: "POST", body: { txHash }, ...options }),
+  },
   health: {
     get: (options?: ApiRequestOptions) =>
       api<{ ok: boolean; db: boolean; redis: boolean }>("/health", options),

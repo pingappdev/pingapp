@@ -18,5 +18,6 @@ export const config = {
   apiUrl: requiredEnv("VITE_API_URL"),
   appUrl: requiredEnv("VITE_APP_URL"),
   chainKey: (chainKey || "robinhood-testnet") as ChainKey,
+  rpcUrl: import.meta.env.VITE_RPC_URL?.trim() || "",
   reownProjectId: import.meta.env.VITE_REOWN_PROJECT_ID?.trim() ?? "",
 };
