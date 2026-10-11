@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { config } from '../../config.js';
 import { chain } from '../../lib/chain.js';
+import { getEscrowFee } from '../../lib/router.js';
 
 const routes: FastifyPluginAsync = async (app) => {
   app.get('/config', async (_request, reply) => {
@@ -14,7 +15,10 @@ const routes: FastifyPluginAsync = async (app) => {
         nativeSymbol: 'ETH',
         isTestnet: chain.isTestnet,
       },
-      features: { intents: true, sms: config.SMS_ENABLED },
+      features: { intents: !config.ROUTER_ENABLED, escrow: config.ROUTER_ENABLED, sms: config.SMS_ENABLED },
+      router: { enabled: config.ROUTER_ENABLED, address: config.ROUTER_ADDRESS,
+        escrowFeeWei: config.ROUTER_ENABLED ? (await getEscrowFee()).toString() : '0',
+        claimTipWei: config.ESCROW_CLAIM_TIP_WEI },
       limits: {
         intentTtlDays: config.INTENT_TTL_DAYS,
         recentlyLinkedDays: config.RECENTLY_LINKED_DAYS,

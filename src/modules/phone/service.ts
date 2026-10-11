@@ -12,6 +12,7 @@ import { consume, limits } from '../../lib/rateLimit.js';
 import { redis } from '../../lib/redis.js';
 import { sendSms } from '../../lib/sms.js';
 import { markIntentsReady } from '../intents/ready.js';
+import { clearEscrowRecipient, markEscrowsClaimable } from '../escrows/ready.js';
 import { serializeMe } from '../me/serialize.js';
 import { lockPhoneMutation } from './lock.js';
 import { checkOtp, type OtpState } from './otp.js';
@@ -147,6 +148,7 @@ export async function linkPhoneToUser(
   }
 
   if (me.phoneHmac) {
+    await clearEscrowRecipient(tx, userId, me.phoneHmac);
     await tx.update(intents).set({ status: 'pending', recipientUserId: null, readyAt: null })
       .where(and(eq(intents.recipientUserId, userId), eq(intents.status, 'ready'),
         eq(intents.recipientPhoneHmac, me.phoneHmac)));
@@ -154,6 +156,7 @@ export async function linkPhoneToUser(
   await audit(me.phoneHmac ? 'phone_changed' : 'phone_linked', {
     userId, data: { phoneMasked: p.masked, previousMasked: me.phoneMasked }, ipHash: meta.ipHash,
   }, tx);
+  await markEscrowsClaimable(tx, h, userId);
   return { kind: 'linked', readyIntents: await markIntentsReady(tx, h, userId) };
 }
 
@@ -207,6 +210,7 @@ export async function unlinkPhone(userId: string, sessionId: string, ipHash: str
     if (!me) throw errors.unauthenticated();
     await ensureFresh(sessionId, userId, tx);
     if (!me.phoneHmac) return;
+    await clearEscrowRecipient(tx, userId, me.phoneHmac);
     await tx.update(users).set({ phoneHmac: null, phoneEnc: null, phoneCountry: null,
       phoneMasked: null, phoneLinkedAt: null }).where(eq(users.id, userId));
     await tx.update(intents).set({ status: 'pending', recipientUserId: null, readyAt: null })
@@ -244,6 +248,7 @@ export async function clearPhoneIfOwned(
   }).where(and(eq(users.id, ownerId), eq(users.phoneHmac, expectedPhoneHmac)))
     .returning({ id: users.id });
   if (!cleared) return false;
+  await clearEscrowRecipient(tx, ownerId, expectedPhoneHmac);
   await tx.update(intents).set({ status: 'pending', recipientUserId: null, readyAt: null })
     .where(and(eq(intents.recipientUserId, ownerId),
       eq(intents.recipientPhoneHmac, expectedPhoneHmac), eq(intents.status, 'ready')));

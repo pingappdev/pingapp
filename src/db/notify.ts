@@ -3,6 +3,7 @@ import { notifications } from './schema.js';
 import type { DbOrTx } from './tx.js';
 
 export type NotificationType =
+  | 'escrow_ready' | 'escrow_incoming' | 'escrow_claimed' | 'escrow_received' | 'escrow_refunded'
   | 'intent_ready'
   | 'intent_expired'
   | 'intent_incoming'

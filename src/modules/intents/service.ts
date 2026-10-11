@@ -17,6 +17,7 @@ import { getPrices } from '../tokens/prices.js';
 import { getToken } from '../tokens/registry.js';
 import { toTokenDto, type TokenDto } from '../tokens/routes.js';
 import { lockPhoneMutation } from '../phone/lock.js';
+import { getEscrowClaim } from '../escrows/public.js';
 
 const OPEN_STATUSES = ['pending', 'ready'] as const;
 const BASE62_CODE = /^[0-9A-Za-z]{10}$/;
@@ -82,12 +83,12 @@ export function cleanNote(value: string | undefined): string | null {
   return note || null;
 }
 
-function smsName(value: string): string {
+export function smsName(value: string): string {
   const safe = value.replace(/[^A-Za-z0-9 .'_-]/g, '').slice(0, 20).trim();
   return safe || 'A PingApp user';
 }
 
-function smsAmount(value: string): string {
+export function smsAmount(value: string): string {
   const [whole, fraction = ''] = value.split('.');
   const short = fraction.slice(0, 6).replace(/0+$/, '');
   return short ? `${whole}.${short}` : whole;
@@ -185,6 +186,7 @@ export async function createIntent(
   input: CreateIntentInput,
   ipHash: string,
 ): Promise<IntentDto> {
+  if (config.ROUTER_ENABLED) throw new AppError('USE_ESCROW', 409, 'Send now using escrow instead of creating a pending send.');
   const [profile] = await db.select({ displayName: users.displayName, phoneHmac: users.phoneHmac })
     .from(users).where(eq(users.id, senderId)).limit(1);
   if (!profile) throw errors.unauthenticated();
@@ -436,8 +438,10 @@ export async function listIncoming(recipientId: string): Promise<IncomingIntentD
   })));
 }
 
-export async function getClaim(code: string): Promise<PublicClaimDto> {
+export async function getClaim(code: string): Promise<PublicClaimDto | NonNullable<Awaited<ReturnType<typeof getEscrowClaim>>>> {
   if (!BASE62_CODE.test(code)) throw errors.notFound();
+  const escrow = await getEscrowClaim(code);
+  if (escrow) return escrow;
   const [row] = await db.select({
     intent: intents,
     token: tokens,

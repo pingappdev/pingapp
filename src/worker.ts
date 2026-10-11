@@ -41,7 +41,7 @@ async function start(): Promise<void> {
       const handler = handlers.get(job.name);
       if (!handler) throw new Error(`No processor registered for ${queueName}:${job.name}`);
       return handler(job);
-    }, { connection, concurrency: 5 });
+    }, { connection, concurrency: queueName === 'escrows' ? 1 : 5 });
     worker.on('failed', (job, error) => {
       logger.error({ jobName: job?.name, jobId: job?.id, error: error.message }, 'queue job failed');
     });

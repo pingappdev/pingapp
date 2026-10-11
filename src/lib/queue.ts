@@ -8,6 +8,7 @@ export const QUEUES = {
   tokens: 'tokens',
   maintenance: 'maintenance',
   cards: 'cards',
+  escrows: 'escrows',
 } as const;
 
 export type QueueName = keyof typeof QUEUES;
