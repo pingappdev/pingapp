@@ -665,6 +665,21 @@ main h1:focus{outline:none}
   overflow-wrap: anywhere;
   white-space: normal;
 }
+.send-grid .escrow-progress {
+  display: block;
+}
+.send-grid .escrow-progress h3 {
+  margin: 0;
+  font: 20px/1.35 Arial, sans-serif;
+}
+.send-grid .escrow-progress p {
+  margin: 12px 0;
+  line-height: 1.6;
+}
+.send-grid .escrow-progress .button {
+  margin: 8px 8px 0 0;
+  text-decoration: none;
+}
 .send-grid .notice a {
   color: var(--ping-accent);
 }

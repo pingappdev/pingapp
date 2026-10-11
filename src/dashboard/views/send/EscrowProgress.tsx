@@ -22,7 +22,7 @@ export default function EscrowProgress({
   const automatic = escrow?.deliveryMode === "automatic";
   const hash = pending?.txHash ?? escrow?.depositTxHash;
   return (
-    <div className="notice" role="status">
+    <div className="notice escrow-progress" role="status">
       <h3>
         {pending
           ? "Save your submitted escrow"
