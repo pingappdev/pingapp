@@ -96,6 +96,9 @@ export async function resolvePhone(user: AuthUser, rawPhone: string, ipHash: str
       .from(transfers)
       .where(and(
         eq(transfers.senderUserId, user.id),
+        // A payment to a known wallet alone must not identify its phone. Only
+        // a confirmed payment already addressed to this phone earns the hint.
+        eq(transfers.recipientPhoneHmac, hash),
         eq(transfers.recipientAddress, recipient.address),
         eq(transfers.status, 'confirmed'),
       ))
