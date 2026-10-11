@@ -14,6 +14,7 @@ const bodySchema = z.object({
   recipientPhone: z.string().max(32).optional(),
   contactId: z.uuid().optional(),
   intentId: z.uuid().optional(),
+  routerId: z.string().regex(/^0x[0-9a-f]{64}$/i).optional(),
 }).strict();
 const directionSchema = z.enum(['all', 'sent', 'received']).default('all');
 const listSchema = z.object({

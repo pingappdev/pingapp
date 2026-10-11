@@ -5,7 +5,7 @@ import { decodeEventLog, erc20Abi, TransactionReceiptNotFoundError, type Transac
 import { db } from '../../db/client.js';
 import { audit } from '../../db/audit.js';
 import { notify } from '../../db/notify.js';
-import { contacts, intents, tokens, transfers, users, type Token, type Transfer } from '../../db/schema.js';
+import { contacts, intents, routerAuths, tokens, transfers, users, type Token, type Transfer } from '../../db/schema.js';
 import { checksum, explorerTx, isAddress, NATIVE_TOKEN, normAddress } from '../../lib/chain.js';
 import { invalidate } from '../../lib/cache.js';
 import { phoneHmac } from '../../lib/crypto.js';
@@ -20,6 +20,7 @@ import { getPrices } from '../tokens/prices.js';
 import { getToken } from '../tokens/registry.js';
 import { toTokenDto, type TokenDto } from '../tokens/routes.js';
 import { lockPhoneMutation } from '../phone/lock.js';
+import { hasRouterSentLog } from './routerProof.js';
 
 const HASH = /^0x[0-9a-fA-F]{64}$/;
 const RAW_AMOUNT = /^[1-9]\d{0,77}$/;
@@ -34,6 +35,7 @@ export type TransferBody = {
   recipientPhone?: string;
   contactId?: string;
   intentId?: string;
+  routerId?: string;
 };
 
 type Sender = { id: string; address: string };
@@ -55,6 +57,7 @@ export async function recordTransfer(user: Sender, body: TransferBody): Promise<
     throw errors.conflict('Your PingApp session changed. Reconnect the original sending wallet and sign in to save this transfer.');
   }
   if (!HASH.test(body.txHash)) throw errors.validation('Enter a valid transaction hash.');
+  if (body.routerId && !HASH.test(body.routerId)) throw errors.validation('Invalid router authorization.');
   if (!RAW_AMOUNT.test(body.amountRaw)) throw errors.invalidAmount();
   if (!isAddress(body.toAddress)) throw errors.invalidAddress();
   const toAddress = normAddress(body.toAddress);
@@ -83,6 +86,14 @@ export async function recordTransfer(user: Sender, body: TransferBody): Promise<
       .where(eq(users.address, toAddress)).limit(1).for('update');
     if (recipientPhoneHmac && recipient?.phoneHmac !== recipientPhoneHmac) {
       throw errors.validation('This phone number no longer points to that wallet. Please review the recipient again.');
+    }
+
+    const [routerAuth] = body.routerId ? await tx.select().from(routerAuths)
+      .where(eq(routerAuths.id, body.routerId.toLowerCase())).limit(1) : [];
+    if (body.routerId && (!routerAuth || routerAuth.senderUserId !== user.id ||
+        routerAuth.senderAddress !== normAddress(user.address) || routerAuth.tokenAddress !== token.address ||
+        BigInt(routerAuth.amountRaw) !== BigInt(body.amountRaw) || routerAuth.recipientAddress !== toAddress)) {
+      throw errors.validation('This transfer does not match your router authorization.');
     }
 
     let contactName: string | null = null;
@@ -124,10 +135,11 @@ export async function recordTransfer(user: Sender, body: TransferBody): Promise<
       status: 'submitted',
       contactName,
       intentId: body.intentId ?? null,
-    }).onConflictDoNothing({ target: transfers.txHash }).returning();
+      routerId: body.routerId?.toLowerCase() ?? null,
+    }).onConflictDoNothing().returning();
     if (!inserted) {
       const [existing] = await tx.select().from(transfers).where(eq(transfers.txHash, hash)).limit(1);
-      if (!existing) throw errors.internal();
+      if (!existing) throw errors.conflict('This router authorization already has a recorded transaction.');
       return { row: sameSender(existing, user.id), created: false };
     }
     await audit('transfer_recorded', { userId: user.id, data: { transferId: inserted.id, token: token.symbol } }, tx);
@@ -274,7 +286,9 @@ export async function confirmTransfer(transferId: string, attempt: number): Prom
   }
 
   let verified: boolean;
-  if (row.tokenAddress === NATIVE_TOKEN) {
+  if (row.routerId) {
+    verified = hasRouterSentLog(receipt, row);
+  } else if (row.tokenAddress === NATIVE_TOKEN) {
     try {
       const tx = await publicClient.getTransaction({ hash: row.txHash as `0x${string}` });
       verified = tx.from.toLowerCase() === row.senderAddress &&
