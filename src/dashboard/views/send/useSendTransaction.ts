@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { erc20Abi } from "viem";
 import { getAccount, getPublicClient } from "wagmi/actions";
 import { useSendTransaction as useWagmiSend, useSwitchChain, useWriteContract } from "wagmi";
-import { ApiError, endpoints } from "../../../api/client";
+import { endpoints } from "../../../api/client";
 import { qk, sessionRevision, useAuthorizeSend, useEscrowSubmitted, useRecordTransfer } from "../../../api/hooks";
 import type {
   Address,
@@ -20,6 +20,7 @@ import { openConnect, wagmiAdapter } from "../../../wallet/appkit";
 import { pingRouterAbi } from "../../../wallet/pingRouterAbi";
 import type { Recipient } from "./types";
 import { fromResolved, recipientChanged } from "./types";
+import { errorMessage } from "./errors";
 
 export type ReviewedSend = {
   recipient: Recipient | (Omit<Recipient, "kind" | "address"> & { kind: "escrow"; phone: string; address?: never });
@@ -62,27 +63,6 @@ function restorePending(sender: Address): PendingRecord | null {
   } catch {
     return null;
   }
-}
-
-function errorMessage(error: unknown): string {
-  if (error instanceof ApiError) return error.message;
-  const candidate = error as {
-    name?: string;
-    code?: number;
-    shortMessage?: string;
-    message?: string;
-  };
-  const message = candidate.shortMessage ?? candidate.message ?? "The wallet request failed.";
-  if (
-    candidate.name === "UserRejectedRequestError" ||
-    candidate.code === 4001 ||
-    /user rejected|user denied/i.test(message)
-  )
-    return "Cancelled in your wallet.";
-  if (/insufficient funds/i.test(message)) return "Not enough ETH for the amount plus network fee.";
-  if (/revert|execution reverted/i.test(message))
-    return "The token contract rejected this transfer. Some Stock Tokens can only be sent to eligible wallets.";
-  return message.length > 220 ? `${message.slice(0, 217)}…` : message;
 }
 
 export function useSendTransaction(
