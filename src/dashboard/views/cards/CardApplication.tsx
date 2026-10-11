@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { cardsApi, type CardsConfig, type CardNetwork, type CardProductId } from "@/api/cards";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { CardFace } from "./CardFace";
 import { usd } from "./format";
 
 export function CardApplication({
@@ -112,26 +113,42 @@ export function CardApplication({
         <form className="card-application" onSubmit={submit}>
           {kind === "issue" ? (
             <>
-              <label className="card-field">
-                Card type
-                <select
-                  value={productId}
-                  disabled={busy}
-                  onChange={(event) => setProductId(event.target.value as CardProductId)}
-                >
-                  {config.products.map((item) => (
-                    <option
-                      key={item.id}
-                      value={item.id}
-                      disabled={ownedProducts.includes(item.id)}
-                    >
-                      {item.name}
-                      {ownedProducts.includes(item.id) ? " · Already requested" : ""}
-                      {item.id === "mastercard" ? " · Apple Pay setup unavailable" : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <fieldset className="pc-picker" disabled={busy}>
+                <legend>Card type</legend>
+                <div className="pc-picker-grid">
+                  {config.products.map((item) => {
+                    const owned = ownedProducts.includes(item.id);
+                    return (
+                      <label key={item.id} className="pc-option" data-owned={owned || undefined}>
+                        <input
+                          type="radio"
+                          name="card-product"
+                          value={item.id}
+                          checked={productId === item.id}
+                          disabled={owned}
+                          onChange={() => setProductId(item.id)}
+                        />
+                        <CardFace
+                          product={item.id}
+                          name={item.name}
+                          network={item.network}
+                          size="mini"
+                        />
+                        <span className="pc-option-text">
+                          <strong>{item.name}</strong>
+                          <small>
+                            {owned
+                              ? "Already requested"
+                              : item.issuePriceUsd != null
+                                ? `${usd(item.issuePriceUsd)} to issue`
+                                : "Price on invoice"}
+                          </small>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
               {product?.description && <p className="field-help">{product.description}</p>}
               {productId === "mastercard" && (
                 <p className="card-sandbox" role="note">
@@ -222,21 +239,24 @@ export function CardApplication({
               </p>
             </>
           )}
-          <label className="card-field">
-            USDT network
-            <select
-              required
-              value={network}
-              disabled={busy}
-              onChange={(event) => setNetwork(event.target.value as CardNetwork)}
-            >
+          <fieldset className="pc-picker" disabled={busy}>
+            <legend>Pay with USDT on</legend>
+            <div className="pc-chips">
               {config.networks.map((item) => (
-                <option key={item.id} value={item.id}>
-                  USDT · {item.label}
-                </option>
+                <label key={item.id} className="pc-chip-option">
+                  <input
+                    type="radio"
+                    name="card-network"
+                    value={item.id}
+                    required
+                    checked={network === item.id}
+                    onChange={() => setNetwork(item.id)}
+                  />
+                  <span>{item.label}</span>
+                </label>
               ))}
-            </select>
-          </label>
+            </div>
+          </fieldset>
           {!config.networks.length && (
             <p className="card-error">No payment networks are currently available.</p>
           )}

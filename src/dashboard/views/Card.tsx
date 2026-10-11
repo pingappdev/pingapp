@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
-import { ArrowDown, ArrowUpRight, CreditCard, Plus, Snowflake } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowDown, ArrowUpRight, Eye, Plus } from "lucide-react";
 import { useCards, useCardsConfig, useCardTransactions, type CardSummary } from "@/api/cards";
 import { useAuth } from "@/auth/useAuth";
 import { CardApplication } from "./cards/CardApplication";
 import { CardDetailsDialog } from "./cards/CardDetailsDialog";
+import { CardFace } from "./cards/CardFace";
 import { CardOperationPanel } from "./cards/CardOperationPanel";
 import { useCardRequest } from "./cards/useCardRequest";
 import { useCardLiveState } from "./cards/useCardLiveState";
@@ -65,9 +66,14 @@ function CardDashboard({
   const cardName = (item: CardSummary) =>
     config?.products.find((product) => product.id === item.product)?.name ??
     statusLabel(item.product);
-  const cardNetwork = card
-    ? (config?.products.find((product) => product.id === card.product)?.network ?? card.network)
-    : "";
+  const productNetwork = (item: CardSummary) =>
+    config?.products.find((product) => product.id === item.product)?.network ?? item.network;
+  const cardNetwork = card ? productNetwork(card) : "";
+  const railRef = useRef<HTMLDivElement>(null);
+  const selectCard = (id: string) => {
+    setSelectedId(id);
+    setModal(null);
+  };
   useEffect(() => {
     if (request.accepted?.cardId) setSelectedId(request.accepted.cardId);
   }, [request.accepted?.cardId]);
@@ -151,178 +157,171 @@ function CardDashboard({
         </section>
       )}
       {cardsQuery.isSuccess && !card && (
-        <section className="card card-empty card-full-width">
-          <span className="card-action-icon">
-            <CreditCard size={28} />
-          </span>
-          <h2>Your everyday card</h2>
-          <p>Choose a virtual card and fund it with USDT on an available network.</p>
-          <p className="field-help">
-            Your contact email is only requested when you choose to create a card.
-          </p>
-          {config?.products.length === 1 && config.products[0].issuePriceUsd != null && (
+        <section className="pc-empty">
+          <CardFace
+            product={config?.products[0]?.id ?? "visa"}
+            name={config?.products[0]?.name ?? "Ping Card"}
+            network={config?.products[0]?.network ?? "Visa"}
+          />
+          <div>
+            <h2>Spend your crypto anywhere cards work</h2>
             <p>
-              Issue price: <strong>{usd(config.products[0].issuePriceUsd)}</strong>
+              Pick a virtual card and fund it with USDT. Card funds stay separate from your wallet.
             </p>
-          )}
-          <button
-            className="button accent"
-            type="button"
-            disabled={!canMutate || !canCreate}
-            onClick={() => setModal("issue")}
-          >
-            <Plus size={17} /> Create card
-          </button>
+            {config?.products.length === 1 && config.products[0].issuePriceUsd != null && (
+              <p>
+                Issue price: <strong>{usd(config.products[0].issuePriceUsd)}</strong>
+              </p>
+            )}
+            <p className="field-help">We only ask for a contact email when you create a card.</p>
+            <button
+              className="button accent"
+              type="button"
+              disabled={!canMutate || !canCreate}
+              onClick={() => setModal("issue")}
+            >
+              <Plus size={17} /> Create card
+            </button>
+          </div>
         </section>
       )}
       {card && (
         <>
-          <div className="card-overview">
-            {cards.length > 1 && (
-              <label className="card-field">
-                Card
-                <select
-                  value={card.id}
-                  onChange={(event) => {
-                    setSelectedId(event.target.value);
-                    setModal(null);
-                  }}
+          <section className="pc-wallet" aria-labelledby="pc-wallet-title">
+            <div className="pc-wallet-head">
+              <h2 id="pc-wallet-title">
+                Your cards <span>({String(cards.length).padStart(2, "0")})</span>
+              </h2>
+              {canCreate && (
+                <button
+                  type="button"
+                  className="button outline small"
+                  disabled={!canMutate}
+                  onClick={() => setModal("issue")}
                 >
-                  {cards.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {cardName(item)} · {item.last4 ? `•••• ${item.last4}` : "Card application"} ·{" "}
-                      {statusLabel(item.issueStatus)} · {dateTime(item.createdAt)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-            <div
-              className={"ping-card-visual" + (card.frozen === true ? " frozen" : "")}
-              aria-label={`${cardName(card)} ${card.last4 ? `ending ${card.last4}` : "awaiting details"}`}
-            >
-              <span className="ping-card-shine" />
-              <span className="ping-card-inner">
-                <span className="ping-card-top">
-                  <span className="ping-card-brand">
-                    <span className="ping-card-mark" />
-                    <strong>Ping</strong>
-                  </span>
-                  {card.frozen === true ? (
-                    <span className="ping-card-frozen">
-                      <Snowflake size={10} /> FROZEN
-                    </span>
-                  ) : (
-                    <span className="ping-card-network">{cardNetwork}</span>
-                  )}
-                </span>
-                <span className="ping-card-number">•••• •••• •••• {card.last4 ?? "••••"}</span>
-                <span className="ping-card-row">
-                  <span>
-                    <small>EXPIRES</small>
-                    <span>••/••</span>
-                  </span>
-                  <span>
-                    <small>CVV</small>
-                    <span>•••</span>
-                  </span>
-                  <span className="ping-card-wave" aria-hidden="true">
-                    <span />
-                    <span />
-                    <span />
-                  </span>
-                </span>
-              </span>
-            </div>
-            <div className="card-balance-block">
-              <span className="eyebrow">
-                {config?.sandbox ? "TEST CARD BALANCE" : "CARD BALANCE"}
-              </span>
-              <div className="card-balance-amount">{usd(card.balanceUsd)}</div>
-              {live.refreshingBalances.has(card.id) && (
-                <p className="field-help" role="status">
-                  Top-up confirmed. Refreshing the provider balance…
-                </p>
+                  <Plus size={16} /> New card
+                </button>
               )}
-              <p className="field-help">
+            </div>
+            <div
+              className="pc-rail"
+              role="radiogroup"
+              aria-labelledby="pc-wallet-title"
+              onKeyDown={(event) => {
+                const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+                if (!step) return;
+                event.preventDefault();
+                const next =
+                  cards[
+                    (cards.findIndex((item) => item.id === card.id) + step + cards.length) %
+                      cards.length
+                  ];
+                selectCard(next.id);
+                railRef.current?.querySelector<HTMLElement>(`[data-card-id="${next.id}"]`)?.focus();
+              }}
+              ref={railRef}
+            >
+              {cards.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={item.id === card.id}
+                  tabIndex={item.id === card.id ? 0 : -1}
+                  data-card-id={item.id}
+                  className="pc-rail-item"
+                  aria-label={`${cardName(item)}, ${item.last4 ? `ending ${item.last4}` : statusLabel(item.issueStatus)}`}
+                  onClick={() => selectCard(item.id)}
+                >
+                  <CardFace
+                    product={item.product}
+                    name={cardName(item)}
+                    network={productNetwork(item)}
+                    last4={item.last4}
+                    status={item.issueStatus}
+                    frozen={item.frozen}
+                  />
+                </button>
+              ))}
+            </div>
+          </section>
+          <div className="pc-detail">
+            <section className="pc-summary" aria-label={`${cardName(card)} summary`}>
+              <div className="pc-summary-head">
+                <h2>{cardName(card)}</h2>
+                <span className="pc-status" data-tone={cardTone(card)}>
+                  {cardState(card)}
+                </span>
+              </div>
+              <p className="pc-balance-label">
+                {config?.sandbox ? "Test card balance" : "Card balance"}
+              </p>
+              <div className="pc-balance">{usd(card.balanceUsd)}</div>
+              <p className="pc-balance-meta">
                 {card.balanceAsOf
                   ? `Updated ${dateTime(card.balanceAsOf)}`
                   : "Balance freshness unavailable"}
               </p>
-              {card.pendingTopupUsd != null && (
-                <p className="field-help">Pending top-up: {usd(card.pendingTopupUsd)}</p>
-              )}
-            </div>
-            <p className="card-account-status">
-              Status: <strong>{statusLabel(card.issueStatus)}</strong> ·{" "}
-              {card.frozen === null
-                ? "Freeze status unavailable"
-                : card.frozen
-                  ? "Frozen"
-                  : "Not frozen"}
-            </p>
-            <div className="card-actions">
-              <button type="button" disabled={!canTopup} onClick={() => setModal("topup")}>
-                <span className="card-action-icon">
-                  <Plus size={20} />
-                </span>
-                <small>Top up</small>
-              </button>
-              <button type="button" disabled={!issued} onClick={() => setModal("details")}>
-                <span className="card-action-icon">
-                  <CreditCard size={20} />
-                </span>
-                <small>Details</small>
-              </button>
-            </div>
-            {!issued && (
-              <p className="field-help">
-                Top-up and details become available when the provider confirms this card is issued.
-              </p>
-            )}
-            {canCreate && (
-              <button
-                type="button"
-                className="button accent"
-                disabled={!canMutate}
-                onClick={() => setModal("issue")}
-              >
-                <Plus size={16} /> Add card
-              </button>
-            )}
-          </div>
-          <div className="card-activity">
-            <section className="card card-spending">
-              <div className="panel-heading">
-                <h2>Spending</h2>
-                <span className="card-spending-period">This month</span>
-              </div>
-              {card.monthlySpending.complete && card.monthlySpending.amountUsd !== null ? (
-                <div className="card-spending-labels">
-                  <strong>{usd(card.monthlySpending.amountUsd)} spent</strong>
-                </div>
-              ) : (
-                <p className="field-help">
-                  Monthly spending is unavailable until the provider supplies complete history.
+              {live.refreshingBalances.has(card.id) && (
+                <p className="pc-balance-meta" role="status">
+                  Top-up confirmed. Refreshing the provider balance…
                 </p>
               )}
+              {card.pendingTopupUsd != null && (
+                <p className="pc-balance-meta">Pending top-up: {usd(card.pendingTopupUsd)}</p>
+              )}
+              <div className="pc-actions">
+                <button
+                  type="button"
+                  className="button accent"
+                  disabled={!canTopup}
+                  onClick={() => setModal("topup")}
+                >
+                  <Plus size={17} /> Top up
+                </button>
+                <button
+                  type="button"
+                  className="button outline"
+                  disabled={!issued}
+                  onClick={() => setModal("details")}
+                >
+                  <Eye size={17} /> Card details
+                </button>
+              </div>
+              {!issued && (
+                <p className="field-help">
+                  Top-up and details unlock once the provider confirms this card is issued.
+                </p>
+              )}
+              <dl className="pc-info">
+                <InfoRow label="Network" value={cardNetwork} />
+                <InfoRow label="Currency" value={card.currency} />
+                <InfoRow label="Issued" value={dateTime(card.issuedAt)} />
+                <InfoRow label="Funding" value="USDT via provider invoice" />
+              </dl>
+              <p className="field-help">
+                Card funds are held by the card provider once credit is confirmed, separate from
+                your wallet balance.
+              </p>
             </section>
-            <Transactions key={card.id} userId={userId} card={card} />
-          </div>
-          <section className="card card-info-block">
-            <div className="panel-heading">
-              <h2>Card info</h2>
+            <div className="pc-activity">
+              <section className="pc-spending">
+                <div className="panel-heading">
+                  <h2>Spent this month</h2>
+                </div>
+                {card.monthlySpending.complete && card.monthlySpending.amountUsd !== null ? (
+                  <strong className="pc-spending-amount">
+                    {usd(card.monthlySpending.amountUsd)}
+                  </strong>
+                ) : (
+                  <p className="field-help">
+                    Monthly spending appears once the provider supplies complete history.
+                  </p>
+                )}
+              </section>
+              <Transactions key={card.id} userId={userId} card={card} />
             </div>
-            <InfoRow label="Type" value={cardName(card)} />
-            <InfoRow label="Network" value={cardNetwork} />
-            <InfoRow label="Currency" value={card.currency} />
-            <InfoRow label="Issued" value={dateTime(card.issuedAt)} />
-            <InfoRow label="Funding" value="Provider invoices · USDT" />
-            <p className="field-help card-full-width">
-              Card funds are held through the card provider after credit is confirmed. They are
-              separate from your connected wallet balance.
-            </p>
-          </section>
+          </div>
         </>
       )}
       {visibleOperations.length > 0 && (
@@ -404,7 +403,7 @@ function Transactions({ userId, card }: { userId: string; card: CardSummary }) {
     ).values(),
   ];
   return (
-    <section className="card card-tx-list">
+    <section className="pc-transactions">
       <div className="panel-heading">
         <h2>Recent transactions</h2>
       </div>
@@ -468,11 +467,23 @@ function Transactions({ userId, card }: { userId: string; card: CardSummary }) {
   );
 }
 
+function cardState(card: CardSummary) {
+  if (card.issueStatus !== "issued") return statusLabel(card.issueStatus);
+  if (card.frozen === true) return "Frozen";
+  return card.frozen === null ? "Issued" : "Active";
+}
+
+function cardTone(card: CardSummary) {
+  if (card.issueStatus === "failed") return "error";
+  if (card.issueStatus !== "issued" || card.frozen === true) return "muted";
+  return "ok";
+}
+
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="card-info-row">
-      <span>{label}</span>
-      <strong>{value}</strong>
+    <div>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
     </div>
   );
 }
