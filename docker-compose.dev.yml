@@ -12,6 +12,15 @@ x-app: &app
   restart: unless-stopped
 
 services:
+  anvil:
+    profiles: ["fork"]
+    image: ghcr.io/foundry-rs/foundry:v1.5.1
+    entrypoint: anvil
+    command: ["--host", "0.0.0.0", "--port", "8545", "--chain-id", "4663", "--fork-url", "${FORK_RPC_URL:-}", "--fork-block-number", "${FORK_BLOCK:-86069831}", "--silent"]
+    ports:
+      - 127.0.0.1:7445:8545
+    restart: "no"
+
   postgres:
     image: postgres:17-alpine
     env_file:
