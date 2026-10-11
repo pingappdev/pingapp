@@ -55,7 +55,7 @@ export default function SendReviewDialog({
           </dd>
           <dt>Full address</dt>
           <dd>
-            <AddressText value={recipient.address} full />
+            {recipient.address && <AddressText value={recipient.address} full />}
           </dd>
           <dt>Network</dt>
           <dd>Robinhood Chain</dd>

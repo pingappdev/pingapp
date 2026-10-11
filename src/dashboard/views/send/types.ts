@@ -32,7 +32,7 @@ export function fromResolved(
   };
 }
 
-export function recipientWarnings(recipient: Recipient): string[] {
+export function recipientWarnings(recipient: Pick<Recipient, "recentlyLinked" | "linkedAt" | "underReview" | "previouslySentByMe">): string[] {
   const warnings: string[] = [];
   if (recipient.recentlyLinked && recipient.linkedAt) {
     const days = Math.max(
