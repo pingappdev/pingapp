@@ -6,7 +6,6 @@ import { useUpdateMe } from "../../api/hooks";
 import { useAuth } from "../../auth/useAuth";
 import { explorerAddress } from "../../config";
 import AddressText from "../components/AddressText";
-import Connection from "../components/Connection";
 import PhoneLinkFlow from "../components/PhoneLinkFlow";
 import { openAccount } from "../../wallet/appkit";
 import DeleteAccountCard from "./settings/DeleteAccountCard";
@@ -94,7 +93,6 @@ export default function Settings() {
         <section className="card settings-card">
           <h2>Wallet connection</h2>
           <p>Your address is public. Your keys stay private.</p>
-          <Connection />
           <div className="settings-buttons">
             <button className="button outline" onClick={() => void openAccount()}>
               Manage wallet

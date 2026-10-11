@@ -21,7 +21,6 @@ import { useIntents } from "../api/hooks";
 import { endpoints } from "../api/client";
 import { useSearchParams } from "../routing";
 import type { Contact } from "../api/types";
-import Connection from "./components/Connection";
 import NotificationsBell from "./components/NotificationsBell";
 import DashboardDialogs from "./components/DashboardDialogs";
 import ContactDialog from "./components/ContactDialog";
@@ -206,7 +205,6 @@ function DashboardLayout() {
           <WorkspaceBanners />
           <div className="dashboard-title">
             <div>
-              <p className="eyebrow">PINGAPP / WORKSPACE</p>
               <h1>
                 {view === "overview"
                   ? "Crypto portfolio"
@@ -240,9 +238,7 @@ function DashboardLayout() {
                 <Download size={17} />
                 Export CSV
               </a>
-            ) : (
-              <Connection />
-            )}
+            ) : null}
           </div>
           {view === "overview" && <Overview />}
           {view === "contacts" && (

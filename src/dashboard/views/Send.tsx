@@ -1,16 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpRight, Link2, ShieldCheck, Wallet } from "lucide-react";
+import { ArrowUpRight, ShieldCheck, Wallet } from "lucide-react";
 import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
-import { useAccount } from "wagmi";
 import { ApiError } from "../../api/client";
 import { useBalances, useConfig, useContacts, useIntents, useResolve } from "../../api/hooks";
 import type { Asset, Contact, Me, ResolveResponse } from "../../api/types";
 import { useAuth } from "../../auth/useAuth";
 import { chain } from "../../config";
 import { useSearchParams } from "../../routing";
-import { openConnect } from "../../wallet/appkit";
+import { openAccount } from "../../wallet/appkit";
 import { trimAddress } from "../format";
-import Connection from "../components/Connection";
 import NetworkLabel from "../components/NetworkLabel";
 import AmountField from "./send/AmountField";
 import RecipientCard from "./send/RecipientCard";
@@ -45,7 +43,6 @@ export default function Send() {
 }
 
 function SendSession({ me }: { me: Me | null }) {
-  const account = useAccount();
   const params = useSearchParams();
   const intentId = params.get("intent");
   const intents = useIntents("open");
@@ -403,9 +400,8 @@ function SendSession({ me }: { me: Me | null }) {
           <Wallet />
           <h3>Your sending wallet</h3>
           <p>{trimAddress(me?.address ?? "")}</p>
-          <Connection />
-          <button className="button outline" type="button" onClick={() => void openConnect()}>
-            {account.isConnected ? "Reconnect wallet" : "Connect wallet"} <Link2 size={16} />
+          <button className="button outline" type="button" onClick={() => void openAccount()}>
+            Manage wallet <Wallet size={16} />
           </button>
         </section>
         <section className="send-note">

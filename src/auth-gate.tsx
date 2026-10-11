@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Wallet } from "lucide-react";
+import { useAccount } from "wagmi";
 import { useAuth, safeReturnTo } from "./auth/useAuth";
 import { trimAddress } from "./dashboard/format";
 import { useRouter } from "./routing";
@@ -10,6 +11,16 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   const [busy, setBusy] = useState(false);
   const [switching, setSwitching] = useState(false);
   const [error, setError] = useState("");
+  const account = useAccount();
+  const walletMissing = account.status === "disconnected";
+  // wagmi reports "disconnected" for a moment before it restores a saved connection.
+  const [walletSettled, setWalletSettled] = useState(false);
+  useEffect(() => {
+    if (walletSettled) return;
+    if (account.status === "connected") return setWalletSettled(true);
+    const timer = window.setTimeout(() => setWalletSettled(true), 1500);
+    return () => window.clearTimeout(timer);
+  }, [account.status, walletSettled]);
 
   useEffect(() => {
     if (status !== "signed-out" || switching) return;
@@ -17,7 +28,11 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     router.replace(`/login?returnTo=${encodeURIComponent(returnTo)}`);
   }, [status, switching, router]);
 
-  if (status === "loading" || (status === "signed-out" && !switching)) {
+  if (
+    status === "loading" ||
+    (status === "signed-out" && !switching) ||
+    (status === "signed-in" && (account.status === "reconnecting" || !walletSettled))
+  ) {
     return (
       <main className="premium-workspace contact-page section">
         <div className="workspace-loading">
@@ -95,6 +110,46 @@ export default function AuthGate({ children }: { children: ReactNode }) {
             </button>
             <button className="button outline" onClick={() => window.location.reload()}>
               Switch back in your wallet
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (status === "signed-in" && walletMissing) {
+    return (
+      <main className="premium-workspace contact-page section">
+        <div className="card settings-card wallet-gate">
+          <span className="round-icon">
+            <Wallet size={18} />
+          </span>
+          <h1>Reconnect your wallet</h1>
+          <p>
+            You’re signed in as {trimAddress(me?.address ?? "")}. Connect that wallet to open your
+            workspace.
+          </p>
+          {error && <p role="alert">{error}</p>}
+          <div className="settings-buttons">
+            <button className="button accent" onClick={signIn}>
+              Connect wallet
+            </button>
+            <button
+              className="button outline"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                setError("");
+                try {
+                  await signOut();
+                } catch (reason) {
+                  setError((reason as Error).message || "Could not sign out. Try again.");
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              Sign out
             </button>
           </div>
         </div>
