@@ -38,10 +38,15 @@ export default function RecipientCard({
         <div>
           <strong>{resolution.phoneMasked} isn&apos;t on PingApp yet.</strong>
           <p>
-            {escrowEnabled ? "Send now — held safely until they join. They can claim after verifying this phone number." : <>
-            Nothing can be sent to a phone number until its owner links a wallet. You can create a
-            pending send: we&apos;ll text them an invite and notify you when they&apos;re ready.
-            </>}
+            {escrowEnabled ? (
+              "Send now — held safely until they join. They can claim after verifying this phone number."
+            ) : (
+              <>
+                Nothing can be sent to a phone number until its owner links a wallet. You can create
+                a pending send: we&apos;ll text them an invite and notify you when they&apos;re
+                ready.
+              </>
+            )}
           </p>
           {!escrowEnabled && resolution.canCreateIntent && pendingUrl && (
             <a className="button outline" href={pendingUrl}>

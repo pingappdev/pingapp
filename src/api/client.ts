@@ -140,10 +140,15 @@ export const endpoints = {
     list: (role: "sent" | "incoming", options?: ApiRequestOptions) =>
       api<{ items: Escrow[] }>(withQuery("/v1/escrows", { role }), options),
     claim: (id: string, options?: ApiRequestOptions) =>
-      api<{ escrow: { id: string; status: "claiming" } }>(`/v1/escrows/${encodeURIComponent(id)}/claim`, { method: "POST", ...options }),
+      api<{ escrow: { id: string; status: "claiming" } }>(
+        `/v1/escrows/${encodeURIComponent(id)}/claim`,
+        { method: "POST", ...options },
+      ),
     submitted: (id: string, txHash: Address, options?: ApiRequestOptions) =>
-      api<{ escrow: { id: string; status: string; depositTxHash: Address } }>(`/v1/escrows/${encodeURIComponent(id)}/submitted`,
-        { method: "POST", body: { txHash }, ...options }),
+      api<{ escrow: { id: string; status: string; depositTxHash: Address } }>(
+        `/v1/escrows/${encodeURIComponent(id)}/submitted`,
+        { method: "POST", body: { txHash }, ...options },
+      ),
   },
   health: {
     get: (options?: ApiRequestOptions) =>

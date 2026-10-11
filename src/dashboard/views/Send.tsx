@@ -184,8 +184,11 @@ function SendSession({ me }: { me: Me | null }) {
     };
   }, [e164, locked, resolvePhone]);
   const currentResolution = e164 && resolutionPhone === e164 ? resolution : null;
-  const escrowReady = !!config.data?.router?.enabled && currentResolution?.status === "not_registered" && !!e164;
-  const escrowCharges = escrowReady ? BigInt(config.data!.router.escrowFeeWei) + BigInt(config.data!.router.claimTipWei) : 0n;
+  const escrowReady =
+    !!config.data?.router?.enabled && currentResolution?.status === "not_registered" && !!e164;
+  const escrowCharges = escrowReady
+    ? BigInt(config.data!.router.escrowFeeWei) + BigInt(config.data!.router.claimTipWei)
+    : 0n;
 
   const assets = balances.data?.items ?? [];
   const eth = assets.find((asset) => asset.token.kind === "native");
@@ -227,13 +230,15 @@ function SendSession({ me }: { me: Me | null }) {
             ? sendMinimum(selectedAsset.token, minSendUsd)
             : raw !== null && raw > BigInt(selectedAsset.balanceRaw)
               ? "More than your balance."
-              : escrowReady && raw !== null && ethRaw < escrowCharges + (selectedAsset.token.kind === "native" ? raw : 0n)
+              : escrowReady &&
+                  raw !== null &&
+                  ethRaw < escrowCharges + (selectedAsset.token.kind === "native" ? raw : 0n)
                 ? "You need enough ETH for the SMS fee, claim gas tip and network fee."
-              : intent && raw !== null && raw.toString() !== intent.amountRaw
-                ? "This pending send amount changed. Review it from Requests."
-                : selectedAsset.token.kind !== "native" && ethRaw === 0n
-                  ? "You need a little ETH on Robinhood Chain to pay the network fee."
-                  : "";
+                : intent && raw !== null && raw.toString() !== intent.amountRaw
+                  ? "This pending send amount changed. Review it from Requests."
+                  : selectedAsset.token.kind !== "native" && ethRaw === 0n
+                    ? "You need a little ETH on Robinhood Chain to pay the network fee."
+                    : "";
 
   let recipient: Recipient | null = null;
   let immediateError = "";
@@ -267,7 +272,10 @@ function SendSession({ me }: { me: Me | null }) {
     !config.data ||
     send.busy ||
     !!send.pending ||
-    !!send.transferId || !!send.pendingEscrow || !!send.escrowId || (!!intentId && !!config.data?.router?.enabled);
+    !!send.transferId ||
+    !!send.pendingEscrow ||
+    !!send.escrowId ||
+    (!!intentId && !!config.data?.router?.enabled);
 
   function changeInput(value: string) {
     setInput(value);
@@ -290,8 +298,13 @@ function SendSession({ me }: { me: Me | null }) {
   function startReview() {
     if (blocked || !selectedAsset || (!recipient && !escrowReady) || !raw) return;
     setReview({
-      recipient: recipient ?? { kind: "escrow", phone: e164!, name: "Phone recipient",
-        phoneMasked: currentResolution?.phoneMasked, contactId: selectedContact?.id },
+      recipient: recipient ?? {
+        kind: "escrow",
+        phone: e164!,
+        name: "Phone recipient",
+        phoneMasked: currentResolution?.phoneMasked,
+        contactId: selectedContact?.id,
+      },
       token: selectedAsset.token,
       amount: shownAmount,
       amountRaw: raw.toString(),
@@ -403,8 +416,16 @@ function SendSession({ me }: { me: Me | null }) {
             onReset={reset}
           />
         )}
-        {(send.pendingEscrow || send.escrowId) && <EscrowProgress id={send.escrowId} pending={send.pendingEscrow?.input ?? null}
-          error={send.recordError} busy={send.busy} onRetry={() => void send.retryRecord()} onReset={reset} />}
+        {(send.pendingEscrow || send.escrowId) && (
+          <EscrowProgress
+            id={send.escrowId}
+            pending={send.pendingEscrow?.input ?? null}
+            error={send.recordError}
+            busy={send.busy}
+            onRetry={() => void send.retryRecord()}
+            onReset={reset}
+          />
+        )}
       </section>
       <aside>
         <section className="card send-wallet">

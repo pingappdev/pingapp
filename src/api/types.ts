@@ -105,7 +105,11 @@ export type Notification = {
   id: string;
   type:
     | "intent_ready"
-    | "escrow_ready" | "escrow_incoming" | "escrow_claimed" | "escrow_received" | "escrow_refunded"
+    | "escrow_ready"
+    | "escrow_incoming"
+    | "escrow_claimed"
+    | "escrow_received"
+    | "escrow_refunded"
     | "intent_expired"
     | "intent_incoming"
     | "transfer_received"
@@ -221,21 +225,59 @@ export type IntentCreateInput = {
 export type NotificationReadInput = { ids?: string[]; all?: boolean };
 
 export type AuthorizeSendInput = {
-  phone: string; tokenAddress: Address; amount: string; expectedSenderAddress: Address; contactId?: string; note?: string;
+  phone: string;
+  tokenAddress: Address;
+  amount: string;
+  expectedSenderAddress: Address;
+  contactId?: string;
+  note?: string;
 };
-type RouterAuthBase = { id: Address; sender: Address; token: Address; amount: string; deadline: string };
-type RouterAuthorizationBase = { router: Address; signature: Address; value: string;
-  approval: null | { token: Address; spender: Address; amount: string } };
-export type RouterAuthorization = RouterAuthorizationBase & (
-  | { mode: "direct"; auth: RouterAuthBase & { recipient: Address } }
-  | { mode: "escrow"; escrowId: string; auth: RouterAuthBase & { claimTip: string; expiresAt: string };
-      feeWei: string; claimTipWei: string; expiresAt: string }
-);
+type RouterAuthBase = {
+  id: Address;
+  sender: Address;
+  token: Address;
+  amount: string;
+  deadline: string;
+};
+type RouterAuthorizationBase = {
+  router: Address;
+  signature: Address;
+  value: string;
+  approval: null | { token: Address; spender: Address; amount: string };
+};
+export type RouterAuthorization = RouterAuthorizationBase &
+  (
+    | { mode: "direct"; auth: RouterAuthBase & { recipient: Address } }
+    | {
+        mode: "escrow";
+        escrowId: string;
+        auth: RouterAuthBase & { claimTip: string; expiresAt: string };
+        feeWei: string;
+        claimTipWei: string;
+        expiresAt: string;
+      }
+  );
 export type Escrow = {
-  id: Address; code: string; status: "authorized" | "deposited" | "claiming" | "claimed" | "refunded" | "void";
-  smsStatus: Intent["smsStatus"]; recipientPhoneMasked: string | null;
-  sender: { address: Address; displayName: string }; token: Token; amountRaw: string; amount: string;
-  claimTipWei: string; feeWei: string; note: string | null; claimUrl: string; expiresAt: string; createdAt: string;
-  depositedAt: string | null; claimedAt: string | null; refundedAt: string | null;
-  depositTxHash: Address | null; claimTxHash: Address | null; refundTxHash: Address | null; refundable: boolean;
+  id: Address;
+  code: string;
+  status: "authorized" | "deposited" | "claiming" | "claimed" | "refunded" | "void";
+  smsStatus: Intent["smsStatus"];
+  recipientPhoneMasked: string | null;
+  sender: { address: Address; displayName: string };
+  token: Token;
+  amountRaw: string;
+  amount: string;
+  claimTipWei: string;
+  feeWei: string;
+  note: string | null;
+  claimUrl: string;
+  expiresAt: string;
+  createdAt: string;
+  depositedAt: string | null;
+  claimedAt: string | null;
+  refundedAt: string | null;
+  depositTxHash: Address | null;
+  claimTxHash: Address | null;
+  refundTxHash: Address | null;
+  refundable: boolean;
 };

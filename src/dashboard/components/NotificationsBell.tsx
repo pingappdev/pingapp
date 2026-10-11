@@ -37,15 +37,35 @@ function present(notification: Notification): NotificationPresentation {
   const { data } = notification;
   switch (notification.type) {
     case "escrow_ready":
-      return { message: "Your recipient joined PingApp and can claim their escrow.", href: "/dashboard/requests", icon: CheckCircle2 };
+      return {
+        message: "Your recipient joined PingApp and can claim their escrow.",
+        href: "/dashboard/requests",
+        icon: CheckCircle2,
+      };
     case "escrow_incoming":
-      return { message: "You have an escrow ready to claim.", href: "/dashboard/requests", icon: ArrowDownLeft };
+      return {
+        message: "You have an escrow ready to claim.",
+        href: "/dashboard/requests",
+        icon: ArrowDownLeft,
+      };
     case "escrow_claimed":
-      return { message: "Your recipient claimed the escrow.", href: "/dashboard/requests", icon: CheckCircle2 };
+      return {
+        message: "Your recipient claimed the escrow.",
+        href: "/dashboard/requests",
+        icon: CheckCircle2,
+      };
     case "escrow_received":
-      return { message: "Your escrow claim was confirmed.", href: "/dashboard/requests", icon: ArrowDownLeft };
+      return {
+        message: "Your escrow claim was confirmed.",
+        href: "/dashboard/requests",
+        icon: ArrowDownLeft,
+      };
     case "escrow_refunded":
-      return { message: "Your expired escrow was refunded.", href: "/dashboard/requests", icon: CheckCircle2 };
+      return {
+        message: "Your expired escrow was refunded.",
+        href: "/dashboard/requests",
+        icon: CheckCircle2,
+      };
     case "intent_ready":
       return {
         message: `${dataText(data, "recipientDisplayName", "Your recipient")} joined PingApp. Complete your ${amountText(data)} send.`,

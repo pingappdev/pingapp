@@ -29,12 +29,22 @@ export function errorMessage(error: unknown): string {
       if (friendly) return friendly;
     }
   }
-  const candidate = error as { name?: string; code?: number; shortMessage?: string; message?: string };
+  const candidate = error as {
+    name?: string;
+    code?: number;
+    shortMessage?: string;
+    message?: string;
+  };
   const message = candidate.shortMessage ?? candidate.message ?? "The wallet request failed.";
-  if (candidate.name === "UserRejectedRequestError" || candidate.code === 4001 || /user rejected|user denied/i.test(message)) {
+  if (
+    candidate.name === "UserRejectedRequestError" ||
+    candidate.code === 4001 ||
+    /user rejected|user denied/i.test(message)
+  ) {
     return "Cancelled in your wallet.";
   }
-  if (/insufficient funds/i.test(message)) return "Not enough ETH for the amount, escrow charges and network fee.";
+  if (/insufficient funds/i.test(message))
+    return "Not enough ETH for the amount, escrow charges and network fee.";
   if (/revert|execution reverted/i.test(message)) {
     return "The token contract rejected this transfer. Some Stock Tokens can only be sent to eligible wallets.";
   }
