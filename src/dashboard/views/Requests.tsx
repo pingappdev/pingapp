@@ -11,13 +11,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useCancelIntent, useIncomingIntents, useIntents } from "../../api/hooks";
+import { useCancelIntent, useConfig, useIncomingIntents, useIntents } from "../../api/hooks";
 import type { Intent } from "../../api/types";
 import { useSearchParams } from "../../routing";
 import TokenIcon from "../components/TokenIcon";
 import { IntentCard, IncomingIntentRow, QueryMessage, EmptyIntents } from "./requests/IntentRows";
 import IntentForm from "./requests/IntentForm";
 import { dateLabel } from "./requests/utils";
+import EscrowLists from "./requests/EscrowLists";
 
 function smsStatusLabel(intent: Intent): string {
   switch (intent.smsStatus) {
@@ -33,6 +34,8 @@ function smsStatusLabel(intent: Intent): string {
 }
 
 export default function Requests() {
+  const config = useConfig();
+  const routerEnabled = !!config.data?.router?.enabled;
   const params = useSearchParams();
   const intents = useIntents("all");
   const incoming = useIncomingIntents();
@@ -80,7 +83,16 @@ export default function Requests() {
 
   return (
     <div className="request-page">
-      <IntentForm open={formOpen} onOpenChange={setFormOpen} />
+      {routerEnabled ? (
+        <>
+          <EscrowLists />
+          <a className="button accent" href="/dashboard/send">
+            Send by phone
+          </a>
+        </>
+      ) : (
+        <IntentForm open={formOpen} onOpenChange={setFormOpen} />
+      )}
 
       {intentsLoading || intentsError ? (
         <section className="card">
@@ -104,10 +116,11 @@ export default function Requests() {
           <section className="card request-list-card">
             <div className="panel-heading">
               <div>
-                <h2>Ready to send</h2>
+                <h2>{routerEnabled ? "Legacy pending sends" : "Ready to send"}</h2>
                 <p className="field-help">
-                  Recipients linked the invited phone. Review and approve each transfer in your
-                  wallet.
+                  {routerEnabled
+                    ? "These older invites did not move funds. You can cancel them or start a new send by phone."
+                    : "Recipients linked the invited phone. Review and approve each transfer in your wallet."}
                 </p>
               </div>
               <span className="pill">{readyIntents.length}</span>
@@ -118,6 +131,7 @@ export default function Requests() {
                   <IntentCard
                     key={intent.id}
                     intent={intent}
+                    readOnly={routerEnabled}
                     onCancel={setCancelTarget}
                     canceling={cancelIntent.isPending}
                   />
@@ -142,6 +156,7 @@ export default function Requests() {
                   <div className="request-pending-item" key={intent.id}>
                     <IntentCard
                       intent={intent}
+                      readOnly={routerEnabled}
                       onCancel={setCancelTarget}
                       canceling={cancelIntent.isPending}
                     />

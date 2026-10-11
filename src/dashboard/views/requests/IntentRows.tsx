@@ -17,10 +17,12 @@ export function IntentCard({
   intent,
   onCancel,
   canceling,
+  readOnly = false,
 }: {
   intent: Intent;
   onCancel: (intent: Intent) => void;
   canceling: boolean;
+  readOnly?: boolean;
 }) {
   const ready = intent.status === "ready";
   const recipient = intent.recipient;
@@ -44,7 +46,7 @@ export function IntentCard({
         </div>
       </div>
       <div className="request-intent-actions">
-        {ready ? (
+        {ready && !readOnly ? (
           <a
             className="button accent"
             href={`/dashboard/send?intent=${encodeURIComponent(intent.id)}`}
