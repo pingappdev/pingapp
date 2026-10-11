@@ -33,7 +33,9 @@ function QueryClientBridge() {
 export const wagmiAdapter = new WagmiAdapter({
   networks: [chain],
   projectId: config.reownProjectId,
-  ssr: false,
+  // Rehydrate after mount, so overlapping route transitions cannot update an
+  // existing wallet subscriber while a new provider is rendering.
+  ssr: true,
 });
 
 export const siweConfig = createSIWEConfig({

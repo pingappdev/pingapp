@@ -39,7 +39,7 @@ export default function SendReviewDialog({
         if (!busy) onOpenChange(next);
       }}
     >
-      <DialogContent className="ping-dialog">
+      <DialogContent className="ping-dialog max-h-[calc(100dvh-2rem)] overflow-y-auto">
         <DialogTitle>Review your transfer</DialogTitle>
         <DialogDescription>
           {escrow

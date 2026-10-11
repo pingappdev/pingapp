@@ -385,6 +385,13 @@ function ClaimSignedIn({
   const [claimError, setClaimError] = useState("");
   // A public code, phone suffix, or public status never proves entitlement.
   const owned = incoming.data?.find((row) => row.id === claim.id);
+  const ownedStatus = owned?.status;
+  useEffect(() => {
+    // Poll the authenticated list, then refresh the rate-limited public view
+    // only when its status changes.
+    if (ownedStatus && ownedStatus !== claim.status)
+      void queryClient.invalidateQueries({ queryKey: qk.claim(code), exact: true });
+  }, [ownedStatus, claim.status, code, queryClient]);
   const [linkStatus, setLinkStatus] = useState<"idle" | "checking" | "checked">("idle");
   const refreshAfterLink = useCallback(() => {
     setLinkStatus("checking");

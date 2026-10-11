@@ -231,11 +231,6 @@ export function useClaim(code: string | undefined) {
       return endpoints.claims.get(code, { signal });
     },
     enabled: Boolean(code),
-    refetchInterval: (query) =>
-      query.state.data?.kind === "escrow" &&
-      ["authorized", "deposited", "claiming"].includes(query.state.data.status)
-        ? 4_000
-        : false,
   });
 }
 
