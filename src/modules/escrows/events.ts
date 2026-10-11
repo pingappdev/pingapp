@@ -4,7 +4,7 @@ import { config } from '../../config.js';
 import { db } from '../../db/client.js';
 import { kvGet, kvSet } from '../../db/kv.js';
 import { notify } from '../../db/notify.js';
-import { escrows, tokens, users } from '../../db/schema.js';
+import { escrows, tokens, transfers, users } from '../../db/schema.js';
 import type { DbTransaction } from '../../db/tx.js';
 import { normAddress } from '../../lib/chain.js';
 import { decrypt } from '../../lib/crypto.js';
@@ -47,6 +47,14 @@ export async function applyRouterLog(tx: DbTransaction, log: Log, minedAt: Date)
       claimedToAddress: normAddress(event.args.recipient), claimedAt: minedAt }).where(eq(escrows.id, row.id));
     const [actualRecipient] = await tx.select({ id: users.id }).from(users)
       .where(eq(users.address, normAddress(event.args.recipient))).limit(1);
+    await tx.insert(transfers).values({
+      senderUserId: row.senderUserId, senderAddress: row.senderAddress,
+      recipientUserId: actualRecipient?.id ?? null, recipientAddress: normAddress(event.args.recipient),
+      recipientPhoneHmac: row.recipientPhoneHmac, recipientPhoneMasked: row.recipientPhoneMasked,
+      tokenAddress: row.tokenAddress, amountRaw: event.args.amount.toString(), routerId: row.id,
+      contactName: row.contactName, txHash: hash, status: 'confirmed', blockNumber: log.blockNumber,
+      confirmedAt: minedAt,
+    }).onConflictDoNothing();
     if (row.senderUserId) await notify(row.senderUserId, 'escrow_claimed', { escrowId: row.id }, tx);
     if (actualRecipient) await notify(actualRecipient.id, 'escrow_received', { escrowId: row.id }, tx);
   } else {
@@ -62,7 +70,8 @@ export async function sendEscrowInvite(id: string): Promise<void> {
     await lockPhoneMutation(tx);
     const [joined] = await tx.select({ escrow: escrows, token: tokens, name: users.displayName }).from(escrows)
       .innerJoin(tokens, eq(tokens.address, escrows.tokenAddress)).leftJoin(users, eq(users.id, escrows.senderUserId))
-      .where(and(eq(escrows.id, id), inArray(escrows.status, ['deposited', 'claiming']), eq(escrows.smsStatus, 'failed'))).limit(1);
+      .where(and(eq(escrows.id, id), eq(escrows.deliveryMode, 'claim'),
+        inArray(escrows.status, ['deposited', 'claiming']), eq(escrows.smsStatus, 'failed'))).limit(1);
     if (!joined || await kvGet<boolean>(`router:sms-attempted:${id}`, tx)) return null;
     // Never duplicate an SMS whose provider outcome became uncertain after a crash.
     await kvSet(`router:sms-attempted:${id}`, true, tx);

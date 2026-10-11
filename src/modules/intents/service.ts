@@ -1,27 +1,19 @@
-import { and, count, desc, eq, gt, inArray, or } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, or } from 'drizzle-orm';
 import { config } from '../../config.js';
 import { audit } from '../../db/audit.js';
 import { db } from '../../db/client.js';
 import { intents, tokens, users, type Intent, type Token } from '../../db/schema.js';
-import type { DbTransaction } from '../../db/tx.js';
 import { checksum } from '../../lib/chain.js';
-import { encrypt, phoneHmac, randomCode } from '../../lib/crypto.js';
 import { AppError, errors } from '../../lib/errors.js';
-import { formatAmount, parseAmount } from '../../lib/money.js';
-import { normalizePhone } from '../../lib/phone.js';
-import { consume, limits } from '../../lib/rateLimit.js';
-import { logger } from '../../lib/logger.js';
-import { sendSms } from '../../lib/sms.js';
-import { assertMinAmount, getMinAmountRaw } from '../tokens/minimum.js';
+import { formatAmount } from '../../lib/money.js';
+import { getMinAmountRaw } from '../tokens/minimum.js';
 import { getPrices } from '../tokens/prices.js';
-import { getToken } from '../tokens/registry.js';
 import { toTokenDto, type TokenDto } from '../tokens/routes.js';
 import { lockPhoneMutation } from '../phone/lock.js';
 import { getEscrowClaim } from '../escrows/public.js';
 
 const OPEN_STATUSES = ['pending', 'ready'] as const;
 const BASE62_CODE = /^[0-9A-Za-z]{10}$/;
-const CODE_INSERT_ATTEMPTS = 5;
 const INTENT_LIST_LIMIT = 100;
 const RECENT_COMPLETED_MS = 30 * 24 * 60 * 60 * 1000;
 const CONTROL_CHARACTERS = /\p{Cc}/gu;
@@ -33,7 +25,7 @@ export type CreateIntentInput = {
   note?: string;
 };
 
-export type IntentRecipient = { address: `0x${string}`; displayName: string };
+export type IntentRecipient = { displayName: string };
 
 export type IntentDto = {
   id: string;
@@ -101,16 +93,8 @@ function effectiveStatus(intent: Intent): Intent['status'] {
   return intent.status;
 }
 
-function recipientDto(address: string | null, name: string | null): IntentRecipient | null {
-  if (!address) return null;
-  const displayName = name || `${address.slice(0, 6)}…${address.slice(-4)}`;
-  return { address: checksum(address), displayName };
-}
-
-function registeredRecipientConflict(address: string, displayName: string): AppError {
-  return errors.conflict('This number is already on PingApp. Send to them directly.', {
-    recipient: { address: checksum(address), displayName },
-  });
+function recipientDto(name: string | null): IntentRecipient {
+  return { displayName: name || 'PingApp recipient' };
 }
 
 async function tokenDto(token: Token, prices?: Map<string, string | null>): Promise<TokenDto> {
@@ -141,190 +125,17 @@ export async function toIntentDto(
     claimUrl: `${config.APP_URL.replace(/\/$/, '')}/claim/${intent.code}`,
     expiresAt: intent.expiresAt.toISOString(),
     createdAt: intent.createdAt.toISOString(),
-    readyAt: intent.readyAt?.toISOString() ?? null,
+    readyAt: null,
     completedAt: intent.completedAt?.toISOString() ?? null,
   };
 }
 
-function limitRejected(error: unknown): boolean {
-  return error instanceof AppError && error.code === 'RATE_LIMITED';
-}
-
-function smsOutcome(error: unknown): Intent['smsStatus'] {
-  if (error instanceof AppError && error.code === 'SMS_UNAVAILABLE' && error.details?.smsReason === 'disabled') {
-    return 'disabled';
-  }
-  return 'failed';
-}
-
-async function insertIntentWithUniqueCode(
-  tx: DbTransaction,
-  values: Omit<typeof intents.$inferInsert, 'code'>,
-): Promise<Intent> {
-  for (let attempt = 0; attempt < CODE_INSERT_ATTEMPTS; attempt += 1) {
-    const code = randomCode(10);
-    const [inserted] = await tx.insert(intents).values({ ...values, code })
-      .onConflictDoNothing({ target: intents.code }).returning();
-    if (inserted) return inserted;
-  }
-  throw new Error('Could not allocate a unique intent code after repeated collisions.');
-}
-
-async function updateSmsStatus(
-  tx: DbTransaction,
-  intentId: string,
-  senderId: string,
-  smsStatus: Intent['smsStatus'],
-): Promise<void> {
-  await tx.update(intents).set({ smsStatus }).where(and(
-    eq(intents.id, intentId), eq(intents.senderUserId, senderId),
-  ));
-}
-
 export async function createIntent(
-  senderId: string,
-  input: CreateIntentInput,
-  ipHash: string,
+  _senderId: string,
+  _input: CreateIntentInput,
+  _ipHash: string,
 ): Promise<IntentDto> {
-  if (config.ROUTER_ENABLED) throw new AppError('USE_ESCROW', 409, 'Send now using escrow instead of creating a pending send.');
-  const [profile] = await db.select({ displayName: users.displayName, phoneHmac: users.phoneHmac })
-    .from(users).where(eq(users.id, senderId)).limit(1);
-  if (!profile) throw errors.unauthenticated();
-  if (!profile.displayName) {
-    throw new AppError('DISPLAY_NAME_REQUIRED', 400,
-      'Add your name in Settings first, so the recipient knows who is sending.');
-  }
-
-  const phone = normalizePhone(input.phone);
-  const targetPhoneHmac = phoneHmac(phone.e164);
-  if (profile.phoneHmac === targetPhoneHmac) throw errors.selfSend();
-
-  const [alreadyRegistered] = await db.select({ address: users.address, displayName: users.displayName })
-    .from(users).where(eq(users.phoneHmac, targetPhoneHmac)).limit(1);
-  if (alreadyRegistered) throw registeredRecipientConflict(alreadyRegistered.address, alreadyRegistered.displayName);
-
-  const token = await getToken(input.tokenAddress);
-  if (!token) throw errors.unknownToken();
-  const amountRaw = parseAmount(input.amount, token.decimals);
-  await assertMinAmount(token, amountRaw, { tolerancePct: 0 });
-  const note = cleanNote(input.note);
-
-  const created = await db.transaction(async (tx) => {
-    // This must be the first lock/DB operation. Linking and account deletion
-    // use the same lock, so neither can miss the pending intent's readiness.
-    await lockPhoneMutation(tx);
-    const [sender] = await tx.select({
-      id: users.id,
-      displayName: users.displayName,
-      phoneHmac: users.phoneHmac,
-    }).from(users).where(eq(users.id, senderId)).for('update').limit(1);
-    if (!sender) throw errors.unauthenticated();
-    if (!sender.displayName) {
-      throw new AppError('DISPLAY_NAME_REQUIRED', 400,
-        'Add your name in Settings first, so the recipient knows who is sending.');
-    }
-    if (sender.phoneHmac === targetPhoneHmac) throw errors.selfSend();
-
-    const [registered] = await tx.select({
-      id: users.id,
-      address: users.address,
-      displayName: users.displayName,
-    }).from(users).where(eq(users.phoneHmac, targetPhoneHmac)).limit(1);
-    if (registered) {
-      throw registeredRecipientConflict(registered.address, registered.displayName);
-    }
-
-    const now = new Date();
-    const [duplicate] = await tx.select({ id: intents.id }).from(intents).where(and(
-      eq(intents.senderUserId, senderId),
-      eq(intents.recipientPhoneHmac, targetPhoneHmac),
-      eq(intents.tokenAddress, token.address),
-      inArray(intents.status, [...OPEN_STATUSES]),
-      gt(intents.expiresAt, now),
-    )).limit(1);
-    if (duplicate) {
-      throw errors.conflict('You already have a pending send to this number.', { intentId: duplicate.id });
-    }
-
-    const [openCount] = await tx.select({ value: count() }).from(intents).where(and(
-      eq(intents.senderUserId, senderId),
-      inArray(intents.status, [...OPEN_STATUSES]),
-      gt(intents.expiresAt, now),
-    ));
-    if (openCount.value >= 20) {
-      throw new AppError('RATE_LIMITED', 429,
-        'You have too many pending sends. Cancel some or wait for them to complete.');
-    }
-
-    // The advisory lock serializes this daily-limit check with simultaneous
-    // creations from the same sender as well as duplicate/open-count checks.
-    await consume(limits.intentUserDay, senderId);
-    const expiresAt = new Date(now.getTime() + config.INTENT_TTL_DAYS * 24 * 60 * 60 * 1000);
-    const intent = await insertIntentWithUniqueCode(tx, {
-      senderUserId: senderId,
-      recipientPhoneHmac: targetPhoneHmac,
-      recipientPhoneEnc: encrypt(phone.e164),
-      recipientPhoneMasked: phone.masked,
-      recipientUserId: null,
-      tokenAddress: token.address,
-      amountRaw: amountRaw.toString(),
-      note,
-      status: 'pending',
-      // Conservative until the post-commit provider result is saved.
-      smsStatus: 'failed',
-      expiresAt,
-    });
-    return { intent, senderName: sender.displayName };
-  });
-
-  let smsStatus: Intent['smsStatus'] = 'failed';
-  try {
-    const [stillOpen] = await db.select({ id: intents.id }).from(intents).where(and(
-      eq(intents.id, created.intent.id),
-      eq(intents.senderUserId, senderId),
-      eq(intents.status, 'pending'),
-      gt(intents.expiresAt, new Date()),
-    )).limit(1);
-    if (!stillOpen) {
-      smsStatus = 'failed';
-    } else {
-      // Short-circuit in order: a daily denial must not spend a 30-day slot.
-      await consume(limits.intentPhoneSmsDay, targetPhoneHmac);
-      await consume(limits.intentPhoneSms30d, targetPhoneHmac);
-      const displayName = smsName(created.senderName);
-      await sendSms({
-        purpose: 'intent',
-        toE164: phone.e164,
-        phoneHmac: targetPhoneHmac,
-        country: phone.country,
-        text: `PingApp: ${displayName} wants to send you ${smsAmount(formatAmount(amountRaw, token.decimals))} ${token.symbol}. Link a wallet to receive it: ${config.APP_URL.replace(/\/$/, '')}/claim/${created.intent.code}`,
-      });
-      smsStatus = 'sent';
-    }
-  } catch (error) {
-    smsStatus = limitRejected(error) ? 'skipped_rate_limit' : smsOutcome(error);
-    logger.warn({ intentId: created.intent.id, smsStatus }, 'invite SMS failed; pending send remains available');
-  }
-
-  // Provider errors are deliberately converted into a stored status, never a
-  // failed create response. Account deletion may have cascaded this row after
-  // the first transaction; in that race an UPDATE affects no row and is safe.
-  await db.transaction(async (tx) => {
-    await lockPhoneMutation(tx);
-    await updateSmsStatus(tx, created.intent.id, senderId, smsStatus);
-    await audit('intent_created', {
-      userId: senderId,
-      data: {
-        intentId: created.intent.id,
-        phoneMasked: phone.masked,
-        symbol: token.symbol,
-        smsStatus,
-      },
-      ipHash,
-    }, tx);
-  });
-
-  return toIntentDto({ ...created.intent, smsStatus }, token);
+  throw new AppError('USE_ESCROW', 409, 'Use Send to make a payment. New pending sends are no longer available.');
 }
 
 export async function listIntents(senderId: string, status: 'open' | 'all' = 'open'): Promise<IntentDto[]> {
@@ -332,7 +143,6 @@ export async function listIntents(senderId: string, status: 'open' | 'all' = 'op
   const rows = await db.select({
     intent: intents,
     token: tokens,
-    recipientAddress: users.address,
     recipientName: users.displayName,
   }).from(intents)
     .innerJoin(tokens, eq(tokens.address, intents.tokenAddress))
@@ -349,7 +159,7 @@ export async function listIntents(senderId: string, status: 'open' | 'all' = 'op
   return Promise.all(rows.map((row) => toIntentDto(
     row.intent,
     row.token,
-    row.intent.recipientUserId ? recipientDto(row.recipientAddress, row.recipientName) : null,
+    row.intent.recipientUserId ? recipientDto(row.recipientName) : null,
     prices,
   )));
 }
@@ -370,7 +180,6 @@ export async function cancelIntent(senderId: string, intentId: string, ipHash: s
     const [row] = await tx.select({
       intent: intents,
       token: tokens,
-      recipientAddress: users.address,
       recipientName: users.displayName,
     }).from(intents)
       .innerJoin(tokens, eq(tokens.address, intents.tokenAddress))
@@ -392,7 +201,7 @@ export async function cancelIntent(senderId: string, intentId: string, ipHash: s
   return toIntentDto(
     joined.intent,
     joined.token,
-    joined.intent.recipientUserId ? recipientDto(joined.recipientAddress, joined.recipientName) : null,
+    joined.intent.recipientUserId ? recipientDto(joined.recipientName) : null,
   );
 }
 

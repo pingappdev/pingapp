@@ -36,6 +36,13 @@
       "when": 1791746426614,
       "tag": "0004_huge_menace",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791753881844,
+      "tag": "0005_private_recipient_payout",
+      "breakpoints": true
     }
   ]
 }

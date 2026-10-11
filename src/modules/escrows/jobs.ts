@@ -3,7 +3,7 @@ import { BaseError, ContractFunctionRevertedError, createWalletClient, custom, t
 import { config } from '../../config.js';
 import { db } from '../../db/client.js';
 import { kvGet, kvSet } from '../../db/kv.js';
-import { escrows, users } from '../../db/schema.js';
+import { escrows, phoneClaims, users } from '../../db/schema.js';
 import { normAddress, viemChain } from '../../lib/chain.js';
 import { invalidate } from '../../lib/cache.js';
 import { logger } from '../../lib/logger.js';
@@ -14,10 +14,15 @@ import { getRelayerAccount, pingRouterAbi } from '../../lib/router.js';
 import { publicClient } from '../../lib/viem.js';
 import { lockPhoneMutation } from '../phone/lock.js';
 import { applyRouterLog, sendEscrowInvite } from './events.js';
-import { markEscrowsClaimable } from './ready.js';
-import { claimJobKey, enqueueClaim, type ClaimJob } from './service.js';
+import { markEscrowsClaimable, matchesEscrowRecipient } from './ready.js';
+import { claimJobKey, claimRegisteredEscrow, enqueueClaim, type ClaimJob } from './service.js';
 
 const MINUTE = 60_000;
+
+async function afterDeposit(id: string): Promise<void> {
+  await claimRegisteredEscrow(id);
+  await sendEscrowInvite(id);
+}
 
 export async function confirmEscrow(id: string, attempt: number): Promise<void> {
   if (!config.ROUTER_ENABLED) return;
@@ -49,7 +54,7 @@ export async function confirmEscrow(id: string, attempt: number): Promise<void> 
     }
     return deposited;
   });
-  for (const deposited of ids) await sendEscrowInvite(deposited);
+  for (const deposited of ids) await afterDeposit(deposited);
 }
 
 export async function indexEscrows(): Promise<void> {
@@ -81,12 +86,13 @@ export async function indexEscrows(): Promise<void> {
       await kvSet('router:scope', scope, tx);
       return ids;
     });
-    for (const id of deposited) await sendEscrowInvite(id);
+    for (const id of deposited) await afterDeposit(id);
     from = to + 1n;
   }
   // Recover work after a crash between database commit and queue/SMS dispatch.
   const pending = await db.select().from(escrows).where(inArray(escrows.status, ['deposited', 'claiming']));
   for (const row of pending) {
+    if (row.deliveryMode === 'automatic' && row.status === 'deposited') await claimRegisteredEscrow(row.id);
     if (row.smsStatus === 'failed') await sendEscrowInvite(row.id);
     if (row.status === 'claiming') {
       const job = await kvGet<ClaimJob>(claimJobKey(row.id));
@@ -125,10 +131,33 @@ export async function relayClaim(job: ClaimJob): Promise<void> {
       const wallet = createWalletClient({ account, chain: viemChain,
         transport: custom({ request: ({ method, params }) => rpc(method, params ?? []) }) });
       const auth = { ...job.auth, deadline: BigInt(job.auth.deadline) };
-      const { request } = await publicClient.simulateContract({ address: normAddress(config.ROUTER_ADDRESS), abi: pingRouterAbi,
-        functionName: 'claim', args: [auth, job.signature], account });
-      hash = await wallet.writeContract(request);
-      await db.update(escrows).set({ claimTxHash: hash }).where(and(eq(escrows.id, row.id), eq(escrows.status, 'claiming')));
+      hash = await db.transaction(async (tx) => {
+        // Keep phone mutations serialized through broadcast, closing the gap
+        // between queued authorization and relaying it. Once broadcast, that
+        // transaction may still finish paying the authorized wallet.
+        await lockPhoneMutation(tx);
+        const [fresh] = await tx.select().from(escrows).where(eq(escrows.id, row.id)).limit(1).for('update');
+        const latest = await kvGet<ClaimJob>(claimJobKey(row.id), tx);
+        if (!fresh || fresh.status !== 'claiming' || latest?.signature !== job.signature) return null;
+        if (fresh.claimTxHash) return fresh.claimTxHash as Hex;
+        const [recipient] = await tx.select().from(users)
+          .where(eq(users.address, normAddress(job.auth.recipient))).limit(1);
+        const [dispute] = await tx.select({ id: phoneClaims.id }).from(phoneClaims).where(and(
+          eq(phoneClaims.phoneHmac, fresh.recipientPhoneHmac), eq(phoneClaims.status, 'pending_review'),
+        )).limit(1);
+        if (!recipient || fresh.recipientUserId !== recipient.id || !matchesEscrowRecipient(fresh, recipient) || dispute) {
+          await tx.update(escrows).set({ status: 'deposited', claimTxHash: null, recipientUserId: null })
+            .where(eq(escrows.id, fresh.id));
+          if (recipient && !dispute) await markEscrowsClaimable(tx, fresh.recipientPhoneHmac, recipient.id);
+          return null;
+        }
+        const { request } = await publicClient.simulateContract({ address: normAddress(config.ROUTER_ADDRESS), abi: pingRouterAbi,
+          functionName: 'claim', args: [auth, job.signature], account });
+        const submitted = await wallet.writeContract(request);
+        await tx.update(escrows).set({ claimTxHash: submitted }).where(eq(escrows.id, fresh.id));
+        return submitted;
+      });
+      if (!hash) return;
     }
     const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
     if (receipt.status === 'reverted') { await resetClaim(row.id); return; }

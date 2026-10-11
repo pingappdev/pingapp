@@ -1,5 +1,5 @@
 import { Readable } from 'node:stream';
-import { and, eq, gt, inArray, lt, or, sql } from 'drizzle-orm';
+import { and, eq, gt, lt, or, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { decodeEventLog, erc20Abi, TransactionReceiptNotFoundError, type TransactionReceipt } from 'viem';
 import { db } from '../../db/client.js';
@@ -8,12 +8,10 @@ import { notify } from '../../db/notify.js';
 import { contacts, intents, routerAuths, tokens, transfers, users, type Token, type Transfer } from '../../db/schema.js';
 import { checksum, explorerTx, isAddress, NATIVE_TOKEN, normAddress } from '../../lib/chain.js';
 import { invalidate } from '../../lib/cache.js';
-import { phoneHmac } from '../../lib/crypto.js';
 import { errors } from '../../lib/errors.js';
 import { logger } from '../../lib/logger.js';
 import { formatAmount } from '../../lib/money.js';
 import { enqueue } from '../../lib/queue.js';
-import { normalizePhone } from '../../lib/phone.js';
 import { publicClient } from '../../lib/viem.js';
 import { assertMinAmount, getMinAmountRaw } from '../tokens/minimum.js';
 import { getPrices } from '../tokens/prices.js';
@@ -24,7 +22,6 @@ import { hasRouterSentLog } from './routerProof.js';
 
 const HASH = /^0x[0-9a-fA-F]{64}$/;
 const RAW_AMOUNT = /^[1-9]\d{0,77}$/;
-const INTENT_MISMATCH = "This transfer doesn't match the pending send.";
 
 export type TransferBody = {
   txHash: string;
@@ -69,10 +66,24 @@ export async function recordTransfer(user: Sender, body: TransferBody): Promise<
   const token = await getToken(body.tokenAddress);
   if (!token) throw errors.unknownToken();
 
-  // Enforce the API contract for every recorded send, including intent completions.
+  // Enforce the API contract for every recovered payment.
   await assertMinAmount(token, BigInt(body.amountRaw), { tolerancePct: 10 });
-  const phone = body.recipientPhone === undefined ? null : normalizePhone(body.recipientPhone);
-  const recipientPhoneHmac = phone ? phoneHmac(phone.e164) : null;
+  // Legacy hash recovery must not become a free phone/wallet matching oracle.
+  // Verify payment before consulting any private recipient binding.
+  const proof = { txHash: hash, senderAddress: normAddress(user.address), recipientAddress: toAddress,
+    tokenAddress: token.address, amountRaw: body.amountRaw, routerId: body.routerId?.toLowerCase() ?? null };
+  let receipt: TransactionReceipt;
+  try { receipt = await publicClient.getTransactionReceipt({ hash: hash as `0x${string}` }); }
+  catch { throw errors.conflict('The payment is not confirmed yet. Retry saving this transaction shortly.'); }
+  const paid = receipt.status === 'success';
+  let verified = receipt.transactionHash.toLowerCase() === hash && receipt.from.toLowerCase() === proof.senderAddress;
+  if (verified && paid && proof.routerId) verified = hasRouterSentLog(receipt, proof);
+  else if (verified && paid && token.address === NATIVE_TOKEN) {
+    const transaction = await publicClient.getTransaction({ hash: hash as `0x${string}` });
+    verified = transaction.from.toLowerCase() === proof.senderAddress &&
+      transaction.to?.toLowerCase() === toAddress && transaction.value === BigInt(body.amountRaw);
+  } else if (verified && paid) verified = hasExactTransferLog(receipt, proof);
+  if (!verified) throw errors.validation('This transaction does not prove the specified payment.');
 
   const result = await db.transaction(async (tx) => {
     // Phone linking, intent readiness and account deletion use this global lock
@@ -82,11 +93,10 @@ export async function recordTransfer(user: Sender, body: TransferBody): Promise<
       .where(and(eq(users.id, user.id), eq(users.address, normAddress(user.address))))
       .limit(1).for('update');
     if (!sender) throw errors.unauthenticated();
-    const [recipient] = await tx.select().from(users)
-      .where(eq(users.address, toAddress)).limit(1).for('update');
-    if (recipientPhoneHmac && recipient?.phoneHmac !== recipientPhoneHmac) {
-      throw errors.validation('This phone number no longer points to that wallet. Please review the recipient again.');
-    }
+    // A reverted legacy hash can still be saved as a failed attempt, but never
+    // reads or attaches another user's private profile/phone metadata.
+    const [recipient] = paid ? await tx.select().from(users)
+      .where(eq(users.address, toAddress)).limit(1).for('update') : [];
 
     const [routerAuth] = body.routerId ? await tx.select().from(routerAuths)
       .where(eq(routerAuths.id, body.routerId.toLowerCase())).limit(1) : [];
@@ -104,37 +114,22 @@ export async function recordTransfer(user: Sender, body: TransferBody): Promise<
       contactName = contact.name;
     }
 
-    if (body.intentId) {
-      const [intent] = await tx.select().from(intents)
-        .where(eq(intents.id, body.intentId)).limit(1).for('update');
-      // A competing POST for this hash may have committed while we waited for the intent.
-      const [committed] = await tx.select().from(transfers).where(eq(transfers.txHash, hash)).limit(1);
-      if (committed) return { row: sameSender(committed, user.id), created: false };
-      if (!intent || intent.senderUserId !== user.id || intent.status !== 'ready' ||
-          intent.expiresAt <= new Date() || intent.tokenAddress !== token.address ||
-          intent.amountRaw !== body.amountRaw || intent.recipientUserId !== recipient?.id ||
-          recipient?.phoneHmac !== intent.recipientPhoneHmac) {
-        throw errors.validation(INTENT_MISMATCH);
-      }
-      const [active] = await tx.select({ id: transfers.id }).from(transfers)
-        .where(and(eq(transfers.intentId, intent.id), inArray(transfers.status, ['submitted', 'confirmed'])))
-        .limit(1);
-      if (active) throw errors.validation(INTENT_MISMATCH);
-    }
-
+    // Legacy recovery proves a wallet payment, not a phone association. Never
+    // compare a caller's guessed phone against a known wallet, even with a reused
+    // valid receipt. Only an existing server authorization supplies phone metadata.
     const [inserted] = await tx.insert(transfers).values({
       senderUserId: user.id,
       senderAddress: normAddress(user.address),
       recipientAddress: toAddress,
       recipientUserId: recipient?.id ?? null,
-      recipientPhoneHmac,
-      recipientPhoneMasked: phone?.masked ?? null,
+      recipientPhoneHmac: paid ? routerAuth?.recipientPhoneHmac ?? null : null,
+      recipientPhoneMasked: paid ? routerAuth?.recipientPhoneMasked ?? null : null,
       tokenAddress: token.address,
       amountRaw: body.amountRaw,
       txHash: hash,
       status: 'submitted',
       contactName,
-      intentId: body.intentId ?? null,
+      intentId: null,
       routerId: body.routerId?.toLowerCase() ?? null,
     }).onConflictDoNothing().returning();
     if (!inserted) {
@@ -174,7 +169,7 @@ async function retryConfirmation(row: Transfer, attempt: number): Promise<void> 
   });
 }
 
-function hasExactTransferLog(receipt: TransactionReceipt, row: Transfer): boolean {
+function hasExactTransferLog(receipt: TransactionReceipt, row: Pick<Transfer, 'tokenAddress' | 'senderAddress' | 'recipientAddress' | 'amountRaw'>): boolean {
   for (const log of receipt.logs) {
     if (log.address.toLowerCase() !== row.tokenAddress || log.topics.length !== 3 || log.data.length !== 66) continue;
     try {
@@ -344,7 +339,7 @@ function joined() {
   return db.select(fields).from(transfers)
     .innerJoin(tokens, eq(tokens.address, transfers.tokenAddress))
     .leftJoin(senderParty, eq(senderParty.address, transfers.senderAddress))
-    .leftJoin(recipientParty, eq(recipientParty.address, transfers.recipientAddress));
+    .leftJoin(recipientParty, eq(recipientParty.id, transfers.recipientUserId));
 }
 
 function visibleTo(userId: string, direction: Direction) {

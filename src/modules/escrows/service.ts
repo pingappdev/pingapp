@@ -5,6 +5,7 @@ import { audit } from '../../db/audit.js';
 import { db } from '../../db/client.js';
 import { kvSet } from '../../db/kv.js';
 import { escrows, phoneClaims, tokens, users } from '../../db/schema.js';
+import type { DbTransaction } from '../../db/tx.js';
 import { checksum, normAddress } from '../../lib/chain.js';
 import { errors } from '../../lib/errors.js';
 import { logger } from '../../lib/logger.js';
@@ -17,6 +18,7 @@ import { lockPhoneMutation } from '../phone/lock.js';
 import { getMinAmountRaw } from '../tokens/minimum.js';
 import { getPrices } from '../tokens/prices.js';
 import { toTokenDto } from '../tokens/routes.js';
+import { matchesEscrowRecipient } from './ready.js';
 
 export type ClaimJob = {
   auth: { id: Hex; recipient: Hex; relayer: Hex; deadline: string };
@@ -42,13 +44,55 @@ export async function enqueueClaim(job: ClaimJob, suffix = ''): Promise<void> {
   await enqueue('escrows', 'relay', job, { jobId: `relay-${job.auth.id}-${job.auth.deadline}${suffix}` });
 }
 
+/** Only callers holding the phone lock with a verified deposit may sign a payout. */
+async function prepareClaim(tx: DbTransaction, escrow: typeof escrows.$inferSelect, recipient: typeof users.$inferSelect,
+  ipHash?: string): Promise<ClaimJob> {
+  const now = Math.floor(Date.now() / 1000);
+  const auth: ClaimAuth = {
+    id: escrow.id as Hex, recipient: normAddress(recipient.address), relayer: getRelayerAccount().address,
+    deadline: BigInt(Math.min(now + 600, Math.floor(escrow.expiresAt.getTime() / 1000) - 1)),
+  };
+  const job: ClaimJob = { auth: serializeRouterAuth(auth), signature: await signClaimAuth(auth) };
+  await tx.update(escrows).set({ status: 'claiming', claimTxHash: null, recipientUserId: recipient.id })
+    .where(eq(escrows.id, escrow.id));
+  // Durable outbox closes the DB-commit/BullMQ-enqueue crash window.
+  await kvSet(claimJobKey(escrow.id), job, tx);
+  await audit('escrow_claim_requested', { userId: recipient.id, data: { escrowId: escrow.id }, ipHash }, tx);
+  return job;
+}
+
+async function dispatchClaim(job: ClaimJob): Promise<void> {
+  try { await enqueueClaim(job); } catch {
+    logger.warn({ escrowId: job.auth.id }, 'claim saved; indexer will retry relay enqueue');
+  }
+}
+
+/** Runs after deposit commit and during index recovery; never returns a claim signature to a caller. */
+export async function claimRegisteredEscrow(id: string): Promise<void> {
+  if (!config.ROUTER_ENABLED) return;
+  const job = await db.transaction(async (tx) => {
+    await lockPhoneMutation(tx);
+    const [escrow] = await tx.select().from(escrows).where(eq(escrows.id, id)).limit(1).for('update');
+    if (!escrow || escrow.deliveryMode !== 'automatic' || escrow.status !== 'deposited' ||
+        !escrow.depositedAt || !escrow.depositTxHash || escrow.expiresAt.getTime() <= Date.now() + 300_000) return null;
+    const [recipient] = await tx.select().from(users).where(eq(users.phoneHmac, escrow.recipientPhoneHmac)).limit(1);
+    if (!recipient || !matchesEscrowRecipient(escrow, recipient)) return null;
+    const [dispute] = await tx.select({ id: phoneClaims.id }).from(phoneClaims).where(and(
+      eq(phoneClaims.phoneHmac, escrow.recipientPhoneHmac), eq(phoneClaims.status, 'pending_review'),
+    )).limit(1);
+    if (dispute) return null;
+    return prepareClaim(tx, escrow, recipient);
+  });
+  if (job) await dispatchClaim(job);
+}
+
 export async function claimEscrow(user: AuthUser, id: string, ipHash: string) {
   if (!config.ROUTER_ENABLED) throw errors.conflict('Escrow claiming is not enabled.');
   const job = await db.transaction(async (tx) => {
     await lockPhoneMutation(tx);
     const [escrow] = await tx.select().from(escrows).where(eq(escrows.id, id)).limit(1).for('update');
     const [me] = await tx.select().from(users).where(eq(users.id, user.id)).limit(1);
-    if (!escrow || !me || escrow.recipientUserId !== user.id || me.phoneHmac !== escrow.recipientPhoneHmac ||
+    if (!escrow || !me || escrow.recipientUserId !== user.id || !matchesEscrowRecipient(escrow, me) ||
         normAddress(me.address) !== normAddress(user.address) || escrow.senderUserId === user.id ||
         escrow.senderAddress === normAddress(user.address)) throw errors.forbidden();
     const [dispute] = await tx.select({ id: phoneClaims.id }).from(phoneClaims).where(and(
@@ -56,24 +100,13 @@ export async function claimEscrow(user: AuthUser, id: string, ipHash: string) {
     )).limit(1);
     if (dispute) throw errors.claimPending();
     const now = Math.floor(Date.now() / 1000);
-    if (escrow.status !== 'deposited' || escrow.expiresAt.getTime() <= (now + 300) * 1000) {
+    if (escrow.status !== 'deposited' || !escrow.depositedAt || !escrow.depositTxHash ||
+        escrow.expiresAt.getTime() <= (now + 300) * 1000) {
       throw errors.conflict('This escrow is not currently claimable.');
     }
-    const auth: ClaimAuth = {
-      id: escrow.id as Hex, recipient: normAddress(user.address), relayer: getRelayerAccount().address,
-      deadline: BigInt(Math.min(now + 600, Math.floor(escrow.expiresAt.getTime() / 1000) - 1)),
-    };
-    const signature = await signClaimAuth(auth);
-    const job: ClaimJob = { auth: serializeRouterAuth(auth), signature };
-    await tx.update(escrows).set({ status: 'claiming', claimTxHash: null }).where(eq(escrows.id, id));
-    // Durable outbox closes the DB-commit/BullMQ-enqueue crash window.
-    await kvSet(claimJobKey(id), job, tx);
-    await audit('escrow_claim_requested', { userId: user.id, data: { escrowId: id }, ipHash }, tx);
-    return job;
+    return prepareClaim(tx, escrow, me, ipHash);
   });
-  try { await enqueueClaim(job); } catch {
-    logger.warn({ escrowId: id }, 'claim saved; indexer will retry relay enqueue');
-  }
+  await dispatchClaim(job);
   return { id, status: 'claiming' as const };
 }
 
@@ -90,7 +123,7 @@ export async function listEscrows(userId: string, role: 'sent' | 'incoming') {
   return Promise.all(rows.map(async ({ escrow: row, token, senderName }) => {
     const price = prices.get(token.address) ?? null;
     return {
-      id: row.id, code: row.code, status: row.status, smsStatus: row.smsStatus,
+      id: row.id, code: row.code, status: row.status, smsStatus: row.smsStatus, deliveryMode: row.deliveryMode,
       recipientPhoneMasked: role === 'sent' ? row.recipientPhoneMasked : null,
       sender: { address: checksum(row.senderAddress), displayName: senderName || `${row.senderAddress.slice(0, 6)}…${row.senderAddress.slice(-4)}` },
       token: toTokenDto(token, price, await getMinAmountRaw(token, price)),

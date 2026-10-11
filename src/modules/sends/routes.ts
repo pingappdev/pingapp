@@ -10,6 +10,7 @@ const bodySchema = z.object({
   tokenAddress: z.string().max(100),
   amount: z.string().max(100),
   expectedSenderAddress: z.string().max(100),
+  expectedRecipientRef: z.string().regex(/^[0-9a-f]{64}$/).nullable(),
   contactId: z.uuid().optional(),
   note: z.string().max(1000).optional(),
 }).strict();

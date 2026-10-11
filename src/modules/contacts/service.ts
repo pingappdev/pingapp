@@ -90,17 +90,13 @@ function throwContactConflict(error: unknown): never {
 }
 
 function contactDto(row: ContactRow & {
-  paAddress?: string | null;
+  paId?: string | null;
   paName?: string | null;
-  paLinkedAt?: Date | null;
 }) {
-  let onPingApp: null | { address: Address; displayName: string; linkedAt: string } = null;
-  if (row.paAddress) {
-    if (!row.paLinkedAt) throw errors.internal();
+  let onPingApp: null | { displayName: string } = null;
+  if (row.paId) {
     onPingApp = {
-      address: checksum(row.paAddress),
       displayName: row.paName ?? '',
-      linkedAt: row.paLinkedAt.toISOString(),
     };
   }
 
@@ -118,9 +114,8 @@ function contactDto(row: ContactRow & {
 export async function list(userId: string) {
   const rows = await db.select({
     contact: contacts,
-    paAddress: users.address,
+    paId: users.id,
     paName: users.displayName,
-    paLinkedAt: users.phoneLinkedAt,
   }).from(contacts)
     .leftJoin(users, eq(users.phoneHmac, contacts.phoneHmac))
     .where(eq(contacts.userId, userId))
@@ -128,18 +123,16 @@ export async function list(userId: string) {
 
   return rows.map((row) => contactDto({
     ...row.contact,
-    paAddress: row.paAddress,
+    paId: row.paId,
     paName: row.paName,
-    paLinkedAt: row.paLinkedAt,
   }));
 }
 
 async function readContact(userId: string, contactId: string) {
   const [row] = await db.select({
     contact: contacts,
-    paAddress: users.address,
+    paId: users.id,
     paName: users.displayName,
-    paLinkedAt: users.phoneLinkedAt,
   }).from(contacts)
     .leftJoin(users, eq(users.phoneHmac, contacts.phoneHmac))
     .where(and(eq(contacts.id, contactId), eq(contacts.userId, userId)))
@@ -147,9 +140,8 @@ async function readContact(userId: string, contactId: string) {
   if (!row) throw errors.notFound('Contact not found.');
   return contactDto({
     ...row.contact,
-    paAddress: row.paAddress,
+    paId: row.paId,
     paName: row.paName,
-    paLinkedAt: row.paLinkedAt,
   });
 }
 

@@ -3,7 +3,7 @@ import { maxUint256 } from 'viem';
 import { config } from '../../config.js';
 import { audit } from '../../db/audit.js';
 import { db } from '../../db/client.js';
-import { contacts, escrows, intents, routerAuths, users } from '../../db/schema.js';
+import { contacts, escrows, intents, users } from '../../db/schema.js';
 import type { DbTransaction } from '../../db/tx.js';
 import { isAddress, normAddress } from '../../lib/chain.js';
 import { encrypt, phoneHmac, randomCode } from '../../lib/crypto.js';
@@ -12,17 +12,19 @@ import { parseAmount } from '../../lib/money.js';
 import { normalizePhone } from '../../lib/phone.js';
 import { consume, limits } from '../../lib/rateLimit.js';
 import {
-  getEscrowFee, isNativeRouterToken, newRouterId, serializeRouterAuth, signEscrowAuth, signSendAuth,
-  type EscrowAuth, type SendAuth,
+  getEscrowFee, isNativeRouterToken, newRouterId, serializeRouterAuth, signEscrowAuth,
+  type EscrowAuth,
 } from '../../lib/router.js';
 import type { AuthUser } from '../../plugins/auth.js';
 import { cleanNote } from '../intents/service.js';
 import { lockPhoneMutation } from '../phone/lock.js';
+import { recipientRef } from '../resolve/recipientRef.js';
 import { assertMinAmount } from '../tokens/minimum.js';
 import { getToken } from '../tokens/registry.js';
 
 export type AuthorizeSendInput = {
   phone: string; tokenAddress: string; amount: string; expectedSenderAddress: string; contactId?: string; note?: string;
+  expectedRecipientRef: string | null;
 };
 
 async function insertEscrowWithUniqueCode(tx: DbTransaction, values: Omit<typeof escrows.$inferInsert, 'code'>) {
@@ -76,36 +78,29 @@ export async function authorizeSend(user: AuthUser, input: AuthorizeSendInput, i
     const now = Math.floor(Date.now() / 1000);
     const deadline = BigInt(now + config.ROUTER_AUTH_TTL_SECONDS);
     const id = newRouterId();
-    if (recipient) {
-      if (recipient.id === sender.id) throw errors.selfSend();
-      const auth: SendAuth = { id, sender: normAddress(sender.address), recipient: normAddress(recipient.address),
-        token: normAddress(token.address), amount, deadline };
-      await tx.insert(routerAuths).values({
-        id, senderUserId: sender.id, senderAddress: auth.sender, recipientUserId: recipient.id,
-        recipientAddress: auth.recipient, recipientPhoneHmac: targetHmac, recipientPhoneMasked: phone.masked,
-        contactName, tokenAddress: token.address, amountRaw: amount.toString(), deadline: new Date(Number(deadline) * 1000),
-      });
-      const signature = await signSendAuth(auth);
-      await audit('send_authorized', { userId: sender.id, data: { routerId: id, mode: 'direct' }, ipHash }, tx);
-      return { mode: 'direct' as const, router, auth: serializeRouterAuth(auth), signature,
-        value: native ? amount.toString() : '0', approval };
+    const binding = recipient ? recipientRef(sender.address, targetHmac, recipient) : null;
+    if (input.expectedRecipientRef !== binding) {
+      throw errors.conflict('The recipient changed. Review the phone number again before sending.');
     }
-
-    if (!sender.displayName) throw errors.displayNameRequired();
-    await consume(limits.intentUserDay, sender.id);
+    const deliveryMode = recipient ? 'automatic' as const : 'claim' as const;
+    if (!recipient) {
+      if (!sender.displayName) throw errors.displayNameRequired();
+      await consume(limits.intentUserDay, sender.id);
+    }
     const expiresAt = BigInt(now + config.INTENT_TTL_DAYS * 86400);
     const auth: EscrowAuth = { id, sender: normAddress(sender.address), token: normAddress(token.address),
       amount, claimTip, expiresAt, deadline };
     const escrow = await insertEscrowWithUniqueCode(tx, {
       id, senderUserId: sender.id, senderAddress: auth.sender, recipientPhoneHmac: targetHmac,
       recipientPhoneEnc: encrypt(phone.e164), recipientPhoneMasked: phone.masked,
+      deliveryMode, recipientRef: binding, contactName,
       tokenAddress: token.address, amountRaw: amount.toString(), claimTipWei: claimTip.toString(), feeWei: fee.toString(),
       expiresAt: new Date(Number(expiresAt) * 1000), authDeadline: new Date(Number(deadline) * 1000), note,
-      status: 'authorized', smsStatus: 'failed',
+      status: 'authorized', smsStatus: recipient ? 'not_required' : 'failed',
     });
     const signature = await signEscrowAuth(auth);
     await audit('send_authorized', { userId: sender.id, data: { routerId: id, mode: 'escrow' }, ipHash }, tx);
-    return { mode: 'escrow' as const, escrowId: escrow.id, router, auth: serializeRouterAuth(auth), signature,
+    return { mode: 'escrow' as const, deliveryMode, escrowId: escrow.id, router, auth: serializeRouterAuth(auth), signature,
       value: ((native ? amount : 0n) + claimTip + fee).toString(), approval,
       feeWei: fee.toString(), claimTipWei: claimTip.toString(), expiresAt: escrow.expiresAt.toISOString() };
   });

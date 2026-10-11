@@ -1,8 +1,6 @@
 import { and, count, eq, inArray } from 'drizzle-orm';
-import { config } from '../../config.js';
 import { db } from '../../db/client.js';
 import { intents, phoneClaims, transfers, users } from '../../db/schema.js';
-import { checksum } from '../../lib/chain.js';
 import { phoneHmac } from '../../lib/crypto.js';
 import { AppError, errors } from '../../lib/errors.js';
 import { logger } from '../../lib/logger.js';
@@ -10,6 +8,7 @@ import { normalizePhone } from '../../lib/phone.js';
 import { consume, limits } from '../../lib/rateLimit.js';
 import { redis } from '../../lib/redis.js';
 import type { AuthUser } from '../../plugins/auth.js';
+import { recipientRef } from './recipientRef.js';
 
 const MAX_DISTINCT_NUMBERS_PER_DAY = 60;
 const DISTINCT_NUMBERS_TTL_SEC = 2 * 24 * 60 * 60;
@@ -102,15 +101,12 @@ export async function resolvePhone(user: AuthUser, rawPhone: string, ipHash: str
       ))
       .limit(1);
 
-    const now = Date.now();
     const registered = {
       status: 'registered' as const,
       phoneMasked: phone.masked,
       recipient: {
-        address: checksum(recipient.address),
+        recipientRef: recipientRef(user.address, hash, recipient),
         displayName: recipient.displayName || '',
-        linkedAt: recipient.phoneLinkedAt.toISOString(),
-        recentlyLinked: recipient.phoneLinkedAt.getTime() > now - config.RECENTLY_LINKED_DAYS * 24 * 60 * 60 * 1000,
         underReview: Boolean(claim),
         previouslySentByMe: Boolean(priorTransfer),
       },
