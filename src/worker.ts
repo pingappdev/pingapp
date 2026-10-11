@@ -5,6 +5,7 @@ import { loadJobModules, type WorkerCtx } from './lib/modules.js';
 import { closeQueues, getQueue, QUEUES, type QueueName } from './lib/queue.js';
 import { logger } from './lib/logger.js';
 import { createRedis, redis } from './lib/redis.js';
+import { initializeRouter } from './lib/routerStartup.js';
 
 type Processor = (job: Job) => Promise<unknown>;
 const processors = new Map<QueueName, Map<string, Processor>>();
@@ -30,6 +31,7 @@ const ctx: WorkerCtx = {
 };
 
 async function start(): Promise<void> {
+  await initializeRouter();
   await loadJobModules(ctx);
 
   for (const [queueName, handlers] of processors) {

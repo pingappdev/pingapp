@@ -34,6 +34,14 @@ const envSchema = z.object({
   INTENT_TTL_DAYS: positiveInt(14),
   MIN_SEND_USD: decimal('2'),
   MIN_SEND_ETH_FALLBACK: decimal('0.001'),
+  ROUTER_ENABLED: boolean(false),
+  ROUTER_ADDRESS: z.union([z.string().regex(/^0x[0-9a-f]{40}$/i).refine((value) => !/^0x0{40}$/i.test(value)), z.literal('')]).default(''),
+  ROUTER_DEPLOY_BLOCK: z.coerce.number().int().nonnegative().default(0),
+  ROUTER_SIGNER_KEY: z.union([hexKey, z.literal('')]).default(''),
+  RELAYER_PRIVATE_KEY: z.union([hexKey, z.literal('')]).default(''),
+  ESCROW_CLAIM_TIP_WEI: z.string().regex(/^\d+$/).default('20000000000000')
+    .refine((value) => BigInt(value) <= 1000000000000000n, 'must not exceed 0.001 ETH'),
+  ROUTER_AUTH_TTL_SECONDS: positiveInt(600),
   ADMIN_TOKEN: z.string().default(''),
   CARDS_ENABLED: boolean(false),
   IZIPAY_API_KEY: z.string().default(''),
@@ -43,6 +51,14 @@ const envSchema = z.object({
   IZIPAY_MODE: z.enum(['sandbox', 'live']).default('sandbox'),
   IZIPAY_ACCOUNT_REF: z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/).default('primary'),
 }).superRefine((value, context) => {
+  if (value.ROUTER_ENABLED) {
+    for (const field of ['ROUTER_ADDRESS', 'ROUTER_SIGNER_KEY', 'RELAYER_PRIVATE_KEY'] as const) {
+      if (!value[field]) context.addIssue({ code: 'custom', path: [field], message: 'required when ROUTER_ENABLED=true' });
+    }
+    if (value.INTENT_TTL_DAYS > 60) {
+      context.addIssue({ code: 'custom', path: ['INTENT_TTL_DAYS'], message: 'router escrow duration must be at most 60 days' });
+    }
+  }
   if (value.IZIPAY_API_KEY && !value.IZIPAY_API_KEY.startsWith(
     value.IZIPAY_MODE === 'sandbox' ? 'izpk_test_' : 'izpk_live_',
   )) {

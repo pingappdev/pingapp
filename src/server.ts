@@ -3,7 +3,9 @@ import { config } from './config.js';
 import { sql } from './db/client.js';
 import { closeQueues } from './lib/queue.js';
 import { redis } from './lib/redis.js';
+import { initializeRouter } from './lib/routerStartup.js';
 
+await initializeRouter();
 const app = await buildApp();
 await app.listen({ host: '0.0.0.0', port: config.PORT });
 
