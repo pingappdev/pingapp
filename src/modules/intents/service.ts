@@ -73,7 +73,7 @@ export type PublicClaimDto = {
   expiresAt: string;
 };
 
-function cleanNote(value: string | undefined): string | null {
+export function cleanNote(value: string | undefined): string | null {
   if (value === undefined) return null;
   const note = value.trim().replace(CONTROL_CHARACTERS, '').trim();
   if ([...note].length > 140) {
