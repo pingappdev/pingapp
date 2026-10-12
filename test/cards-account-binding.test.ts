@@ -4,7 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 
 const mutations = vi.hoisted(() => ({ transaction: vi.fn(), encrypt: vi.fn() }));
 vi.mock('../src/db/client.js', () => ({ db: { transaction: mutations.transaction } }));
-vi.mock('../src/modules/cards/provider.js', () => ({ provider: {} }));
+vi.mock('../src/modules/cards/provider.js', () => ({ provider: {}, providerRedisPrefix: 'cards:provider:unit-test' }));
 vi.mock('../src/modules/cards/settings.js', () => ({
   providerScope: 'izipay:sandbox:unit-test', encryptCardData: mutations.encrypt,
   decryptCardData: vi.fn(), cardsEnabled: () => false, requireCards: vi.fn(), unavailable: vi.fn(),
