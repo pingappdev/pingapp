@@ -8,6 +8,7 @@ const state = vi.hoisted(() => ({
   codeResponse: null as unknown,
   armCalls: 0,
   codeCalls: 0,
+  duringPoll: null as null | (() => Promise<void> | void),
 }));
 
 vi.mock('../src/config.js', () => ({ config: new Proxy({}, { get: (_t, key) => (key === 'IZIPAY_MODE' ? state.mode : undefined) }) }));
@@ -19,16 +20,22 @@ vi.mock('../src/lib/redis.js', () => ({ redis: {
     return 'OK';
   }),
   del: vi.fn(async (...keys: string[]) => { keys.forEach((key) => state.store.delete(key)); return keys.length; }),
-  // Emulates the two Lua scripts in applePay.ts.
-  eval: vi.fn(async (script: string, _n: number, key: string, ...args: string[]) => {
+  // Emulates the three Lua scripts in applePay.ts (arm, release, deliver).
+  eval: vi.fn(async (script: string, keys: number, key: string, ...rest: string[]) => {
     const current = state.store.get(key);
-    const holder = current ? (JSON.parse(current) as { cardId: string }).cardId : null;
-    if (script.includes("'SET'")) {
-      if (holder && holder !== args[1]) return -420;
-      state.store.set(key, args[0]);
+    const lock = current ? (JSON.parse(current) as { cardId: string; nonce: string }) : null;
+    if (keys === 2) {
+      const [codeKey, nonce, value] = rest;
+      if (!lock || lock.nonce !== nonce) return 0;
+      state.store.set(codeKey, value);
       return 1;
     }
-    if (holder === args[0]) { state.store.delete(key); return 1; }
+    if (script.includes("'SET'")) {
+      if (lock) return lock.cardId === rest[1] ? 0 : -420;
+      state.store.set(key, rest[0]);
+      return 1;
+    }
+    if (lock?.nonce === rest[0]) { state.store.delete(key); return 1; }
     return 0;
   }),
 } }));
@@ -40,10 +47,17 @@ vi.mock('../src/modules/cards/service.js', () => ({
   }),
 }));
 vi.mock('../src/modules/cards/provider.js', () => ({
+  ProviderError: class ProviderError extends Error {
+    constructor(public readonly outcome: string) { super('provider'); }
+  },
   providerRedisPrefix: 'cards:provider:test',
   provider: {
     armApplePay: vi.fn(async () => { state.armCalls += 1; if (state.armResponse instanceof Error) throw state.armResponse; return state.armResponse; }),
-    applePayCode: vi.fn(async () => { state.codeCalls += 1; return state.codeResponse; }),
+    applePayCode: vi.fn(async () => {
+      state.codeCalls += 1;
+      await state.duringPoll?.();
+      return state.codeResponse;
+    }),
   },
 }));
 vi.mock('../src/modules/cards/settings.js', () => ({
@@ -58,6 +72,8 @@ vi.mock('../src/modules/cards/settings.js', () => ({
 }));
 
 import { armApplePay, getApplePayCode } from '../src/modules/cards/applePay.js';
+import { ProviderError } from '../src/modules/cards/provider.js';
+const lockKey = 'cards:provider:test:apple-pay:armed';
 
 const USER = 'user-a', OTHER = 'user-b';
 const card = (id: string, userId: string, product = 'mastercard', providerCardId = `card_${id}`) =>
@@ -70,6 +86,7 @@ describe('Apple Pay activation codes', () => {
     state.mode = 'live';
     state.armCalls = 0;
     state.codeCalls = 0;
+    state.duringPoll = null;
     card('a', USER);
     card('b', OTHER);
     state.armResponse = { card_id: 'card_a', status: 'armed', expires_in: 600 };
@@ -92,13 +109,23 @@ describe('Apple Pay activation codes', () => {
     expect(await getApplePayCode(OTHER, 'b')).toEqual({ status: 'idle' });
   });
 
-  it('lets the same card re-arm, and frees the lock when the provider refuses', async () => {
-    await armApplePay(USER, 'a');
-    await expect(armApplePay(USER, 'a')).resolves.toMatchObject({ status: 'waiting' });
-    state.armResponse = new Error('provider down');
+  it('joins a live window instead of re-arming or extending it', async () => {
+    const first = await armApplePay(USER, 'a');
+    const lockBefore = state.store.get(lockKey);
+    const again = await armApplePay(USER, 'a');
+    expect(again).toMatchObject({ status: 'waiting', expiresAt: (first as { expiresAt: string }).expiresAt });
+    expect(state.armCalls).toBe(1);
+    expect(state.store.get(lockKey)).toBe(lockBefore);
+  });
+
+  it('frees the lock after a definite provider refusal, but keeps it after an uncertain one', async () => {
+    state.armResponse = new (ProviderError as unknown as new (o: string) => Error)('rejected');
     await expect(armApplePay(USER, 'a')).rejects.toMatchObject({ code: 'CARDS_UNAVAILABLE' });
-    state.armResponse = { card_id: 'card_b', status: 'armed' };
-    await expect(armApplePay(OTHER, 'b')).resolves.toMatchObject({ status: 'waiting' });
+    expect(state.store.has(lockKey)).toBe(false);
+    state.armResponse = new (ProviderError as unknown as new (o: string) => Error)('unknown');
+    await expect(armApplePay(USER, 'a')).rejects.toMatchObject({ code: 'CARDS_UNAVAILABLE' });
+    // Izipay may be armed for card a, so card b must still wait.
+    await expect(armApplePay(OTHER, 'b')).rejects.toMatchObject({ code: 'APPLE_PAY_BUSY' });
   });
 
   it('throttles provider polls per card', async () => {
@@ -109,7 +136,7 @@ describe('Apple Pay activation codes', () => {
     expect(state.codeCalls).toBe(1);
   });
 
-  it('returns a delivered code only to its owner, stores it encrypted, and releases the lock', async () => {
+  it('returns a delivered code only to its owner, stores it encrypted, and keeps the window locked', async () => {
     await armApplePay(USER, 'a');
     state.codeResponse = { card_id: 'card_a', status: 'delivered', code: '481923', matched_at: '2026-10-12T10:00:00Z' };
     expect(await getApplePayCode(USER, 'a')).toMatchObject({ status: 'delivered', code: '481923' });
@@ -119,8 +146,24 @@ describe('Apple Pay activation codes', () => {
     expect(await getApplePayCode(USER, 'a')).toMatchObject({ status: 'delivered', code: '481923' });
     expect(state.codeCalls).toBe(1);
     await expect(getApplePayCode(OTHER, 'a')).rejects.toThrow('Not found.');
-    state.armResponse = { card_id: 'card_b', status: 'armed' };
-    await expect(armApplePay(OTHER, 'b')).resolves.toMatchObject({ status: 'waiting' });
+    // The provider never says a match ends the arm, so the window stays exclusive.
+    await expect(armApplePay(OTHER, 'b')).rejects.toMatchObject({ code: 'APPLE_PAY_BUSY' });
+  });
+
+  it('drops a code polled under an arm that was replaced meanwhile', async () => {
+    await armApplePay(USER, 'a');
+    state.codeResponse = { card_id: 'card_a', status: 'delivered', code: '481923' };
+    state.duringPoll = () => {
+      const lock = JSON.parse(state.store.get(lockKey)!);
+      state.store.set(lockKey, JSON.stringify({ ...lock, nonce: 'newer-arm' }));
+    };
+    expect(await getApplePayCode(USER, 'a')).toMatchObject({ status: 'waiting' });
+    expect([...state.store.keys()].some((key) => key.includes(':code:'))).toBe(false);
+  });
+
+  it('reports the remaining window in server seconds', async () => {
+    const armed = await armApplePay(USER, 'a');
+    expect(armed).toMatchObject({ status: 'waiting', expiresInSec: 600 });
   });
 
   it('ignores a code reported for a different provider card or in an invalid shape', async () => {
