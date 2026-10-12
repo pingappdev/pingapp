@@ -9,7 +9,7 @@ vi.mock('../src/config.js', () => ({ config: { APP_URL: 'https://app.example.tes
 vi.mock('../src/db/schema.js', () => ({
   contacts: {
     id: 'contacts.id', userId: 'contacts.userId', name: 'contacts.name', phoneHmac: 'contacts.phoneHmac',
-    phoneEnc: 'contacts.phoneEnc', phoneMasked: 'contacts.phoneMasked', address: 'contacts.address',
+    phoneEnc: 'contacts.phoneEnc', phoneMasked: 'contacts.phoneMasked',
     createdAt: 'contacts.createdAt', updatedAt: 'contacts.updatedAt',
   },
   intents: {
@@ -146,7 +146,7 @@ describe('pre-payment recipient DTO privacy', () => {
   it('omits matched PingApp wallet and link-time data from contacts', async () => {
     state.queryResults = [[{
       contact: {
-        id: 'contact-id', name: 'Phone contact', phoneEnc: null, phoneMasked: '***0102', address: null,
+        id: 'contact-id', name: 'Phone contact', phoneEnc: '+12025550102', phoneMasked: '***0102',
         createdAt: new Date('2026-10-02T06:07:08.000Z'),
       },
       paId: 'matched-user-id',

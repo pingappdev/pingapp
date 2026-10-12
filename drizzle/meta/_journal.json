@@ -43,6 +43,13 @@
       "when": 1791753881844,
       "tag": "0005_private_recipient_payout",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791793606390,
+      "tag": "0006_contacts_phone_only",
+      "breakpoints": true
     }
   ]
 }

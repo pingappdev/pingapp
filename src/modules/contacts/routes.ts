@@ -5,8 +5,7 @@ import { create, list, remove, update } from './service.js';
 
 const inputSchema = z.object({
   name: z.string().max(1000).optional(),
-  phone: z.string().max(32).nullable().optional(),
-  address: z.string().max(256).nullable().optional(),
+  phone: z.string().max(32).optional(),
 }).strict();
 const paramsSchema = z.object({ id: z.string().uuid() }).strict();
 

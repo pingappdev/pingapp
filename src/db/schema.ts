@@ -73,22 +73,14 @@ export const contacts = pgTable('contacts', {
   id: id(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
-  phoneHmac: text('phone_hmac'),
-  phoneEnc: text('phone_enc'),
-  phoneMasked: text('phone_masked'),
-  address: text('address'),
+  phoneHmac: text('phone_hmac').notNull(),
+  phoneEnc: text('phone_enc').notNull(),
+  phoneMasked: text('phone_masked').notNull(),
   createdAt: createdAt(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   check('contacts_name_length_check', sql`char_length(${table.name}) between 1 and 80`),
-  check('contacts_phone_or_address_check', sql`${table.phoneHmac} is not null or ${table.address} is not null`),
-  check('contacts_address_format_check', sql`${table.address} is null or ${table.address} ~ '^0x[0-9a-f]{40}$'`),
-  uniqueIndex('contacts_user_phone_hmac_unique_idx')
-    .on(table.userId, table.phoneHmac)
-    .where(sql`${table.phoneHmac} is not null`),
-  uniqueIndex('contacts_user_address_unique_idx')
-    .on(table.userId, table.address)
-    .where(sql`${table.address} is not null`),
+  uniqueIndex('contacts_user_phone_hmac_unique_idx').on(table.userId, table.phoneHmac),
   index('contacts_user_id_idx').on(table.userId),
 ]);
 
