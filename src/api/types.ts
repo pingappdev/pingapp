@@ -274,4 +274,11 @@ export type Escrow = {
   claimTxHash: Address | null;
   refundTxHash: Address | null;
   refundable: boolean;
+  /** The relayer refused this payout (gas above its ceiling); the recipient submits it. */
+  selfClaim: boolean;
+};
+export type SelfClaim = {
+  router: Address;
+  auth: { id: Address; recipient: Address; relayer: Address; deadline: string };
+  signature: Address;
 };

@@ -5,6 +5,7 @@ import type {
   AuthorizeSendInput,
   RouterAuthorization,
   Escrow,
+  SelfClaim,
   BalancesResponse,
   ClaimView,
   ConfigResponse,
@@ -144,6 +145,11 @@ export const endpoints = {
         `/v1/escrows/${encodeURIComponent(id)}/claim`,
         { method: "POST", ...options },
       ),
+    selfClaim: (id: string, options?: ApiRequestOptions) =>
+      api<{ claim: SelfClaim }>(`/v1/escrows/${encodeURIComponent(id)}/self-claim`, {
+        method: "POST",
+        ...options,
+      }),
     submitted: (id: string, txHash: Address, options?: ApiRequestOptions) =>
       api<{ escrow: { id: string; status: string; depositTxHash: Address } }>(
         `/v1/escrows/${encodeURIComponent(id)}/submitted`,

@@ -1,6 +1,6 @@
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { toast } from "sonner";
-import type { Intent, Token } from "../../../api/types";
+import type { Address, Intent, Token } from "../../../api/types";
 
 export function tokenChoices(tokens: Token[]): Token[] {
   return tokens
@@ -67,3 +67,6 @@ export async function shareInvite(intent: Intent) {
     toast.error("Could not share the invite link.");
   }
 }
+
+export const owedRefundKey = (router: Address, account: Address) =>
+  ["pingapp", "router-owed", router.toLowerCase(), account.toLowerCase()] as const;

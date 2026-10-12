@@ -1,9 +1,10 @@
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { formatEther } from "viem";
+import { formatEther, parseEventLogs } from "viem";
 import { getAccount, getPublicClient } from "wagmi/actions";
 import { useSwitchChain, useWriteContract } from "wagmi";
 import { toast } from "sonner";
+import { endpoints } from "../../../api/client";
 import { qk, sessionRevision, useClaimEscrow, useConfig, useEscrows } from "../../../api/hooks";
 import type { Escrow, Me } from "../../../api/types";
 import { useAuth } from "../../../auth/useAuth";
@@ -13,6 +14,8 @@ import { pingRouterAbi } from "../../../wallet/pingRouterAbi";
 import TokenIcon from "../../components/TokenIcon";
 import { errorMessage } from "../send/errors";
 import { QueryMessage } from "./IntentRows";
+import OwedRefund from "./OwedRefund";
+import { owedRefundKey } from "./utils";
 
 const labels: Record<Escrow["status"], string> = {
   authorized: "Awaiting deposit",
@@ -38,7 +41,7 @@ export default function EscrowLists() {
   const running = useRef(false);
   if (!enabled) return null;
 
-  async function act(row: Escrow, action: "claim" | "refund") {
+  async function act(row: Escrow, action: "claim" | "selfClaim" | "refund") {
     if (running.current || !auth.me) return;
     running.current = true;
     setBusyId(row.id);
@@ -61,7 +64,6 @@ export default function EscrowLists() {
         await claim.mutateAsync(row.id);
         if (current()) toast.success("Claim requested. The relayer pays the network fee.");
       } else {
-        // This transaction has no PingApp API dependency. The contract always refunds the original sender.
         if (getAccount(wagmiAdapter.wagmiConfig).chainId !== chain.id)
           await switchChainAsync({ chainId: chain.id });
         if (!current()) throw new Error("Your wallet or session changed.");
@@ -69,6 +71,34 @@ export default function EscrowLists() {
         if (!address) throw new Error("The router address is unavailable.");
         const client = getPublicClient(wagmiAdapter.wagmiConfig, { chainId: chain.id });
         if (!client) throw new Error("The network connection is unavailable.");
+        if (action === "selfClaim") {
+          // The signed claim pays only this wallet; it also submits it and receives the tip.
+          const { claim: signed } = await endpoints.escrows.selfClaim(row.id);
+          if (
+            signed.router.toLowerCase() !== address.toLowerCase() ||
+            signed.auth.recipient.toLowerCase() !== expected.address.toLowerCase() ||
+            signed.auth.relayer.toLowerCase() !== expected.address.toLowerCase()
+          )
+            throw new Error("The claim authorization does not match this wallet.");
+          if (!current()) throw new Error("Your wallet or session changed.");
+          const hash = await writeContractAsync({
+            account: expected.address,
+            chainId: chain.id,
+            address,
+            abi: pingRouterAbi,
+            functionName: "claim",
+            args: [{ ...signed.auth, deadline: BigInt(signed.auth.deadline) }, signed.signature],
+          });
+          const receipt = await client.waitForTransactionReceipt({ hash });
+          if (receipt.status !== "success") throw new Error("The claim transaction failed.");
+          if (current()) {
+            toast.success("Claim confirmed. The funds are in your wallet.");
+            void queryClient.invalidateQueries({ queryKey: qk.escrowsPrefix });
+            void queryClient.invalidateQueries({ queryKey: qk.balancesPrefix });
+          }
+          return;
+        }
+        // This transaction has no PingApp API dependency. The contract always refunds the original sender.
         const hash = await writeContractAsync({
           account: expected.address,
           chainId: chain.id,
@@ -81,7 +111,21 @@ export default function EscrowLists() {
         if (receipt.status !== "success") throw new Error("The refund transaction failed.");
         if (current()) {
           setRefundHashes((previous) => ({ ...previous, [row.id]: hash }));
-          toast.success("Refund confirmed. The principal and claim tip returned to the sender.");
+          const credited = parseEventLogs({
+            abi: pingRouterAbi,
+            eventName: "EthCredited",
+            logs: receipt.logs,
+          });
+          if (credited.length) {
+            toast.success(
+              "Refund confirmed. This wallet rejected ETH, so the ETH part is held for withdrawal below.",
+            );
+            void queryClient.invalidateQueries({
+              queryKey: owedRefundKey(address, expected.address),
+            });
+          } else {
+            toast.success("Refund confirmed. The principal and claim tip returned to the sender.");
+          }
           void queryClient.invalidateQueries({ queryKey: qk.escrowsPrefix });
           void queryClient.invalidateQueries({ queryKey: qk.balancesPrefix });
         }
@@ -96,6 +140,9 @@ export default function EscrowLists() {
 
   return (
     <>
+      {config.data?.router.address && auth.me && (
+        <OwedRefund router={config.data.router.address} account={auth.me.address} />
+      )}
       {(
         [
           { role: "sent", title: "Sent escrows", query: sent },
@@ -150,15 +197,18 @@ export default function EscrowLists() {
                   <span className="pill">
                     {refundHashes[row.id]
                       ? "Refunded"
-                      : row.deliveryMode === "automatic" && row.status === "claimed"
-                        ? "Delivered"
-                        : row.deliveryMode === "automatic" &&
-                            ["deposited", "claiming"].includes(row.status)
-                          ? "Delivery pending"
-                          : labels[row.status]}
+                      : row.selfClaim && row.status === "deposited"
+                        ? "Claim needed"
+                        : row.deliveryMode === "automatic" && row.status === "claimed"
+                          ? "Delivered"
+                          : row.deliveryMode === "automatic" &&
+                              ["deposited", "claiming"].includes(row.status)
+                            ? "Delivery pending"
+                            : labels[row.status]}
                   </span>
                   {role === "incoming" &&
                     row.deliveryMode === "claim" &&
+                    !row.selfClaim &&
                     row.status === "deposited" &&
                     !row.refundable && (
                       <button
@@ -167,6 +217,19 @@ export default function EscrowLists() {
                         onClick={() => void act(row, "claim")}
                       >
                         {busyId === row.id ? "Requesting…" : "Claim"}
+                      </button>
+                    )}
+                  {role === "incoming" &&
+                    row.selfClaim &&
+                    row.status === "deposited" &&
+                    !row.refundable && (
+                      <button
+                        className="button accent"
+                        disabled={!!busyId}
+                        title="This payout needs more gas than PingApp's relayer covers."
+                        onClick={() => void act(row, "selfClaim")}
+                      >
+                        {busyId === row.id ? "Claiming…" : "Claim (you pay gas)"}
                       </button>
                     )}
                   {role === "sent" &&

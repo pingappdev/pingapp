@@ -18,6 +18,7 @@ const routerErrors: Record<string, string> = {
   NotRelayer: "This claim must be submitted by its authorized relayer.",
   EthTransferFailed: "The receiving wallet rejected ETH. No funds moved in this transaction.",
   NothingReceived: "The token did not deliver any funds to escrow. The transaction was reverted.",
+  NothingOwed: "This wallet has no held refund ETH to withdraw.",
 };
 
 export function errorMessage(error: unknown): string {
