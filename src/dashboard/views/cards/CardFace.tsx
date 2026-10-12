@@ -8,6 +8,7 @@ export function CardFace({
   network,
   last4,
   status,
+  statusText,
   frozen,
   size = "rail",
 }: {
@@ -16,6 +17,8 @@ export function CardFace({
   network: string;
   last4?: string | null;
   status?: string;
+  /** Friendly chip text for the card list; defaults to the provider status. */
+  statusText?: string | null;
   frozen?: boolean | null;
   size?: "rail" | "mini";
 }) {
@@ -47,6 +50,8 @@ export function CardFace({
           <span className="pc-face-chip">
             <Snowflake size={11} /> Frozen
           </span>
+        ) : statusText ? (
+          <span className="pc-face-chip">{statusText}</span>
         ) : pending ? (
           <span className="pc-face-chip">{statusLabel(status!)}</span>
         ) : null}

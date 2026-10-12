@@ -431,7 +431,6 @@
   background: #0000004d;
   font-size: 11px;
   font-weight: 600;
-  text-transform: capitalize;
   backdrop-filter: blur(6px);
 }
 
@@ -516,6 +515,7 @@
 }
 
 .pc-rail-item {
+  position: relative;
   flex: 0 0 300px;
   padding: 0;
   border: 0;
@@ -1294,4 +1294,389 @@
   font-size: 12px;
   color: var(--ping-text-2);
   font-variant-numeric: tabular-nums;
+}
+
+.pc-face-chip::first-letter {
+  text-transform: uppercase;
+}
+
+/* A card in the list that is waiting on the user (setup fee or top-up due). */
+.pc-rail-attention {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--ping-accent);
+  box-shadow: 0 0 0 3px var(--ping-bg);
+}
+
+/* Card setup: one guided view until the provider issues the card. */
+.cs-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-width: 0;
+  padding: 28px;
+  border-radius: 24px;
+  background: var(--ping-surface);
+  box-shadow: inset 0 0 0 1px #ffffff0d;
+}
+
+.cs-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: cs-step;
+}
+
+.cs-steps > li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding-top: 12px;
+  border-top: 3px solid #ffffff14;
+  color: var(--ping-text-3);
+  font-size: 13px;
+  font-weight: 500;
+  counter-increment: cs-step;
+}
+
+.cs-steps > li::before {
+  content: counter(cs-step);
+  display: grid;
+  place-items: center;
+  flex: 0 0 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--ping-surface-2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-steps > li[data-state="done"] {
+  border-color: var(--ping-accent);
+  color: var(--ping-text-2);
+}
+
+.cs-steps > li[data-state="done"]::before {
+  content: "✓";
+  background: var(--ping-accent-soft);
+  color: var(--ping-accent);
+}
+
+.cs-steps > li[data-state="current"] {
+  border-color: var(--ping-accent);
+  color: var(--ping-text);
+}
+
+.cs-steps > li[data-state="current"]::before {
+  background: var(--ping-accent);
+  color: #1b1530;
+}
+
+.cs-steps > li[data-state="error"] {
+  border-color: #ff6b57;
+  color: #ff8e7d;
+}
+
+.cs-steps > li[data-state="error"]::before {
+  content: "!";
+  background: #ff6b571f;
+  color: #ff8e7d;
+}
+
+.cs-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
+  gap: 40px;
+  align-items: start;
+}
+
+.cs-main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.premium-workspace .cs-main h2 {
+  font-size: clamp(24px, 2.4vw, 30px);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.cs-text {
+  max-width: 56ch;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ping-text-2);
+}
+
+.cs-pulse {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--ping-text-2);
+}
+
+.cs-pulse > span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--ping-accent);
+  animation: cs-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes cs-pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.cs-side {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+  padding-left: 28px;
+  border-left: 1px solid #ffffff10;
+}
+
+.cs-facts {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+}
+
+.cs-facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+}
+
+.cs-facts dt {
+  font-size: 13px;
+  color: var(--ping-text-3);
+}
+
+.cs-facts dd {
+  margin: 0;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.cs-facts .cs-ref {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--ping-text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.premium-workspace .cs-next h3 {
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ping-text);
+}
+
+.cs-next ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ping-text-2);
+}
+
+.premium-workspace .cs-side > .button {
+  justify-content: center;
+  gap: 8px;
+}
+
+/* Payment instructions shared by setup fees and top-ups */
+.pay-block {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 22px;
+  border-radius: 18px;
+  background: var(--ping-surface-2);
+}
+
+.pay-amount {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pay-amount > span,
+.pay-address > span {
+  font-size: 12px;
+  color: var(--ping-text-3);
+}
+
+.pay-amount > strong {
+  font-size: clamp(28px, 3vw, 38px);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.pay-amount > small {
+  font-size: 13px;
+  color: var(--ping-text-2);
+}
+
+.pay-target {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 20px;
+  align-items: center;
+}
+
+.pay-qr {
+  padding: 8px;
+  border-radius: 12px;
+  background: #fff;
+  line-height: 0;
+}
+
+.pay-qr svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.pay-address {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pay-address code {
+  display: block;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--ping-surface);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.pay-copy {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.premium-workspace .pay-copy > .button {
+  flex: 1 1 130px;
+  justify-content: center;
+  gap: 8px;
+}
+
+.pay-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  font-size: 13px;
+  color: var(--ping-text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.pay-meta .text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pay-warning {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ping-text-3);
+}
+
+/* A top-up in progress, shown inside its card's summary */
+.premium-workspace .pc-summary .card-operation {
+  margin-top: 18px;
+  padding: 20px;
+  border-radius: 18px;
+  background: var(--ping-surface);
+}
+
+.premium-workspace .pc-summary .card-operation .pay-block {
+  background: var(--ping-surface-2);
+}
+
+@media (max-width: 900px) {
+  .cs-body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .cs-side {
+    padding: 20px 0 0;
+    border-left: 0;
+    border-top: 1px solid #ffffff10;
+  }
+}
+
+@media (max-width: 560px) {
+  .cs-panel {
+    padding: 20px 16px;
+    gap: 22px;
+  }
+
+  .cs-steps > li {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 12px;
+  }
+
+  .pay-block {
+    padding: 16px;
+  }
+
+  .pay-target {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
+
+  .pay-address {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-pulse > span {
+    animation: none;
+  }
+}
+
+.premium-workspace .pay-copy > .button {
+  white-space: nowrap;
 }

@@ -7,6 +7,8 @@ import { CardApplication } from "./cards/CardApplication";
 import { CardDetailsDialog } from "./cards/CardDetailsDialog";
 import { CardFace } from "./cards/CardFace";
 import { CardOperationPanel } from "./cards/CardOperationPanel";
+import { CardSetupPanel } from "./cards/CardSetupPanel";
+import { cardNeedsAction, cardStage, cardStageLabel } from "./cards/cardStage";
 import { useCardRequest } from "./cards/useCardRequest";
 import { useCardLiveState } from "./cards/useCardLiveState";
 import { readCardRequest } from "./cards/requests";
@@ -55,8 +57,14 @@ function CardDashboard({
     config?.products.filter((item) => !ownedProducts.includes(item.id)) ?? [];
   const canCreate = cardsQuery.isSuccess && availableProducts.length > 0;
   const supported = Boolean(config?.enabled && config.networks.length);
-  const visibleOperations = live.observations.filter(
-    ({ operation }) => !(operation.kind === "issue" && operation.status === "completed"),
+  // Each card shows its own latest request inside its view; only requests whose card
+  // is not loaded yet fall back to a standalone panel.
+  const observationFor = (id: string) =>
+    live.observations.find(({ operation }) => operation.cardId === id);
+  const orphanOperations = live.observations.filter(
+    ({ operation }) =>
+      !cards.some((item) => item.id === operation.cardId) &&
+      !(operation.kind === "issue" && operation.status === "completed"),
   );
   const canMutate = supported && !request.busy && !request.pending;
   const pendingTopup = live.observations.some(
@@ -66,6 +74,8 @@ function CardDashboard({
       operation.status !== "failed",
   );
   const canTopup = issued && canMutate && !pendingTopup;
+  const observation = card ? observationFor(card.id) : undefined;
+  const stage = card ? cardStage(card, observation?.operation) : null;
   const cardName = (item: CardSummary) =>
     config?.products.find((product) => product.id === item.product)?.name ??
     statusLabel(item.product);
@@ -233,7 +243,13 @@ function CardDashboard({
                   tabIndex={item.id === card.id ? 0 : -1}
                   data-card-id={item.id}
                   className="pc-rail-item"
-                  aria-label={`${cardName(item)}, ${item.last4 ? `ending ${item.last4}` : statusLabel(item.issueStatus)}`}
+                  aria-label={[
+                    cardName(item),
+                    item.last4 ? `ending ${item.last4}` : null,
+                    cardStageLabel(item, observationFor(item.id)?.operation),
+                  ]
+                    .filter(Boolean)
+                    .join(", ")}
                   onClick={() => selectCard(item.id)}
                 >
                   <CardFace
@@ -242,104 +258,131 @@ function CardDashboard({
                     network={productNetwork(item)}
                     last4={item.last4}
                     status={item.issueStatus}
+                    statusText={cardStageLabel(item, observationFor(item.id)?.operation)}
                     frozen={item.frozen}
                   />
+                  {cardNeedsAction(item, observationFor(item.id)?.operation) && (
+                    <span className="pc-rail-attention" aria-hidden="true" />
+                  )}
                 </button>
               ))}
             </div>
           </section>
-          <div className="pc-detail">
-            <section className="pc-summary" aria-label={`${cardName(card)} summary`}>
-              <div className="pc-summary-head">
-                <h2>{cardName(card)}</h2>
-                <span className="pc-status" data-tone={cardTone(card)}>
-                  {cardState(card)}
-                </span>
-              </div>
-              <p className="pc-balance-label">
-                {config?.sandbox ? "Test card balance" : "Card balance"}
-              </p>
-              <div className="pc-balance">{usd(card.balanceUsd)}</div>
-              <p className="pc-balance-meta">
-                {card.balanceAsOf
-                  ? `Updated ${dateTime(card.balanceAsOf)}`
-                  : "Balance freshness unavailable"}
-              </p>
-              {live.refreshingBalances.has(card.id) && (
-                <p className="pc-balance-meta" role="status">
-                  Top-up confirmed. Refreshing the provider balance…
+          {stage?.kind === "setup" ? (
+            <CardSetupPanel
+              key={card.id}
+              card={card}
+              name={cardName(card)}
+              stage={stage.stage}
+              operation={observation?.operation}
+              config={config}
+              refreshing={observation?.refreshing ?? cardsQuery.isFetching}
+              refreshError={observation?.refreshError ?? false}
+              onRefresh={() => {
+                observation?.refresh();
+                void cardsQuery.refetch();
+              }}
+              onRestart={canCreate && canMutate ? () => setModal("issue") : null}
+            />
+          ) : (
+            <div className="pc-detail">
+              <section className="pc-summary" aria-label={`${cardName(card)} summary`}>
+                <div className="pc-summary-head">
+                  <h2>{cardName(card)}</h2>
+                  <span className="pc-status" data-tone={cardTone(card)}>
+                    {cardState(card)}
+                  </span>
+                </div>
+                <p className="pc-balance-label">
+                  {config?.sandbox ? "Test card balance" : "Card balance"}
                 </p>
-              )}
-              {card.pendingTopupUsd != null && (
-                <p className="pc-balance-meta">Pending top-up: {usd(card.pendingTopupUsd)}</p>
-              )}
-              <div className="pc-actions">
-                <button
-                  type="button"
-                  className="button accent"
-                  disabled={!canTopup}
-                  onClick={() => setModal("topup")}
-                >
-                  <Plus size={17} /> Top up
-                </button>
-                <button
-                  type="button"
-                  className="button outline"
-                  disabled={!issued}
-                  onClick={() => setModal("details")}
-                >
-                  <Eye size={17} /> Card details
-                </button>
-                {card.product === "mastercard" && (
+                <div className="pc-balance">{usd(card.balanceUsd)}</div>
+                <p className="pc-balance-meta">
+                  {card.balanceAsOf
+                    ? `Updated ${dateTime(card.balanceAsOf)}`
+                    : "Balance freshness unavailable"}
+                </p>
+                {live.refreshingBalances.has(card.id) && (
+                  <p className="pc-balance-meta" role="status">
+                    Top-up confirmed. Refreshing the provider balance…
+                  </p>
+                )}
+                {card.pendingTopupUsd != null && (
+                  <p className="pc-balance-meta">Pending top-up: {usd(card.pendingTopupUsd)}</p>
+                )}
+                <div className="pc-actions">
+                  <button
+                    type="button"
+                    className="button accent"
+                    disabled={!canTopup}
+                    onClick={() => setModal("topup")}
+                  >
+                    <Plus size={17} /> Top up
+                  </button>
                   <button
                     type="button"
                     className="button outline"
                     disabled={!issued}
-                    onClick={() => setModal("applePay")}
+                    onClick={() => setModal("details")}
                   >
-                    <Smartphone size={17} /> Add to Apple Pay
+                    <Eye size={17} /> Card details
                   </button>
-                )}
-              </div>
-              {!issued && (
-                <p className="field-help">
-                  Top-up and details unlock once the provider confirms this card is issued.
-                </p>
-              )}
-              <dl className="pc-info">
-                <InfoRow label="Network" value={cardNetwork} />
-                <InfoRow label="Currency" value={card.currency} />
-                <InfoRow label="Issued" value={dateTime(card.issuedAt)} />
-                <InfoRow label="Funding" value="USDT via provider invoice" />
-              </dl>
-              <p className="field-help">
-                Card funds are held by the card provider once credit is confirmed, separate from
-                your wallet balance.
-              </p>
-            </section>
-            <div className="pc-activity">
-              <section className="pc-spending">
-                <div className="panel-heading">
-                  <h2>Spent this month</h2>
+                  {card.product === "mastercard" && (
+                    <button
+                      type="button"
+                      className="button outline"
+                      disabled={!issued}
+                      onClick={() => setModal("applePay")}
+                    >
+                      <Smartphone size={17} /> Add to Apple Pay
+                    </button>
+                  )}
                 </div>
-                {card.monthlySpending.complete && card.monthlySpending.amountUsd !== null ? (
-                  <strong className="pc-spending-amount">
-                    {usd(card.monthlySpending.amountUsd)}
-                  </strong>
-                ) : (
-                  <p className="field-help">
-                    Monthly spending appears once the provider supplies complete history.
-                  </p>
+                {observation?.operation.kind === "topup" && (
+                  <CardOperationPanel
+                    operation={observation.operation}
+                    refreshing={observation.refreshing}
+                    refreshError={observation.refreshError}
+                    onRefresh={observation.refresh}
+                    cardLabel=""
+                    config={config}
+                  />
                 )}
+                <dl className="pc-info">
+                  <InfoRow label="Network" value={cardNetwork} />
+                  <InfoRow label="Currency" value={card.currency} />
+                  <InfoRow label="Issued" value={dateTime(card.issuedAt)} />
+                  <InfoRow label="Funding" value="USDT via provider invoice" />
+                </dl>
+                <p className="field-help">
+                  Card funds are held by the card provider once credit is confirmed, separate from
+                  your wallet balance.
+                </p>
               </section>
-              <Transactions key={card.id} userId={userId} card={card} />
+              <div className="pc-activity">
+                <section className="pc-spending">
+                  <div className="panel-heading">
+                    <h2>Spent this month</h2>
+                  </div>
+                  {card.monthlySpending.complete && card.monthlySpending.amountUsd !== null ? (
+                    <strong className="pc-spending-amount">
+                      {usd(card.monthlySpending.amountUsd)}
+                    </strong>
+                  ) : (
+                    <p className="field-help">
+                      Monthly spending appears once the provider supplies complete history.
+                    </p>
+                  )}
+                </section>
+                <Transactions key={card.id} userId={userId} card={card} />
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
-      {visibleOperations.length > 0 && (
+      {orphanOperations.length > 0 && (
         <div className="card-operations card-full-width">
-          {visibleOperations.map(({ operation, refreshing, refreshError, refresh }) => (
+          {orphanOperations.map(({ operation, refreshing, refreshError, refresh }) => (
             <CardOperationPanel
               key={operation.id}
               operation={operation}
