@@ -117,7 +117,7 @@ export function CardApplication({
       }}
     >
       <DialogContent
-        className={`ping-dialog card-dialog${kind === "issue" ? " card-dialog-wide" : ""}`}
+        className={`ping-dialog card-dialog${kind === "issue" ? " card-dialog-wide" : " card-dialog-topup"}`}
       >
         <DialogTitle>{kind === "issue" ? "Create your card" : "Top up your card"}</DialogTitle>
         <DialogDescription>

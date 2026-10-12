@@ -1680,3 +1680,51 @@
 .premium-workspace .pay-copy > .button {
   white-space: nowrap;
 }
+
+/* Card actions size to their labels and wrap as whole buttons, never mid-label. */
+.premium-workspace .pc-actions > .button {
+  flex: 1 1 auto;
+  white-space: nowrap;
+}
+
+/* Top-up dialog: wide enough for the four networks on one row. */
+.card-dialog.ping-dialog.card-dialog-topup {
+  width: min(580px, calc(100vw - 16px));
+  max-width: none;
+}
+
+.card-dialog.ping-dialog .pc-chip-option {
+  white-space: nowrap;
+}
+
+/* Phones: networks as an even 2×2 grid rather than a ragged wrap. */
+@media (max-width: 520px) {
+  .card-dialog.ping-dialog .pc-chips {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .card-dialog.ping-dialog .pc-chip-option {
+    text-align: center;
+  }
+}
+
+.card-dialog.ping-dialog.card-dialog-topup .cd-footer {
+  justify-content: flex-end;
+}
+
+.card-dialog.ping-dialog.card-dialog-topup .cd-footer > .button {
+  white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+  .card-dialog.ping-dialog.card-dialog-topup .cd-footer > .button.outline {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+
+  .card-dialog.ping-dialog.card-dialog-topup .cd-footer > .button.accent {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
