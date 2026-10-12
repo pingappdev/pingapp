@@ -307,7 +307,7 @@ function CardDashboard({
                     Top-up confirmed. Refreshing the provider balance…
                   </p>
                 )}
-                {card.pendingTopupUsd != null && (
+                {card.pendingTopupUsd != null && Number(card.pendingTopupUsd) > 0 && (
                   <p className="pc-balance-meta">Pending top-up: {usd(card.pendingTopupUsd)}</p>
                 )}
                 <div className="pc-actions">
