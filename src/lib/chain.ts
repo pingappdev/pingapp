@@ -37,7 +37,7 @@ const presets: Record<ChainKey, Preset> = {
     alchemyUrl: (key) => `https://robinhood-mainnet.g.alchemy.com/v2/${key}`,
     multicall3: canonicalMulticall3,
     wellKnownTokens: [
-      { address: '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168', symbol: 'USDG', name: 'USDG', decimals: 6, kind: 'stable', sort: 10 },
+      { address: '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168', symbol: 'USDG', name: 'USDG', decimals: 6, kind: 'stable', logoUrl: '/assets/brands/usdg.png', sort: 10 },
       { address: '0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73', symbol: 'WETH', name: 'Wrapped Ether', decimals: 18, kind: 'wrapped', sort: 20 },
     ],
   },
