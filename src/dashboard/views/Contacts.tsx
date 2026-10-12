@@ -3,11 +3,9 @@ import { ArrowUpRight, Pencil, Plus, Search, Trash2, Users } from "lucide-react"
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { useContacts } from "../../api/hooks";
 import type { Contact } from "../../api/types";
-import AddressText from "../components/AddressText";
 import Empty from "../components/Empty";
 
-function international(phone: string | null): string | null {
-  if (!phone) return null;
+function international(phone: string): string {
   try {
     return parsePhoneNumberFromString(phone)?.formatInternational() ?? phone;
   } catch {
@@ -31,10 +29,9 @@ export default function Contacts({
   const filtered = (contacts.data ?? []).filter(
     (contact) =>
       contact.name.toLowerCase().includes(search) ||
-      contact.address?.toLowerCase().includes(search) ||
       (digits.length > 0 &&
         [contact.phone, contact.phoneMasked].some((value) =>
-          value?.replace(/\D/g, "").includes(digits),
+          value.replace(/\D/g, "").includes(digits),
         )),
   );
 
@@ -45,7 +42,7 @@ export default function Contacts({
           <Search size={17} />
           <input
             aria-label="Search contacts"
-            placeholder="Search name, phone, or wallet"
+            placeholder="Search name or phone"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
@@ -69,7 +66,6 @@ export default function Contacts({
       ) : filtered.length ? (
         <div className="contact-grid">
           {filtered.map((contact) => {
-            const displayAddress = contact.address;
             return (
               <section className="card contact-card" key={contact.id}>
                 <div className="panel-heading">
@@ -94,29 +90,18 @@ export default function Contacts({
                   </div>
                 </div>
                 <h2>{contact.name}</h2>
-                {contact.phone && <p>{international(contact.phone)}</p>}
+                <p>{international(contact.phone)}</p>
                 <span className={`pill${contact.onPingApp ? " accent" : ""}`}>
                   {contact.onPingApp
                     ? `On PingApp · ${contact.onPingApp.displayName || "PingApp user"}`
                     : "Not on PingApp"}
                 </span>
-                {displayAddress && (
-                  <div className="address-copy">
-                    <AddressText value={displayAddress} />
-                  </div>
-                )}
-                {contact.phone ? (
-                  <a
-                    href={`/dashboard/send?contact=${encodeURIComponent(contact.id)}`}
-                    className="button outline"
-                  >
-                    Send <ArrowUpRight size={16} />
-                  </a>
-                ) : (
-                  <button className="button outline" type="button" onClick={() => onEdit(contact)}>
-                    Add phone number <Pencil size={16} />
-                  </button>
-                )}
+                <a
+                  href={`/dashboard/send?contact=${encodeURIComponent(contact.id)}`}
+                  className="button outline"
+                >
+                  Send <ArrowUpRight size={16} />
+                </a>
               </section>
             );
           })}
@@ -127,8 +112,8 @@ export default function Contacts({
           title={query ? "No matching contacts." : "No saved contacts"}
           text={
             query
-              ? "Try a different name, phone number, or address."
-              : "Add a contact with a phone number, a wallet address, or both."
+              ? "Try a different name or phone number."
+              : "Add a contact with their phone number."
           }
           action={
             <button className="button accent" onClick={onAdd}>

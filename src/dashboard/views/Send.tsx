@@ -107,12 +107,8 @@ function SendSession({ me }: { me: Me | null }) {
     setReviewOpen(false);
     const contact = contacts.data?.find((item) => item.id === contactId);
     if (contact) {
-      if (contact.phone) {
-        setSelectedContact(contact);
-        setInput(contact.phone);
-      } else {
-        setPrefillError("This contact needs a phone number before you can send crypto.");
-      }
+      setSelectedContact(contact);
+      setInput(contact.phone);
     } else if (params.get("to")) {
       const to = params.get("to")!.trim();
       if (/^0x/i.test(to)) {
@@ -286,7 +282,6 @@ function SendSession({ me }: { me: Me | null }) {
   }
 
   function selectContact(contact: Contact) {
-    if (!contact.phone) return;
     changeInput(contact.phone);
     setSelectedContact(contact);
   }

@@ -94,9 +94,8 @@ export type IncomingIntent = {
 export type Contact = {
   id: string;
   name: string;
-  phone: string | null;
-  phoneMasked: string | null;
-  address: Address | null;
+  phone: string;
+  phoneMasked: string;
   onPingApp: null | { displayName: string };
   createdAt: string;
 };
@@ -190,10 +189,8 @@ export type ApiRequestOptions = { signal?: AbortSignal };
 export type TransferDirection = "all" | "sent" | "received";
 export type IntentStatusFilter = "open" | "all";
 
-export type ContactCreateInput =
-  | { name: string; phone: string; address?: string | null }
-  | { name: string; phone?: string | null; address: string };
-export type ContactUpdateInput = { name?: string; phone?: string | null; address?: string | null };
+export type ContactCreateInput = { name: string; phone: string };
+export type ContactUpdateInput = { name?: string; phone?: string };
 
 export type TransferCreateInput = {
   txHash: `0x${string}`;

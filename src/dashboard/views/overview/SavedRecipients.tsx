@@ -1,7 +1,6 @@
 import { ArrowUpRight, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useContacts } from "../../../api/hooks";
-import type { Contact } from "../../../api/types";
 
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : "Saved recipients are unavailable.";
@@ -16,13 +15,9 @@ function PingAppIndicator() {
   );
 }
 
-function contactSubtitle(contact: Contact): string {
-  return contact.phoneMasked ?? contact.phone ?? "Saved recipient";
-}
-
 export default function SavedRecipients() {
   const contacts = useContacts();
-  const recipients = contacts.data?.filter((contact) => contact.phone).slice(0, 3) ?? [];
+  const recipients = contacts.data?.slice(0, 3) ?? [];
 
   return (
     <section className="card contacts-preview">
@@ -61,7 +56,7 @@ export default function SavedRecipients() {
               <span className="contact-initial">{[...contact.name][0] ?? "?"}</span>
               <span>
                 <strong>{contact.name}</strong>
-                <small>{contactSubtitle(contact)}</small>
+                <small>{contact.phoneMasked}</small>
                 {contact.onPingApp && <PingAppIndicator />}
               </span>
               <ArrowUpRight size={17} />

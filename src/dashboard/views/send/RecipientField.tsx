@@ -32,11 +32,9 @@ export default function RecipientField({
   const digits = search.replace(/\D/g, "");
   const matches = contacts.filter(
     (contact) =>
-      contact.phone &&
-      (contact.name.toLowerCase().includes(search.toLowerCase()) ||
-        (digits && contact.phone.replace(/\D/g, "").includes(digits))),
+      contact.name.toLowerCase().includes(search.toLowerCase()) ||
+      (digits && contact.phone.replace(/\D/g, "").includes(digits)),
   );
-  const phoneContacts = contacts.some((contact) => !!contact.phone);
 
   return (
     <div className="send-recipient-field">
@@ -48,7 +46,7 @@ export default function RecipientField({
           onChange={(next) => onChange(next ?? "")}
           disabled={locked}
         />
-        {!locked && phoneContacts && (
+        {!locked && contacts.length > 0 && (
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
               <button type="button" className="button outline" aria-label="Choose a saved contact">
@@ -83,7 +81,7 @@ export default function RecipientField({
                           }}
                         >
                           <span>{contact.name}</span>
-                          <small>{contact.phoneMasked ?? contact.phone}</small>
+                          <small>{contact.phoneMasked}</small>
                         </CommandItem>
                       ))}
                     </CommandGroup>
