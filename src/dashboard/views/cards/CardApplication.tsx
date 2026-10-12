@@ -89,6 +89,26 @@ export function CardApplication({
       amountUsd: `${whole.replace(/^0+(?=\d)/, "")}.${fraction.padEnd(2, "0")}`,
     });
   }
+  const networkPicker = (
+    <fieldset className="pc-picker" disabled={busy}>
+      <legend>Pay with USDT on</legend>
+      <div className="pc-chips">
+        {config.networks.map((item) => (
+          <label key={item.id} className="pc-chip-option">
+            <input
+              type="radio"
+              name="card-network"
+              value={item.id}
+              required
+              checked={network === item.id}
+              onChange={() => setNetwork(item.id)}
+            />
+            <span>{item.label}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
   return (
     <Dialog
       open
@@ -96,11 +116,13 @@ export function CardApplication({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="ping-dialog card-dialog">
+      <DialogContent
+        className={`ping-dialog card-dialog${kind === "issue" ? " card-dialog-wide" : ""}`}
+      >
         <DialogTitle>{kind === "issue" ? "Create your card" : "Top up your card"}</DialogTitle>
         <DialogDescription>
           {kind === "issue"
-            ? "Add a contact email for this card application. You can cancel and keep using PingApp."
+            ? "Choose a card type and the contact email the card provider should use."
             : config.sandbox
               ? "Request a test top-up. The provider may simulate credit immediately without an invoice. No real payment is needed."
               : "Request a provider invoice in USDT. Funds are added to your card only after the provider confirms credit."}
@@ -112,111 +134,118 @@ export function CardApplication({
         )}
         <form className="card-application" onSubmit={submit}>
           {kind === "issue" ? (
-            <>
-              <fieldset className="pc-picker" disabled={busy}>
-                <legend>Card type</legend>
-                <div className="pc-picker-grid">
-                  {config.products.map((item) => {
-                    const owned = ownedProducts.includes(item.id);
-                    return (
-                      <label key={item.id} className="pc-option" data-owned={owned || undefined}>
-                        <input
-                          type="radio"
-                          name="card-product"
-                          value={item.id}
-                          checked={productId === item.id}
-                          disabled={owned}
-                          onChange={() => setProductId(item.id)}
-                        />
-                        <CardFace
-                          product={item.id}
-                          name={item.name}
-                          network={item.network}
-                          size="mini"
-                        />
-                        <span className="pc-option-text">
-                          <strong>{item.name}</strong>
-                          <small>
-                            {owned
-                              ? "Already requested"
-                              : item.issuePriceUsd != null
-                                ? `${usd(item.issuePriceUsd)} to issue`
-                                : "Price on invoice"}
-                          </small>
-                        </span>
-                      </label>
-                    );
-                  })}
+            <div className="cd-layout">
+              <aside className="cd-preview" aria-label="Selected card">
+                <CardFace
+                  product={productId}
+                  name={cardholderName.trim() || "Your name"}
+                  network={product?.network ?? "visa"}
+                />
+                <div className="cd-preview-meta">
+                  <strong>{product?.name ?? "Card"}</strong>
+                  <span>
+                    {product?.issuePriceUsd != null
+                      ? `${usd(product.issuePriceUsd)} to issue`
+                      : "Price shown on the invoice"}
+                  </span>
                 </div>
-              </fieldset>
-              {product?.description && <p className="field-help">{product.description}</p>}
-              {productId === "mastercard" && (
-                <p className="card-sandbox" role="note">
-                  Apple Pay setup is not available in PingApp yet. Selecting this card does not add
-                  it to Apple Wallet.
+                {product?.description && <p className="cd-preview-text">{product.description}</p>}
+                {productId === "mastercard" && (
+                  <p className="cd-preview-note" role="note">
+                    {config.capabilities.applePay
+                      ? "Works with Apple Pay. Once the card is issued, choose Add to Apple Pay on it to get the activation code."
+                      : "Works with Apple Pay on live cards. Apple Pay activation is not available in sandbox."}
+                  </p>
+                )}
+                <p className="cd-preview-text">
+                  You can add funds once the card is issued. The card provider does not fund a card
+                  while creating it.
                 </p>
-              )}
-              <p className="field-help">
-                This creates a new card. Existing cards keep their card type.
-              </p>
-              <label className="card-field">
-                Cardholder name (optional)
-                <input
-                  type="text"
-                  autoComplete="cc-name"
-                  maxLength={100}
-                  value={cardholderName}
-                  disabled={busy || loadingProfile}
-                  onChange={(event) => setCardholderName(event.target.value)}
-                />
-              </label>
-              <label className="card-field">
-                Contact email
-                <input
-                  type="email"
-                  autoComplete="email"
-                  required
-                  maxLength={254}
-                  value={email}
-                  disabled={busy || loadingProfile}
-                  onChange={(event) => {
-                    setEmail(event.target.value);
-                    setConfirmed(false);
-                  }}
-                  placeholder={loadingProfile ? "Loading saved email…" : "you@example.com"}
-                />
-              </label>
-              {profileError && (
-                <p className="field-help">
-                  Saved email could not be loaded. Enter the email you want to use for this
-                  application.
-                </p>
-              )}
-              <label className="card-confirm">
-                <input
-                  type="checkbox"
-                  checked={confirmed}
-                  disabled={busy}
-                  onChange={(event) => setConfirmed(event.target.checked)}
-                />
-                <span>
-                  I confirm this is the contact email to share with the card provider for this
-                  application.
-                </span>
-              </label>
-              <div className="card-info-row">
-                <span>{product?.name ?? "Card"} issue price</span>
-                <strong>
-                  {product?.issuePriceUsd != null
-                    ? usd(product.issuePriceUsd)
-                    : "Available on invoice"}
-                </strong>
+              </aside>
+              <div className="cd-fields">
+                <fieldset className="pc-picker" disabled={busy}>
+                  <legend>Card type</legend>
+                  <div className="pc-picker-grid">
+                    {config.products.map((item) => {
+                      const owned = ownedProducts.includes(item.id);
+                      return (
+                        <label key={item.id} className="pc-option" data-owned={owned || undefined}>
+                          <input
+                            type="radio"
+                            name="card-product"
+                            value={item.id}
+                            checked={productId === item.id}
+                            disabled={owned}
+                            onChange={() => setProductId(item.id)}
+                          />
+                          <CardFace
+                            product={item.id}
+                            name={item.name}
+                            network={item.network}
+                            size="mini"
+                          />
+                          <span className="pc-option-text">
+                            <strong>{item.name}</strong>
+                            <small>
+                              {owned
+                                ? "Already requested"
+                                : item.issuePriceUsd != null
+                                  ? `${usd(item.issuePriceUsd)} to issue`
+                                  : "Price on invoice"}
+                            </small>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+                <div className="cd-field-row">
+                  <label className="card-field">
+                    Cardholder name (optional)
+                    <input
+                      type="text"
+                      autoComplete="cc-name"
+                      maxLength={100}
+                      value={cardholderName}
+                      disabled={busy || loadingProfile}
+                      onChange={(event) => setCardholderName(event.target.value)}
+                    />
+                  </label>
+                  <label className="card-field">
+                    Contact email
+                    <input
+                      type="email"
+                      autoComplete="email"
+                      required
+                      maxLength={254}
+                      value={email}
+                      disabled={busy || loadingProfile}
+                      onChange={(event) => {
+                        setEmail(event.target.value);
+                        setConfirmed(false);
+                      }}
+                      placeholder={loadingProfile ? "Loading saved email…" : "you@example.com"}
+                    />
+                  </label>
+                </div>
+                {profileError && (
+                  <p className="field-help">
+                    Saved email could not be loaded. Enter the email you want to use for this
+                    application.
+                  </p>
+                )}
+                <label className="card-confirm">
+                  <input
+                    type="checkbox"
+                    checked={confirmed}
+                    disabled={busy}
+                    onChange={(event) => setConfirmed(event.target.checked)}
+                  />
+                  <span>Share this email with the card provider for this application.</span>
+                </label>
+                {networkPicker}
               </div>
-              <p className="field-help">
-                Creating an invoice does not issue the card. Funding the issued card is a separate
-                top-up.
-              </p>
-            </>
+            </div>
           ) : (
             <>
               <label className="card-field">
@@ -237,26 +266,9 @@ export function CardApplication({
                 The invoice will show the exact USDT quantity to pay and the amount added to your
                 card, when the provider supplies it.
               </p>
+              {networkPicker}
             </>
           )}
-          <fieldset className="pc-picker" disabled={busy}>
-            <legend>Pay with USDT on</legend>
-            <div className="pc-chips">
-              {config.networks.map((item) => (
-                <label key={item.id} className="pc-chip-option">
-                  <input
-                    type="radio"
-                    name="card-network"
-                    value={item.id}
-                    required
-                    checked={network === item.id}
-                    onChange={() => setNetwork(item.id)}
-                  />
-                  <span>{item.label}</span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
           {!config.networks.length && (
             <p className="card-error">No payment networks are currently available.</p>
           )}
@@ -265,7 +277,15 @@ export function CardApplication({
               {error}
             </p>
           )}
-          <div className="card-form-actions">
+          <div className="card-form-actions cd-footer">
+            {kind === "issue" && (
+              <p className="cd-total">
+                <span>Issue price</span>
+                <strong>
+                  {product?.issuePriceUsd != null ? usd(product.issuePriceUsd) : "On invoice"}
+                </strong>
+              </p>
+            )}
             <button type="button" className="button outline" onClick={onClose}>
               Cancel
             </button>

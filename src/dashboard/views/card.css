@@ -923,3 +923,245 @@
   cursor: not-allowed;
   opacity: 0.6;
 }
+
+/* Create card: wide two-column dialog with a live preview; one column on phones. */
+.card-dialog.ping-dialog.card-dialog-wide {
+  width: min(960px, calc(100vw - 48px));
+  max-width: none;
+  padding: 32px !important;
+}
+
+.cd-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+}
+
+.cd-preview {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  padding: 20px;
+  border-radius: 20px;
+  background: var(--ping-surface);
+  box-shadow: inset 0 0 0 1px #ffffff0d;
+}
+
+.cd-preview .pc-face {
+  transition: background 0.25s var(--ping-ease);
+}
+
+.cd-preview-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 4px;
+}
+
+.cd-preview-meta strong {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ping-text);
+}
+
+.cd-preview-meta span {
+  font-size: 13px;
+  color: var(--ping-text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.card-dialog.ping-dialog .cd-preview-text,
+.card-dialog.ping-dialog .cd-preview-note {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ping-text-2);
+}
+
+.card-dialog.ping-dialog .cd-preview-note {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--ping-accent-soft);
+  color: var(--ping-text);
+}
+
+.cd-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+/* Horizontal tiles: a small swatch beside the name and price. */
+.card-dialog-wide .pc-picker-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.card-dialog.ping-dialog.card-dialog-wide .pc-option {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+}
+
+.card-dialog-wide .pc-option .pc-face-mini {
+  flex: 0 0 64px;
+  width: 64px;
+  padding: 6px 7px;
+  border-radius: 8px;
+}
+
+.card-dialog-wide .pc-option .pc-face-mini > * {
+  display: none;
+}
+
+.cd-field-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.card-dialog.ping-dialog .cd-footer {
+  align-items: center;
+  margin-top: 4px;
+  padding-top: 20px;
+  border-top: 1px solid #ffffff12;
+}
+
+.card-dialog.ping-dialog .cd-footer > .button {
+  flex: 0 0 auto;
+  min-width: 132px;
+}
+
+.card-dialog.ping-dialog .cd-total {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 auto 0 0;
+  font-size: 13px;
+  color: var(--ping-text-2);
+}
+
+.card-dialog.ping-dialog .cd-total strong {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ping-text);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 879px) {
+  .card-dialog.ping-dialog.card-dialog-wide {
+    width: calc(100vw - 16px);
+    max-height: calc(100svh - 16px);
+    padding: 22px 18px 0 !important;
+  }
+
+  .cd-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+
+  .cd-preview {
+    position: static;
+    padding: 16px;
+  }
+
+  .cd-preview {
+    display: grid;
+    grid-template-columns: 112px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px 14px;
+  }
+
+  .cd-preview .pc-face {
+    grid-row: span 2;
+    padding: 9px 10px;
+    border-radius: 10px;
+  }
+
+  .cd-preview .pc-face :is(.pc-face-brand, .pc-face-network) {
+    font-size: 10px;
+  }
+
+  .cd-preview .pc-face .pc-face-mark {
+    width: 9px;
+    height: 9px;
+  }
+
+  .cd-preview .pc-face .pc-face-number {
+    gap: 6px;
+    font-size: 10px;
+  }
+
+  .cd-preview .pc-face .pc-face-name {
+    font-size: 9px;
+  }
+
+  .cd-preview-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    margin: 0;
+  }
+
+  .cd-preview > :is(.cd-preview-text, .cd-preview-note) {
+    grid-column: 1 / -1;
+  }
+
+  .cd-field-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Keep the price and the action in reach while the form scrolls. */
+  .card-dialog.ping-dialog.card-dialog-wide .cd-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    margin: 0 -18px;
+    padding: 14px 18px calc(14px + env(safe-area-inset-bottom));
+    background: #211b29;
+  }
+
+  .card-dialog.ping-dialog.card-dialog-wide .cd-footer {
+    flex-wrap: nowrap;
+  }
+
+  /* The header close button covers Cancel on phones. */
+  .card-dialog.ping-dialog.card-dialog-wide .cd-footer > .button.outline {
+    display: none;
+  }
+
+  .card-dialog.ping-dialog.card-dialog-wide .cd-footer > .button.accent {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .card-dialog.ping-dialog.card-dialog-wide .cd-total {
+    flex-direction: column;
+    gap: 0;
+    font-size: 11px;
+  }
+
+  .card-dialog.ping-dialog.card-dialog-wide .cd-total strong {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 420px) {
+  .card-dialog-wide .pc-picker-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cd-preview .pc-face {
+    transition: none;
+  }
+}
