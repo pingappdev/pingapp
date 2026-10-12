@@ -1,5 +1,5 @@
 import { inArray } from 'drizzle-orm';
-import { zeroAddress, type Address, type Hex } from 'viem';
+import { BaseError, zeroAddress, type Address, type Hex } from 'viem';
 import { config } from '../../config.js';
 import { db } from '../../db/client.js';
 import { kvGet, kvSet } from '../../db/kv.js';
@@ -60,6 +60,6 @@ export async function checkSolvency(): Promise<void> {
     await kvSet(insolventTokensKey, short);
   } catch (error) {
     // Keep the previous verdict rather than unpausing on a failed read.
-    logger.warn({ err: error }, 'router solvency check failed');
+    logger.warn({ error: error instanceof BaseError ? error.shortMessage : String(error) }, 'router solvency check failed');
   }
 }
