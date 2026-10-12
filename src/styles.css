@@ -1105,3 +1105,11 @@ main h1:focus{outline:none}
 .premium-workspace .wallet-gate p{margin:0;font-size:14px;line-height:1.6;color:var(--ping-text-2);max-width:42ch}
 .premium-workspace .wallet-gate p[role=alert]{color:#ff8e7d}
 .premium-workspace .wallet-gate .settings-buttons{gap:12px;margin-top:10px;flex-wrap:wrap}
+
+/* Pills: center icons/dots and keep a gap between them and the label */
+.pill{align-items:center;gap:6px;line-height:1.2;white-space:nowrap}
+.pill>svg{flex-shrink:0}
+.pill-dot{width:6px;height:6px;border-radius:50%;background:#73c991;flex-shrink:0}
+.contact-mini .pill{margin-top:8px;padding:5px 10px}
+.contact-card>.pill{max-width:100%;white-space:normal}
+.contact-card>.pill+.button{margin-top:18px}

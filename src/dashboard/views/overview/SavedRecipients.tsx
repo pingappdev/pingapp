@@ -10,9 +10,7 @@ function errorText(error: unknown): string {
 function PingAppIndicator() {
   return (
     <span className="pill" title="On PingApp">
-      <span aria-hidden="true" style={{ color: "#73c991", fontSize: 9 }}>
-        ●
-      </span>{" "}
+      <span className="pill-dot" aria-hidden="true" />
       On PingApp
     </span>
   );
