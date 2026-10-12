@@ -1165,3 +1165,133 @@
     transition: none;
   }
 }
+
+/* Apple Pay activation */
+.card-dialog.ping-dialog.ap-dialog {
+  width: min(520px, calc(100vw - 16px));
+}
+
+.ap-steps {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: ap-step;
+}
+
+.ap-steps > li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 14px;
+  padding-bottom: 22px;
+  counter-increment: ap-step;
+}
+
+.ap-steps > li::before {
+  content: counter(ap-step);
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--ping-surface-2);
+  box-shadow: inset 0 0 0 1px #ffffff1a;
+  color: var(--ping-text-2);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Connector between step markers */
+.ap-steps > li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 34px;
+  bottom: 6px;
+  left: 13.5px;
+  width: 1px;
+  background: #ffffff14;
+}
+
+.ap-steps > li[data-state="current"]::before {
+  background: var(--ping-accent);
+  box-shadow: none;
+  color: #1b1530;
+}
+
+.ap-steps > li[data-state="done"]::before {
+  content: "✓";
+  background: var(--ping-accent-soft);
+  box-shadow: none;
+  color: var(--ping-accent);
+}
+
+.ap-steps > li > div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  padding-top: 4px;
+}
+
+.ap-steps strong {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ping-text);
+}
+
+.card-dialog.ping-dialog .ap-steps p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ping-text-2);
+}
+
+.ap-steps .button {
+  margin-top: 6px;
+}
+
+.ap-steps > li[data-state="todo"] strong {
+  color: var(--ping-text-2);
+}
+
+.ap-code {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 24px 16px;
+  border-radius: 18px;
+  background: var(--ping-surface);
+  box-shadow: inset 0 0 0 1px #ffffff12;
+  text-align: center;
+}
+
+.card-dialog.ping-dialog .ap-code > p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ping-text-2);
+}
+
+.ap-code-value {
+  font-size: clamp(36px, 11vw, 52px);
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  margin-right: -0.18em;
+  color: var(--ping-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.ap-code-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 16px;
+  font-size: 12px;
+  color: var(--ping-text-2);
+  font-variant-numeric: tabular-nums;
+}

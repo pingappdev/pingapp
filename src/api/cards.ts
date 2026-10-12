@@ -73,8 +73,12 @@ export type CardsConfig = {
     issuePriceUsd: string | null;
   }>;
   networks: Array<{ id: CardNetwork; label: string; payCurrency: string }>;
-  capabilities: { freeze: false; spendingLimits: false };
+  capabilities: { freeze: false; spendingLimits: false; applePay?: boolean };
 };
+export type ApplePayState =
+  | { status: "idle" }
+  | { status: "waiting"; expiresAt: string }
+  | { status: "delivered"; code: string; expiresAt: string };
 export type CardDetails = {
   number: string;
   expiry: string;
@@ -132,6 +136,19 @@ export const cardsApi = {
       options,
     );
   },
+  // Activation codes, like PAN/CVV, stay out of the query cache.
+  armApplePay: (id: string, options?: ApiRequestOptions) =>
+    api<{ applePay: ApplePayState }>(`${cardPath(id)}/apple-pay`, {
+      method: "POST",
+      body: {},
+      cache: "no-store",
+      ...options,
+    }),
+  applePay: (id: string, options?: ApiRequestOptions) =>
+    api<{ applePay: ApplePayState }>(`${cardPath(id)}/apple-pay`, {
+      cache: "no-store",
+      ...options,
+    }),
   // Deliberately not a query/mutation hook: PAN/CVV must never enter the query cache.
   reveal: (id: string, options?: ApiRequestOptions) =>
     api<CardDetails>(`${cardPath(id)}/reveal`, { method: "POST", cache: "no-store", ...options }),

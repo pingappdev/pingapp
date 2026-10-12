@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUpRight, Eye, Plus } from "lucide-react";
+import { ArrowDown, ArrowUpRight, Eye, Plus, Smartphone } from "lucide-react";
 import { useCards, useCardsConfig, useCardTransactions, type CardSummary } from "@/api/cards";
 import { useAuth } from "@/auth/useAuth";
+import { ApplePayDialog } from "./cards/ApplePayDialog";
 import { CardApplication } from "./cards/CardApplication";
 import { CardDetailsDialog } from "./cards/CardDetailsDialog";
 import { CardFace } from "./cards/CardFace";
@@ -31,7 +32,9 @@ function CardDashboard({
   const configQuery = useCardsConfig(userId, !request.accountChanged);
   const cardsQuery = useCards(userId, !request.accountChanged);
   const config = configQuery.data;
-  const [modal, setModal] = useState<"issue" | "topup" | "details" | null>(null);
+  const [modal, setModal] = useState<"issue" | "topup" | "details" | "applePay" | null>(null);
+  // Card details opened from the Apple Pay steps return to those steps when closed.
+  const [detailsFromApplePay, setDetailsFromApplePay] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const live = useCardLiveState(
     userId,
@@ -287,6 +290,16 @@ function CardDashboard({
                 >
                   <Eye size={17} /> Card details
                 </button>
+                {card.product === "mastercard" && (
+                  <button
+                    type="button"
+                    className="button outline"
+                    disabled={!issued}
+                    onClick={() => setModal("applePay")}
+                  >
+                    <Smartphone size={17} /> Add to Apple Pay
+                  </button>
+                )}
               </div>
               {!issued && (
                 <p className="field-help">
@@ -388,6 +401,23 @@ function CardDashboard({
           cardId={card.id}
           last4={card.last4}
           withReauth={withReauth}
+          onClose={() => {
+            setModal(detailsFromApplePay ? "applePay" : null);
+            setDetailsFromApplePay(false);
+          }}
+        />
+      )}
+      {modal === "applePay" && card && issued && card.product === "mastercard" && (
+        <ApplePayDialog
+          key={card.id}
+          cardId={card.id}
+          last4={card.last4}
+          available={Boolean(config?.capabilities.applePay)}
+          withReauth={withReauth}
+          onShowDetails={() => {
+            setDetailsFromApplePay(true);
+            setModal("details");
+          }}
           onClose={() => setModal(null)}
         />
       )}
