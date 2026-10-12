@@ -16,6 +16,7 @@ import { publicClient } from '../../lib/viem.js';
 import { lockPhoneMutation } from '../phone/lock.js';
 import { applyRouterLog, sendEscrowInvite } from './events.js';
 import { markEscrowsClaimable, matchesEscrowRecipient } from './ready.js';
+import { checkSolvency } from './solvency.js';
 import { claimJobKey, claimRegisteredEscrow, enqueueClaim, selfClaimKey, type ClaimJob } from './service.js';
 
 const MINUTE = 60_000;
@@ -204,6 +205,8 @@ export default async function registerJobs(ctx: WorkerCtx): Promise<void> {
     await db.update(escrows).set({ status: 'void' }).where(and(eq(escrows.status, 'authorized'),
       lt(escrows.authDeadline, new Date(Date.now() - 35 * MINUTE))));
   });
+  ctx.process('escrows', 'solvency', checkSolvency);
   await ctx.schedule('escrows', 'index', MINUTE);
+  await ctx.schedule('escrows', 'solvency', 5 * MINUTE);
   await ctx.schedule('escrows', 'sweep', 10 * MINUTE);
 }

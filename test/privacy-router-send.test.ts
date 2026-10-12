@@ -4,6 +4,7 @@ const state = vi.hoisted(() => ({
   selectResults: [] as unknown[][],
   inserted: null as Record<string, unknown> | null,
   transactionCount: 0,
+  insolvent: false,
 }));
 
 vi.mock('../src/config.js', () => ({ config: {
@@ -71,6 +72,7 @@ vi.mock('../src/lib/router.js', () => ({
   signEscrowAuth: vi.fn(async () => `0x${'34'.repeat(65)}`),
   signClaimAuth: vi.fn(async () => `0x${'56'.repeat(65)}`),
 }));
+vi.mock('../src/modules/escrows/solvency.js', () => ({ isTokenInsolvent: vi.fn(async () => state.insolvent) }));
 vi.mock('../src/modules/intents/service.js', () => ({ cleanNote: () => null }));
 vi.mock('../src/modules/phone/lock.js', () => ({ lockPhoneMutation: vi.fn(async () => undefined) }));
 vi.mock('../src/modules/tokens/minimum.js', () => ({ assertMinAmount: vi.fn(async () => undefined) }));
@@ -110,7 +112,16 @@ describe('private recipient escrow authorization', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     state.transactionCount = 0;
+    state.insolvent = false;
     setDatabase();
+  });
+
+  it('refuses to authorize a token whose router balance is below its open escrows', async () => {
+    state.insolvent = true;
+    await expect(authorizeSend(user, { phone, tokenAddress, amount: '1', expectedSenderAddress: sender.address,
+      expectedRecipientRef: null }, 'ip-hash')).rejects.toThrow('paused');
+    expect(signEscrowAuth).not.toHaveBeenCalled();
+    expect(state.transactionCount).toBe(0);
   });
 
   it('creates an escrow authorization without disclosing the recipient wallet or phone-link date', async () => {

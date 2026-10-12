@@ -16,6 +16,7 @@ import {
   type EscrowAuth,
 } from '../../lib/router.js';
 import type { AuthUser } from '../../plugins/auth.js';
+import { isTokenInsolvent } from '../escrows/solvency.js';
 import { cleanNote } from '../intents/service.js';
 import { lockPhoneMutation } from '../phone/lock.js';
 import { recipientRef } from '../resolve/recipientRef.js';
@@ -49,6 +50,9 @@ export async function authorizeSend(user: AuthUser, input: AuthorizeSendInput, i
   const targetHmac = phoneHmac(phone.e164);
   const token = await getToken(input.tokenAddress);
   if (!token) throw errors.unknownToken();
+  if (await isTokenInsolvent(token.address)) {
+    throw errors.conflict('Sending this token is paused while PingApp checks its escrow balance. Try another token.');
+  }
   const amount = parseAmount(input.amount, token.decimals);
   if (amount > maxUint256) throw errors.invalidAmount();
   await assertMinAmount(token, amount, { tolerancePct: 0 });
