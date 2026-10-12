@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
-import { createPublicClient, createTestClient, createWalletClient, http, type Hex } from 'viem';
+import { createPublicClient, createTestClient, createWalletClient, encodeFunctionData, http, parseAbi, type Hex } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 const fixture = await vi.hoisted(async () => {
@@ -67,6 +67,29 @@ describe.skipIf(!process.env.ANVIL_RPC_URL)('backend signatures against local An
     expect(refunded.status).toBe('success');
     expect(await client.getBalance({ address: sender.address })).toBe(senderBefore + amount + tip);
     expect(await client.getBalance({ address })).toBe(2n * fee);
+
+    // A sender wallet that rejects ETH: the refund is credited, then withdrawn elsewhere.
+    const rejectorAbi = parseAbi(['function execute(address target, bytes payload) payable returns (bytes)']);
+    const rejectorArtifact = JSON.parse(fs.readFileSync('contracts/out/RevertingRecipient.sol/RevertingRecipient.json', 'utf8')) as { bytecode: { object: Hex } };
+    const rejector = (await client.waitForTransactionReceipt({ hash: await wallet.deployContract({
+      abi: rejectorAbi, bytecode: rejectorArtifact.bytecode.object }) })).contractAddress!;
+    const later = (await client.getBlock()).timestamp;
+    const credited = { id: newRouterId(), sender: rejector, token: NATIVE_TOKEN, amount, claimTip: tip, expiresAt: later + 1209600n, deadline: later + 600n };
+    await client.waitForTransactionReceipt({ hash: await wallet.writeContract({ address: rejector, abi: rejectorAbi, functionName: 'execute',
+      args: [address, encodeFunctionData({ abi: pingRouterAbi, functionName: 'escrow', args: [credited, await signEscrowAuth(credited, domain)] })],
+      value: amount + tip + fee }) });
+    await anvil.setNextBlockTimestamp({ timestamp: credited.expiresAt });
+    await anvil.mine({ blocks: 1 });
+    expect((await client.waitForTransactionReceipt({ hash: await relay.writeContract({ address, abi: pingRouterAbi,
+      functionName: 'refund', args: [credited.id] }) })).status).toBe('success');
+    expect(await client.readContract({ address, abi: pingRouterAbi, functionName: 'owedEth', args: [rejector] })).toBe(amount + tip);
+    expect(await client.readContract({ address, abi: pingRouterAbi, functionName: 'totalOwed' })).toBe(amount + tip);
+    const recipientBefore = await client.getBalance({ address: recipient.address });
+    await client.waitForTransactionReceipt({ hash: await wallet.writeContract({ address: rejector, abi: rejectorAbi, functionName: 'execute',
+      args: [address, encodeFunctionData({ abi: pingRouterAbi, functionName: 'withdrawOwed', args: [recipient.address] })] }) });
+    expect(await client.getBalance({ address: recipient.address })).toBe(recipientBefore + amount + tip);
+    expect(await client.readContract({ address, abi: pingRouterAbi, functionName: 'totalOwed' })).toBe(0n);
+    expect(await client.getBalance({ address })).toBe(3n * fee);
     } finally {
       await anvil.revert({ id: snapshot });
     }
