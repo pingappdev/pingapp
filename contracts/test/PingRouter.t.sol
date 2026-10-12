@@ -549,16 +549,82 @@ contract PingRouterTest is RouterTestBase {
         router.refund(e.id);
     }
 
-    function testRefundRejectingSenderRollsBack() public {
+    function testRefundRejectingNativeSenderCreditsOwedEth() public {
         RevertingRecipient rejector = new RevertingRecipient();
         PingRouter.EscrowAuth memory e = _escrowAuth(NATIVE);
         e.sender = address(rejector);
         bytes memory sig = _signEscrow(e);
         rejector.execute{value: e.amount + TIP + FEE}(address(router), abi.encodeCall(router.escrow, (e, sig)));
         vm.warp(e.expiresAt);
-        vm.expectRevert(PingRouter.EthTransferFailed.selector);
+        vm.expectEmit(address(router));
+        emit PingRouter.EthCredited(address(rejector), e.amount + TIP);
+        vm.expectEmit(address(router));
+        emit PingRouter.Refunded(ID, address(rejector), NATIVE, e.amount, TIP);
+        vm.prank(attacker);
         router.refund(ID);
-        _assertOpen(e, e.amount);
+        _assertClosed(ID);
+        assertEq(router.owedEth(address(rejector)), e.amount + TIP);
+        assertEq(router.totalOwed(), e.amount + TIP);
+        assertEq(address(router).balance, e.amount + TIP + FEE);
+        assertEq(attacker.balance, 0);
+    }
+
+    function testRefundRejectingTokenSenderStillReturnsTokens() public {
+        RevertingRecipient rejector = new RevertingRecipient();
+        token.mint(address(rejector), 1e6);
+        rejector.execute(address(token), abi.encodeCall(token.approve, (address(router), 1e6)));
+        PingRouter.EscrowAuth memory e = _escrowAuth(address(token));
+        e.sender = address(rejector);
+        bytes memory sig = _signEscrow(e);
+        rejector.execute{value: TIP + FEE}(address(router), abi.encodeCall(router.escrow, (e, sig)));
+        vm.warp(e.expiresAt);
+        router.refund(ID);
+        assertEq(token.balanceOf(address(rejector)), 1e6);
+        assertEq(token.balanceOf(address(router)), 0);
+        assertEq(router.owedEth(address(rejector)), TIP);
+        assertEq(router.totalOwed(), TIP);
+    }
+
+    function testWithdrawOwedOnlyByCreditedSenderToChosenAddress() public {
+        RevertingRecipient rejector = new RevertingRecipient();
+        PingRouter.EscrowAuth memory e = _escrowAuth(NATIVE);
+        e.sender = address(rejector);
+        bytes memory sig = _signEscrow(e);
+        rejector.execute{value: e.amount + TIP + FEE}(address(router), abi.encodeCall(router.escrow, (e, sig)));
+        vm.warp(e.expiresAt);
+        router.refund(ID);
+        uint256 owed = e.amount + TIP;
+
+        // Nobody else can take the credit, and a bad destination keeps it intact.
+        vm.expectRevert(PingRouter.NothingOwed.selector);
+        vm.prank(attacker);
+        router.withdrawOwed(attacker);
+        vm.expectRevert(PingRouter.BadRecipient.selector);
+        rejector.execute(address(router), abi.encodeCall(router.withdrawOwed, (address(0))));
+        vm.expectRevert(PingRouter.BadRecipient.selector);
+        rejector.execute(address(router), abi.encodeCall(router.withdrawOwed, (address(router))));
+        vm.expectRevert(PingRouter.EthTransferFailed.selector);
+        rejector.execute(address(router), abi.encodeCall(router.withdrawOwed, (address(rejector))));
+        assertEq(router.owedEth(address(rejector)), owed);
+
+        vm.expectEmit(address(router));
+        emit PingRouter.OwedWithdrawn(address(rejector), recipient, owed);
+        rejector.execute(address(router), abi.encodeCall(router.withdrawOwed, (recipient)));
+        assertEq(recipient.balance, owed);
+        assertEq(router.owedEth(address(rejector)), 0);
+        assertEq(router.totalOwed(), 0);
+        assertEq(address(router).balance, FEE);
+        vm.expectRevert(PingRouter.NothingOwed.selector);
+        rejector.execute(address(router), abi.encodeCall(router.withdrawOwed, (recipient)));
+    }
+
+    function testRefundAcceptingSenderCreditsNothing() public {
+        PingRouter.EscrowAuth memory e = _escrowAuth(NATIVE);
+        _deposit(e);
+        vm.warp(e.expiresAt);
+        router.refund(ID);
+        assertEq(router.owedEth(sender), 0);
+        assertEq(router.totalOwed(), 0);
     }
 
     function testBlocklistedClaimsAndRefundsRecoverAfterUnfreeze() public {
@@ -621,12 +687,13 @@ contract PingRouterTest is RouterTestBase {
         t.mint(sender, 1e12);
         vm.prank(sender);
         t.approve(address(router), type(uint256).max);
-        bytes[] memory payloads = new bytes[](5);
+        bytes[] memory payloads = new bytes[](6);
         payloads[0] = abi.encodeCall(router.send, (_sendAuth(address(t)), bytes("")));
         payloads[1] = abi.encodeCall(router.escrow, (_escrowAuth(address(t)), bytes("")));
         payloads[2] = abi.encodeCall(router.claim, (_claimAuth(), bytes("")));
         payloads[3] = abi.encodeCall(router.refund, (ID));
         payloads[4] = abi.encodeCall(router.withdrawFees, ());
+        payloads[5] = abi.encodeCall(router.withdrawOwed, (recipient));
         for (uint256 i; i < payloads.length; i++) {
             t.arm(address(router), payloads[i]);
             PingRouter.SendAuth memory s = _sendAuth(address(t));
@@ -647,7 +714,7 @@ contract PingRouterTest is RouterTestBase {
             router.refund(e.id);
             _assertReentry(t);
         }
-        assertEq(t.attempts(), 25);
+        assertEq(t.attempts(), 30);
         assertEq(t.balanceOf(address(router)), 0);
     }
 

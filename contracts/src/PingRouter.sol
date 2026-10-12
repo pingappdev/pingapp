@@ -15,6 +15,8 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 /// Tokens sent directly to the router (outside escrow) are stuck forever: there
 /// is no sweep and no owner. Rebasing tokens are unsupported, as amounts can drift.
 /// Blocklisted tokens can prevent claims/refunds until the token unfreezes.
+/// A refund whose ETH payment the sender rejects credits owedEth instead, which
+/// only that sender can withdraw to an address of its choosing.
 /// Stock-token transfer restrictions can make send/escrow/claim revert cleanly.
 contract PingRouter is EIP712("PingRouter", "1"), ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -75,6 +77,8 @@ contract PingRouter is EIP712("PingRouter", "1"), ReentrancyGuard {
     mapping(bytes32 => bool) public usedIds;
     mapping(bytes32 => Escrow) public escrows;
     uint256 public feesAccrued;
+    mapping(address => uint256) public owedEth;
+    uint256 public totalOwed;
 
     event Sent(bytes32 indexed id, address indexed sender, address indexed recipient, address token, uint256 amount);
     event Escrowed(
@@ -96,6 +100,8 @@ contract PingRouter is EIP712("PingRouter", "1"), ReentrancyGuard {
     );
     event Refunded(bytes32 indexed id, address indexed sender, address token, uint256 amount, uint256 claimTip);
     event FeesWithdrawn(address indexed to, uint256 amount);
+    event EthCredited(address indexed account, uint256 amount);
+    event OwedWithdrawn(address indexed account, address indexed to, uint256 amount);
 
     error Expired();
     error NotSender();
@@ -113,6 +119,7 @@ contract PingRouter is EIP712("PingRouter", "1"), ReentrancyGuard {
     error NotRelayer();
     error EthTransferFailed();
     error NothingReceived();
+    error NothingOwed();
 
     constructor(address signer_, address feeRecipient_, uint256 escrowFee_) {
         if (signer_ == address(0) || feeRecipient_ == address(0)) revert BadRecipient();
@@ -192,9 +199,25 @@ contract PingRouter is EIP712("PingRouter", "1"), ReentrancyGuard {
         if (e.sender == address(0)) revert NoEscrow();
         if (block.timestamp < e.expiresAt) revert NotExpired();
         delete escrows[id];
-        _payToken(e.token, e.sender, e.amount);
-        if (e.claimTip > 0) _payEth(e.sender, e.claimTip);
+        // Tokens always go to the sender, so token blocklists still apply. ETH the
+        // sender rejects is credited, so it cannot block the token refund.
+        if (e.token == NATIVE) {
+            _refundEth(e.sender, e.amount + e.claimTip);
+        } else {
+            IERC20(e.token).safeTransfer(e.sender, e.amount);
+            if (e.claimTip > 0) _refundEth(e.sender, e.claimTip);
+        }
         emit Refunded(id, e.sender, e.token, e.amount, e.claimTip);
+    }
+
+    function withdrawOwed(address to) external nonReentrant {
+        if (to == address(0) || to == address(this)) revert BadRecipient();
+        uint256 amount = owedEth[msg.sender];
+        if (amount == 0) revert NothingOwed();
+        owedEth[msg.sender] = 0;
+        totalOwed -= amount;
+        _payEth(to, amount);
+        emit OwedWithdrawn(msg.sender, to, amount);
     }
 
     function withdrawFees() external nonReentrant {
@@ -244,6 +267,15 @@ contract PingRouter is EIP712("PingRouter", "1"), ReentrancyGuard {
     function _payToken(address token, address to, uint256 amount) private {
         if (token == NATIVE) _payEth(to, amount);
         else IERC20(token).safeTransfer(to, amount);
+    }
+
+    function _refundEth(address to, uint256 amount) private {
+        (bool ok,) = to.call{value: amount}("");
+        if (!ok) {
+            owedEth[to] += amount;
+            totalOwed += amount;
+            emit EthCredited(to, amount);
+        }
     }
 
     function _payEth(address to, uint256 amount) private {

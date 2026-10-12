@@ -4,6 +4,7 @@ import {RouterTestBase} from "../utils/RouterTestBase.sol";
 import {Test} from "forge-std/Test.sol";
 import {PingRouter} from "../../src/PingRouter.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
+import {RevertingRecipient} from "../mocks/RevertingRecipient.sol";
 
 contract RouterHandler is Test {
     struct Entry {
@@ -12,6 +13,7 @@ contract RouterHandler is Test {
         uint256 amount;
         uint256 tip;
         uint64 expires;
+        address from;
         bool closed;
     }
     Entry[] public entries;
@@ -25,6 +27,9 @@ contract RouterHandler is Test {
     uint256 public nativeOpen;
     uint256 public tipsOpen;
     uint256 public feesOpen;
+    uint256 public owedOpen;
+    // A sender smart wallet that rejects ETH, so its refunds are credited.
+    RevertingRecipient public immutable rejector = new RevertingRecipient();
     mapping(address => uint256) public tokensOpen;
 
     constructor(PingRouter router_, uint256 key, address sender_, address recipient_, MockERC20 t1, MockERC20 t2) {
@@ -41,6 +46,10 @@ contract RouterHandler is Test {
         t1.approve(address(router), type(uint256).max);
         t2.approve(address(router), type(uint256).max);
         vm.stopPrank();
+        t1.mint(address(rejector), 1e38);
+        t2.mint(address(rejector), 1e38);
+        rejector.execute(address(t1), abi.encodeCall(t1.approve, (address(router), type(uint256).max)));
+        rejector.execute(address(t2), abi.encodeCall(t2.approve, (address(router), type(uint256).max)));
     }
 
     function send(uint256 asset, uint256 amount) external {
@@ -51,21 +60,28 @@ contract RouterHandler is Test {
         bytes memory sig = _sign(router.hashSendAuth(a));
         vm.prank(sender);
         router.send{value: token == NATIVE ? amount : 0}(a, sig);
-        entries.push(Entry(id, token, amount, 0, 0, true));
+        entries.push(Entry(id, token, amount, 0, 0, sender, true));
     }
 
-    function escrow(uint256 asset, uint256 amount, uint256 tip, uint256 duration) external {
+    function escrow(uint256 asset, uint256 amount, uint256 tip, uint256 duration, bool rejecting) external {
         address token = assets[asset % 3];
+        address from = rejecting ? address(rejector) : sender;
         amount = bound(amount, 1, 1e30);
         tip = bound(tip, 0, 0.001 ether);
         uint64 expires = uint64(block.timestamp + bound(duration, 1 days, 60 days));
         bytes32 id = bytes32(entries.length + 1);
         PingRouter.EscrowAuth memory a =
-            PingRouter.EscrowAuth(id, sender, token, amount, tip, expires, block.timestamp + 600);
+            PingRouter.EscrowAuth(id, from, token, amount, tip, expires, block.timestamp + 600);
         bytes memory sig = _sign(router.hashEscrowAuth(a));
-        vm.prank(sender);
-        router.escrow{value: (token == NATIVE ? amount : 0) + tip + fee}(a, sig);
-        entries.push(Entry(id, token, amount, tip, expires, false));
+        uint256 value = (token == NATIVE ? amount : 0) + tip + fee;
+        if (rejecting) {
+            vm.deal(address(this), address(this).balance + value);
+            rejector.execute{value: value}(address(router), abi.encodeCall(router.escrow, (a, sig)));
+        } else {
+            vm.prank(sender);
+            router.escrow{value: value}(a, sig);
+        }
+        entries.push(Entry(id, token, amount, tip, expires, from, false));
         if (token == NATIVE) nativeOpen += amount;
         else tokensOpen[token] += amount;
         tipsOpen += tip;
@@ -86,7 +102,14 @@ contract RouterHandler is Test {
         Entry storage e = entries[index % entries.length];
         if (e.closed || block.timestamp < e.expires) return;
         router.refund(e.id);
+        if (e.from == address(rejector)) owedOpen += (e.token == NATIVE ? e.amount : 0) + e.tip;
         _close(e);
+    }
+
+    function withdrawOwed() external {
+        if (owedOpen == 0) return;
+        rejector.execute(address(router), abi.encodeCall(router.withdrawOwed, (recipient)));
+        owedOpen = 0;
     }
 
     function withdraw() external {
@@ -120,7 +143,7 @@ contract RouterHandler is Test {
                 assertEq(amount, 0);
                 assertEq(tip, 0);
             } else {
-                assertEq(from, sender);
+                assertEq(from, e.from);
                 assertEq(expires, e.expires);
                 assertEq(token, e.token);
                 assertEq(amount, e.amount);
@@ -139,19 +162,25 @@ contract RouterInvariantTest is RouterTestBase {
         super.setUp();
         token2 = new MockERC20();
         handler = new RouterHandler(router, signerKey, sender, recipient, token, token2);
-        bytes4[] memory selectors = new bytes4[](6);
+        bytes4[] memory selectors = new bytes4[](7);
         selectors[0] = handler.send.selector;
         selectors[1] = handler.escrow.selector;
         selectors[2] = handler.claim.selector;
         selectors[3] = handler.refund.selector;
         selectors[4] = handler.withdraw.selector;
         selectors[5] = handler.warp.selector;
+        selectors[6] = handler.withdrawOwed.selector;
         targetSelector(FuzzSelector(address(handler), selectors));
         targetContract(address(handler));
     }
 
     function invariantNativeSolvent() public view {
-        assertEq(address(router).balance, handler.nativeOpen() + handler.tipsOpen() + router.feesAccrued());
+        assertEq(
+            address(router).balance,
+            handler.nativeOpen() + handler.tipsOpen() + router.feesAccrued() + router.totalOwed()
+        );
+        assertEq(router.totalOwed(), handler.owedOpen());
+        assertEq(router.owedEth(address(handler.rejector())), handler.owedOpen());
         assertEq(router.feesAccrued(), handler.feesOpen());
     }
 
