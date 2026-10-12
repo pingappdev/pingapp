@@ -235,7 +235,10 @@ contract PingRouter is EIP712("PingRouter", "1"), ReentrancyGuard {
     }
 
     function _verify(bytes32 digest, bytes calldata sig) private view {
-        if (ECDSA.recover(digest, sig) != signer) revert BadSignature();
+        // tryRecover yields address(0) for malformed or high-s signatures, so every
+        // rejection surfaces as BadSignature (the immutable signer is never zero).
+        (address recovered,,) = ECDSA.tryRecover(digest, sig);
+        if (recovered != signer) revert BadSignature();
     }
 
     function _payToken(address token, address to, uint256 amount) private {

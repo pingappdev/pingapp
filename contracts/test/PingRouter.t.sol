@@ -3,7 +3,6 @@ pragma solidity 0.8.28;
 import {RouterTestBase} from "./utils/RouterTestBase.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {PingRouter} from "../src/PingRouter.sol";
-import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {NoReturnToken} from "./mocks/NoReturnToken.sol";
@@ -212,16 +211,20 @@ contract PingRouterTest is RouterTestBase {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerKey, router.hashSendAuth(a));
         bytes32 highS = bytes32(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141 - uint256(s));
         bytes memory sig = abi.encodePacked(r, highS, v == 27 ? uint8(28) : uint8(27));
-        vm.expectRevert(abi.encodeWithSelector(ECDSA.ECDSAInvalidSignatureS.selector, highS));
+        vm.expectRevert(PingRouter.BadSignature.selector);
         vm.prank(sender);
         router.send{value: a.amount}(a, sig);
     }
 
     function testMalformedSignatureRejected() public {
         PingRouter.SendAuth memory a = _sendAuth(NATIVE);
-        vm.expectRevert(abi.encodeWithSelector(ECDSA.ECDSAInvalidSignatureLength.selector, 0));
+        vm.expectRevert(PingRouter.BadSignature.selector);
         vm.prank(sender);
         router.send{value: a.amount}(a, "");
+        // A 65-byte signature with an invalid v also recovers nothing.
+        vm.expectRevert(PingRouter.BadSignature.selector);
+        vm.prank(sender);
+        router.send{value: a.amount}(a, abi.encodePacked(bytes32(uint256(1)), bytes32(uint256(1)), uint8(29)));
     }
 
     function testSendWithoutApproval() public {
