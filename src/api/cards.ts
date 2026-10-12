@@ -77,8 +77,8 @@ export type CardsConfig = {
 };
 export type ApplePayState =
   | { status: "idle" }
-  | { status: "waiting"; expiresAt: string }
-  | { status: "delivered"; code: string; expiresAt: string };
+  | { status: "waiting"; expiresAt: string; expiresInSec: number }
+  | { status: "delivered"; code: string; expiresAt: string; expiresInSec: number };
 export type CardDetails = {
   number: string;
   expiry: string;

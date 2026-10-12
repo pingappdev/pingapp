@@ -7,8 +7,14 @@ import { copyText } from "./format";
 
 const POLL_MS = 4000;
 
-function remaining(expiresAt: string, now: number) {
-  const seconds = Math.max(0, Math.round((Date.parse(expiresAt) - now) / 1000));
+// Deadlines come from the server's remaining seconds, so a skewed device clock
+// cannot hide a valid code or keep showing an expired one.
+type Local = ApplePayState & { deadline?: number };
+const local = (state: ApplePayState): Local =>
+  state.status === "idle" ? state : { ...state, deadline: Date.now() + state.expiresInSec * 1000 };
+
+function remaining(deadline: number, now: number) {
+  const seconds = Math.max(0, Math.round((deadline - now) / 1000));
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
@@ -33,23 +39,25 @@ export function ApplePayDialog({
   onShowDetails: () => void;
   onClose: () => void;
 }) {
-  const [state, setState] = useState<ApplePayState | null>(null);
+  const [state, setState] = useState<Local | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [ended, setEnded] = useState(false);
   const mounted = useRef(true);
+  const starting = useRef(false);
+  const lastStatus = useRef<ApplePayState["status"] | null>(null);
 
   const poll = useCallback(async () => {
     if (!available) return;
     try {
       const { applePay } = await cardsApi.applePay(cardId);
       if (!mounted.current) return;
-      setState((previous) => {
-        if (previous?.status === "waiting" && applePay.status === "idle") setEnded(true);
-        return applePay;
-      });
+      if (lastStatus.current === "waiting" && applePay.status === "idle") setEnded(true);
+      lastStatus.current = applePay.status;
+      setError(null);
+      setState(local(applePay));
     } catch (caught) {
       if (mounted.current && !(caught instanceof ApiError && caught.code === "NETWORK"))
         setError(caught instanceof Error ? caught.message : "Activation status is unavailable.");
@@ -82,11 +90,12 @@ export function ApplePayDialog({
   }, [waiting, state?.status, poll]);
 
   // The window closed on the device clock; the server confirms on the next poll.
-  const expired =
-    state?.status !== undefined && state.status !== "idle" && Date.parse(state.expiresAt) <= now;
+  const expired = state?.deadline !== undefined && state.deadline <= now;
 
   async function start() {
-    if (busy || !available) return;
+    // A ref, not state: two quick clicks must not both reach the server.
+    if (starting.current || !available) return;
+    starting.current = true;
     setBusy(true);
     setError(null);
     setEnded(false);
@@ -94,12 +103,14 @@ export function ApplePayDialog({
       const { applePay } = await withReauth(() => cardsApi.armApplePay(cardId));
       if (mounted.current) {
         setNow(Date.now());
-        setState(applePay);
+        lastStatus.current = applePay.status;
+        setState(local(applePay));
       }
     } catch (caught) {
       if (mounted.current)
         setError(caught instanceof Error ? caught.message : "Activation could not start.");
     } finally {
+      starting.current = false;
       if (mounted.current) setBusy(false);
     }
   }
@@ -146,7 +157,7 @@ export function ApplePayDialog({
               >
                 <Copy size={16} /> {copied ? "Copied" : "Copy code"}
               </button>
-              <span>Expires in {remaining(delivered.expiresAt, now)}</span>
+              <span>Expires in {remaining(delivered.deadline ?? now, now)}</span>
             </div>
           </section>
         ) : (
@@ -193,7 +204,7 @@ export function ApplePayDialog({
                 <strong>Enter the code</strong>
                 <p>
                   {activeWait
-                    ? `Waiting for the code. ${remaining(state.expiresAt, now)} left.`
+                    ? `Waiting for the code. ${remaining(state.deadline ?? now, now)} left.`
                     : "The code appears here when Wallet asks for it."}
                 </p>
               </div>
