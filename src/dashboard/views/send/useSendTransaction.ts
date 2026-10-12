@@ -268,7 +268,7 @@ export function useSendTransaction(
       }
 
       if (review.intentId)
-        throw new Error("Legacy pending sends are read-only. Start a new send by phone.");
+        throw new Error("This invitation cannot be completed. Start a new send by phone.");
       if (!routerSettings.enabled) throw new Error("Sending is temporarily unavailable.");
       {
         if (

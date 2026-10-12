@@ -336,7 +336,7 @@ function SendSession({ me }: { me: Me | null }) {
             <p className="field-help">Loading pending send…</p>
           ) : (
             <div className="notice">
-              Legacy pending sends are read-only. Start a new send by phone.{" "}
+              This invitation cannot be completed. Start a new send by phone.{" "}
               <a href="/dashboard/requests">View requests</a>
             </div>
           ))}

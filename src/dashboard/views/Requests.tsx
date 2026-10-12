@@ -14,7 +14,7 @@ import {
 import { useCancelIntent, useIncomingIntents, useIntents } from "../../api/hooks";
 import type { Intent } from "../../api/types";
 import TokenIcon from "../components/TokenIcon";
-import { IntentCard, IncomingIntentRow, QueryMessage, EmptyIntents } from "./requests/IntentRows";
+import { IntentCard, IncomingIntentRow, QueryMessage } from "./requests/IntentRows";
 import { dateLabel } from "./requests/utils";
 import EscrowLists from "./requests/EscrowLists";
 
@@ -77,7 +77,7 @@ export default function Requests() {
       {intentsLoading || intentsError ? (
         <section className="card">
           <QueryMessage
-            title="Pending sends"
+            title="Invitations"
             loading={intentsLoading}
             error={intents.error}
             onRetry={() => void intents.refetch()}
@@ -93,18 +93,18 @@ export default function Requests() {
               </button>
             </div>
           )}
-          <section className="card request-list-card">
-            <div className="panel-heading">
-              <div>
-                <h2>Legacy pending sends</h2>
-                <p className="field-help">
-                  These older invites did not move funds. You can cancel them or start a new send by
-                  phone.
-                </p>
+          {readyIntents.length > 0 && (
+            <section className="card request-list-card">
+              <div className="panel-heading">
+                <div>
+                  <h2>Unfunded invitations</h2>
+                  <p className="field-help">
+                    No funds have been sent or reserved for these invitations. Cancel an invitation
+                    or start a new send by phone.
+                  </p>
+                </div>
+                <span className="pill">{readyIntents.length}</span>
               </div>
-              <span className="pill">{readyIntents.length}</span>
-            </div>
-            {readyIntents.length ? (
               <div className="request-intent-list">
                 {readyIntents.map((intent) => (
                   <IntentCard
@@ -116,20 +116,18 @@ export default function Requests() {
                   />
                 ))}
               </div>
-            ) : (
-              <EmptyIntents kind="ready" />
-            )}
-          </section>
+            </section>
+          )}
 
-          <section className="card request-list-card">
-            <div className="panel-heading">
-              <div>
-                <h2>Waiting for signup</h2>
-                <p className="field-help">These invites do not reserve funds or move crypto.</p>
+          {pendingIntents.length > 0 && (
+            <section className="card request-list-card">
+              <div className="panel-heading">
+                <div>
+                  <h2>Invitations awaiting signup</h2>
+                  <p className="field-help">These invites do not reserve funds or move crypto.</p>
+                </div>
+                <span className="pill">{pendingIntents.length}</span>
               </div>
-              <span className="pill">{pendingIntents.length}</span>
-            </div>
-            {pendingIntents.length ? (
               <div className="request-intent-list">
                 {pendingIntents.map((intent) => (
                   <div className="request-pending-item" key={intent.id}>
@@ -148,65 +146,45 @@ export default function Requests() {
                   </div>
                 ))}
               </div>
-            ) : (
-              <EmptyIntents kind="pending" />
-            )}
-          </section>
+            </section>
+          )}
         </>
       )}
 
       {incomingLoading || incomingError ? (
         <section className="card">
           <QueryMessage
-            title="Incoming sends"
+            title="Incoming invitations"
             loading={incomingLoading}
             error={incoming.error}
             onRetry={() => void incoming.refetch()}
           />
         </section>
-      ) : (
+      ) : incoming.data?.length ? (
         <section className="card request-list-card">
           <div className="panel-heading">
             <div>
-              <h2>People waiting to send you</h2>
+              <h2>Incoming invitations</h2>
               <p className="field-help">
-                Pending sends become transfers only after the sender approves them in their wallet.
+                No funds have been sent or reserved. The sender needs to start a new send by phone.
               </p>
             </div>
             <span className="pill">{incoming.data?.length ?? 0}</span>
           </div>
-          {incoming.data?.length ? (
-            <div className="request-intent-list">
-              {incoming.data.map((intent) => (
-                <IncomingIntentRow key={intent.id} intent={intent} />
-              ))}
-            </div>
-          ) : (
-            <EmptyIntents kind="incoming" />
-          )}
+          <div className="request-intent-list">
+            {incoming.data.map((intent) => (
+              <IncomingIntentRow key={intent.id} intent={intent} />
+            ))}
+          </div>
         </section>
-      )}
+      ) : null}
 
-      <details className="card request-history">
-        <summary>
-          <span>History</span>
-          <span>{historyIntents.length}</span>
-        </summary>
-        {intents.isPending && !intents.data ? (
-          <QueryMessage
-            title="History"
-            loading
-            error={null}
-            onRetry={() => void intents.refetch()}
-          />
-        ) : intents.isError && !intents.data ? (
-          <QueryMessage
-            title="History"
-            loading={false}
-            error={intents.error}
-            onRetry={() => void intents.refetch()}
-          />
-        ) : historyIntents.length ? (
+      {historyIntents.length > 0 && (
+        <details className="card request-history">
+          <summary>
+            <span>Invitation history</span>
+            <span>{historyIntents.length}</span>
+          </summary>
           <div className="request-intent-list">
             {historyIntents.map((intent) => (
               <article className="request-intent-row" key={intent.id}>
@@ -241,12 +219,8 @@ export default function Requests() {
               </article>
             ))}
           </div>
-        ) : (
-          <p className="request-empty">
-            Completed, canceled, and expired pending sends will appear here.
-          </p>
-        )}
-      </details>
+        </details>
+      )}
 
       <AlertDialog
         open={Boolean(cancelTarget)}
