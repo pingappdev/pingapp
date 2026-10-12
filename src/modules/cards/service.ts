@@ -31,7 +31,7 @@ export async function getCardsConfig() {
   return {
     enabled, sandbox: config.IZIPAY_MODE === 'sandbox',
     products: enabled ? productCatalog(prices) : [],
-    networks: enabled ? networks : [], capabilities: { freeze: false, spendingLimits: false },
+    networks: enabled ? networks : [], capabilities: { freeze: false, spendingLimits: false, applePay: enabled && config.IZIPAY_MODE !== 'sandbox' },
     webhookDelivery: config.IZIPAY_WEBHOOK_SECRET ? 'unverified' : 'not_configured',
   };
 }

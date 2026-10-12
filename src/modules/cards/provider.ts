@@ -84,4 +84,7 @@ export const provider = {
   cards: (page: number) => request('GET', `/cards?page=${page}&limit=100`),
   transactions: (id: string, offset: number) => request('GET', `${cardPath(id)}/transactions?limit=100&offset=${offset}`),
   pricing: () => request('GET', '/balance'),
+  // Apple Pay Mastercard: arm for a wallet-provisioning code, then poll for it.
+  armApplePay: (id: string) => request('POST', `${cardPath(id)}/apple-pay-code`),
+  applePayCode: (id: string) => request('GET', `${cardPath(id)}/apple-pay-code`),
 };
