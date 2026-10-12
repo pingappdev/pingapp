@@ -42,6 +42,8 @@ const envSchema = z.object({
   ESCROW_CLAIM_TIP_WEI: z.string().regex(/^\d+$/).default('20000000000000')
     .refine((value) => BigInt(value) <= 1000000000000000n, 'must not exceed 0.001 ETH'),
   ROUTER_AUTH_TTL_SECONDS: positiveInt(600),
+  // Relayed claims above this gas estimate are left for the recipient to submit.
+  RELAY_CLAIM_MAX_GAS: positiveInt(300_000),
   ADMIN_TOKEN: z.string().default(''),
   CARDS_ENABLED: boolean(false),
   IZIPAY_API_KEY: z.string().default(''),

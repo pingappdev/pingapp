@@ -10,12 +10,16 @@ const state = vi.hoisted(() => ({
   broadcasts: 0,
   trace: [] as string[],
   updates: [] as Record<string, unknown>[],
+  gas: 100_000n,
+  writes: [] as Record<string, unknown>[],
+  kvWrites: [] as [string, unknown][],
 }));
 
 vi.mock('../src/config.js', () => ({ config: {
   ROUTER_ENABLED: true,
   ROUTER_ADDRESS: '0x0000000000000000000000000000000000000003',
   ROUTER_DEPLOY_BLOCK: 1,
+  RELAY_CLAIM_MAX_GAS: 300_000,
 } }));
 vi.mock('../src/db/schema.js', () => ({ escrows: 'escrows', phoneClaims: 'phoneClaims', users: 'users' }));
 vi.mock('../src/db/client.js', () => {
@@ -59,7 +63,8 @@ vi.mock('viem', async (importOriginal) => {
     ...actual,
     custom: vi.fn(() => ({ request: vi.fn(async () => null) })),
     createWalletClient: vi.fn(() => ({
-      writeContract: vi.fn(async () => {
+      writeContract: vi.fn(async (request: Record<string, unknown>) => {
+        state.writes.push(request);
         state.broadcasts += 1;
         state.trace.push('broadcast');
         return state.transactionHash;
@@ -72,7 +77,7 @@ vi.mock('../src/db/kv.js', () => ({
     state.trace.push(tx ? 'outbox-read-in-transaction' : 'outbox-read');
     return state.claimJob;
   }),
-  kvSet: vi.fn(async () => undefined),
+  kvSet: vi.fn(async (key: string, value: unknown) => { state.kvWrites.push([key, value]); }),
 }));
 vi.mock('../src/db/notify.js', () => ({ notify: vi.fn(async () => undefined) }));
 vi.mock('../src/lib/cache.js', () => ({ invalidate: vi.fn(async () => undefined) }));
@@ -98,6 +103,7 @@ vi.mock('../src/lib/viem.js', () => ({ publicClient: {
     state.trace.push('simulate');
     return { request: { to: '0x0000000000000000000000000000000000000003' } };
   }),
+  estimateContractGas: vi.fn(async () => state.gas),
   waitForTransactionReceipt: vi.fn(async () => { throw new Error('receipt wait timed out'); }),
 } }));
 vi.mock('../src/modules/phone/lock.js', () => ({
@@ -111,10 +117,12 @@ vi.mock('../src/modules/escrows/ready.js', async (importOriginal) => {
 vi.mock('../src/modules/escrows/service.js', () => ({
   claimJobKey: (id: string) => `router:claim:${id}`,
   claimRegisteredEscrow: vi.fn(async () => undefined),
+  selfClaimKey: (id: string) => `router:self-claim:${id}`,
   enqueueClaim: vi.fn(async () => undefined),
 }));
 
 import { db } from '../src/db/client.js';
+import { notify } from '../src/db/notify.js';
 import { publicClient } from '../src/lib/viem.js';
 import { relayClaim } from '../src/modules/escrows/jobs.js';
 import { recipientRef } from '../src/modules/resolve/recipientRef.js';
@@ -165,6 +173,9 @@ function setup(options: { recipientChange?: Record<string, unknown>; dispute?: b
   state.broadcasts = 0;
   state.trace = [];
   state.updates = [];
+  state.gas = 100_000n;
+  state.writes = [];
+  state.kvWrites = [];
   return { job, escrow, freshRecipient };
 }
 
@@ -200,5 +211,18 @@ describe('queued automatic escrow relay privacy revalidation', () => {
     expect(state.trace.indexOf('broadcast')).toBeLessThan(state.trace.indexOf('update'));
     expect(state.trace).toContain('outbox-read-in-transaction');
     expect(db.transaction).toHaveBeenCalledOnce();
+    expect(state.writes[0]).toMatchObject({ gas: 120_000n });
+  });
+
+  it('leaves a claim above the relay gas ceiling for the recipient to self-claim', async () => {
+    const { job } = setup();
+    state.gas = 300_001n;
+
+    await relayClaim(job as never);
+
+    expect(state.broadcasts).toBe(0);
+    expect(state.updates).toContainEqual({ status: 'deposited', claimTxHash: null });
+    expect(state.kvWrites).toContainEqual([`router:self-claim:${escrowId}`, true]);
+    expect(notify).toHaveBeenCalledWith(recipient.id, 'escrow_incoming', { escrowId }, expect.anything());
   });
 });

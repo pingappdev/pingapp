@@ -3,6 +3,7 @@ import { BaseError, ContractFunctionRevertedError, createWalletClient, custom, t
 import { config } from '../../config.js';
 import { db } from '../../db/client.js';
 import { kvGet, kvSet } from '../../db/kv.js';
+import { notify } from '../../db/notify.js';
 import { escrows, phoneClaims, users } from '../../db/schema.js';
 import { normAddress, viemChain } from '../../lib/chain.js';
 import { invalidate } from '../../lib/cache.js';
@@ -15,7 +16,7 @@ import { publicClient } from '../../lib/viem.js';
 import { lockPhoneMutation } from '../phone/lock.js';
 import { applyRouterLog, sendEscrowInvite } from './events.js';
 import { markEscrowsClaimable, matchesEscrowRecipient } from './ready.js';
-import { claimJobKey, claimRegisteredEscrow, enqueueClaim, type ClaimJob } from './service.js';
+import { claimJobKey, claimRegisteredEscrow, enqueueClaim, selfClaimKey, type ClaimJob } from './service.js';
 
 const MINUTE = 60_000;
 
@@ -153,7 +154,17 @@ export async function relayClaim(job: ClaimJob): Promise<void> {
         }
         const { request } = await publicClient.simulateContract({ address: normAddress(config.ROUTER_ADDRESS), abi: pingRouterAbi,
           functionName: 'claim', args: [auth, job.signature], account });
-        const submitted = await wallet.writeContract(request);
+        // A recipient contract (or token hook) can burn relayer gas on payout. Above the
+        // ceiling, stop relaying this escrow and let the recipient submit it themselves.
+        const gas = await publicClient.estimateContractGas(request);
+        if (gas > BigInt(config.RELAY_CLAIM_MAX_GAS)) {
+          await tx.update(escrows).set({ status: 'deposited', claimTxHash: null }).where(eq(escrows.id, fresh.id));
+          await kvSet(selfClaimKey(fresh.id), true, tx);
+          await notify(recipient.id, 'escrow_incoming', { escrowId: fresh.id }, tx);
+          logger.warn({ escrowId: fresh.id, gas: gas.toString() }, 'claim gas above relay ceiling; recipient must self-claim');
+          return null;
+        }
+        const submitted = await wallet.writeContract({ ...request, gas: gas + gas / 5n });
         await tx.update(escrows).set({ claimTxHash: submitted }).where(eq(escrows.id, fresh.id));
         return submitted;
       });

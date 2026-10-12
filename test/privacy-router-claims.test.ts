@@ -4,9 +4,10 @@ const state = vi.hoisted(() => ({
   selectResults: [] as unknown[][],
   selectCount: 0,
   updates: [] as Record<string, unknown>[],
+  selfClaim: false,
 }));
 
-vi.mock('../src/config.js', () => ({ config: { ROUTER_ENABLED: true } }));
+vi.mock('../src/config.js', () => ({ config: { ROUTER_ENABLED: true, ROUTER_ADDRESS: '0x0000000000000000000000000000000000000003' } }));
 vi.mock('../src/db/schema.js', () => ({ escrows: 'escrows', phoneClaims: 'phoneClaims', users: 'users' }));
 vi.mock('../src/db/client.js', () => {
   const query = () => {
@@ -28,7 +29,10 @@ vi.mock('../src/db/client.js', () => {
 });
 vi.mock('drizzle-orm', () => ({ and: (...values: unknown[]) => values, eq: (...values: unknown[]) => values }));
 vi.mock('../src/db/audit.js', () => ({ audit: vi.fn(async () => undefined) }));
-vi.mock('../src/db/kv.js', () => ({ kvSet: vi.fn(async () => undefined) }));
+vi.mock('../src/db/kv.js', () => ({
+  kvGet: vi.fn(async (key: string) => (key.startsWith('router:self-claim:') && state.selfClaim ? true : undefined)),
+  kvSet: vi.fn(async () => undefined),
+}));
 vi.mock('../src/db/notify.js', () => ({ notify: vi.fn(async () => undefined) }));
 vi.mock('../src/lib/chain.js', () => ({ normAddress: (value: string) => value.toLowerCase() }));
 vi.mock('../src/lib/logger.js', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
@@ -52,7 +56,7 @@ import { db } from '../src/db/client.js';
 import { kvSet } from '../src/db/kv.js';
 import { enqueue } from '../src/lib/queue.js';
 import { signClaimAuth } from '../src/lib/router.js';
-import { claimRegisteredEscrow } from '../src/modules/escrows/service.js';
+import { claimEscrow, claimRegisteredEscrow, selfClaimEscrow } from '../src/modules/escrows/service.js';
 import { matchesEscrowRecipient } from '../src/modules/escrows/ready.js';
 import { recipientRef } from '../src/modules/resolve/recipientRef.js';
 
@@ -87,6 +91,7 @@ function setup(results: unknown[][]) {
   state.selectResults = results;
   state.selectCount = 0;
   state.updates = [];
+  state.selfClaim = false;
 }
 
 describe('automatic escrow payout privacy gates', () => {
@@ -132,5 +137,62 @@ describe('automatic escrow payout privacy gates', () => {
     expect(kvSet).not.toHaveBeenCalled();
     expect(enqueue).not.toHaveBeenCalled();
     expect(state.updates).toEqual([]);
+  });
+});
+
+describe('self-claim after the relay gas ceiling', () => {
+  const id = `0x${'11'.repeat(32)}`;
+  const user = { id: recipient.id, address: recipient.address } as never;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setup([]);
+  });
+
+  it('stops automatic relays once an escrow is marked for self-claim', async () => {
+    setup([[escrow()], [recipient], []]);
+    state.selfClaim = true;
+
+    await claimRegisteredEscrow(id);
+
+    expect(signClaimAuth).not.toHaveBeenCalled();
+    expect(enqueue).not.toHaveBeenCalled();
+    expect(state.updates).toEqual([]);
+  });
+
+  it('refuses a relayed claim request for a self-claim escrow', async () => {
+    setup([[escrow({ recipientUserId: recipient.id })], [recipient], []]);
+    state.selfClaim = true;
+
+    await expect(claimEscrow(user, id, 'ip')).rejects.toThrow('Claim it from your wallet');
+    expect(signClaimAuth).not.toHaveBeenCalled();
+    expect(enqueue).not.toHaveBeenCalled();
+  });
+
+  it('signs a claim the recipient relays to their own wallet, without changing status', async () => {
+    setup([[escrow({ recipientUserId: recipient.id })], [recipient], []]);
+    state.selfClaim = true;
+
+    const result = await selfClaimEscrow(user, id, 'ip');
+
+    expect(result.auth).toMatchObject({ id, recipient: recipient.address, relayer: recipient.address });
+    expect(signClaimAuth).toHaveBeenCalledOnce();
+    expect(state.updates).toEqual([]);
+    expect(enqueue).not.toHaveBeenCalled();
+  });
+
+  it('does not sign a self-claim while the relayer still delivers the escrow', async () => {
+    setup([[escrow({ recipientUserId: recipient.id })], [recipient], []]);
+
+    await expect(selfClaimEscrow(user, id, 'ip')).rejects.toThrow('delivered by the relayer');
+    expect(signClaimAuth).not.toHaveBeenCalled();
+  });
+
+  it('does not sign a self-claim for anyone but the bound recipient', async () => {
+    setup([[escrow({ recipientUserId: 'someone-else' })], [recipient], []]);
+    state.selfClaim = true;
+
+    await expect(selfClaimEscrow(user, id, 'ip')).rejects.toThrow();
+    expect(signClaimAuth).not.toHaveBeenCalled();
   });
 });
