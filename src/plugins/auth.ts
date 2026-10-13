@@ -12,20 +12,35 @@ const SEEN_INTERVAL_MS = 5 * 60 * 1000;
 
 export type AuthUser = { id: string; address: string };
 export type AuthSession = { id: string; freshUntil: Date | null };
+type SessionTokenRequest = Pick<FastifyRequest, 'headers' | 'cookies'>;
+
+// randomToken() produces 32 bytes encoded as unpadded base64url.
+export function readSessionToken(request: SessionTokenRequest): { token: string; via: 'bearer' | 'cookie' } | null {
+  const authorization = request.headers.authorization;
+  if (authorization !== undefined) {
+    const match = /^Bearer ([A-Za-z0-9_-]{43})$/i.exec(authorization);
+    return match ? { token: match[1], via: 'bearer' } : null;
+  }
+  const token = request.cookies?.pa_session;
+  return token ? { token, via: 'cookie' } : null;
+}
 
 declare module 'fastify' {
   interface FastifyRequest {
     user: AuthUser | null;
     session: AuthSession | null;
+    sessionVia: 'bearer' | 'cookie' | null;
   }
 }
 
 const auth: FastifyPluginAsync = async (app) => {
   app.decorateRequest('user', null);
   app.decorateRequest('session', null);
+  app.decorateRequest('sessionVia', null);
   app.addHook('onRequest', async (request, reply) => {
-    const token = request.cookies.pa_session;
-    if (!token) return;
+    const resolved = readSessionToken(request);
+    if (!resolved) return;
+    const { token, via } = resolved;
 
     const now = new Date();
     const [row] = await db.select({
@@ -39,6 +54,7 @@ const auth: FastifyPluginAsync = async (app) => {
 
     request.user = row.user;
     request.session = { id: row.session.id, freshUntil: row.session.freshUntil };
+    request.sessionVia = via;
 
     const path = request.url.split('?', 1)[0];
     if (row.session.lastSeenAt.getTime() < now.getTime() - SEEN_INTERVAL_MS &&
@@ -51,7 +67,7 @@ const auth: FastifyPluginAsync = async (app) => {
         gt(sessions.expiresAt, now),
         lt(sessions.lastSeenAt, new Date(now.getTime() - SEEN_INTERVAL_MS)),
       )).returning({ id: sessions.id });
-      if (renewed) setSessionCookie(reply, token);
+      if (renewed && via === 'cookie') setSessionCookie(reply, token);
     }
   });
   app.addHook('onSend', async (request, reply, payload) => {

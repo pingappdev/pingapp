@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
 import fp from 'fastify-plugin';
 import type { FastifyPluginAsync } from 'fastify';
-import { config } from '../config.js';
+import { allowedOrigins, config } from '../config.js';
 import { errors } from '../lib/errors.js';
 import { consume, limits } from '../lib/rateLimit.js';
+import { readSessionToken } from './auth.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -22,7 +23,9 @@ const security: FastifyPluginAsync = async (app) => {
     request.ipHash = createHash('sha256').update(config.IP_HASH_SALT + ip).digest('hex');
 
     if (request.url.split('?', 1)[0] !== '/health') {
-      const session = request.cookies?.pa_session;
+      // An invalid Authorization header cannot authenticate via cookies, but the
+      // general limiter still counts its cookie identity before falling back to IP.
+      const session = readSessionToken(request)?.token ?? request.cookies?.pa_session;
       const identity = session
         ? createHash('sha256').update(session).digest('hex')
         : request.ipHash;
@@ -34,7 +37,7 @@ const security: FastifyPluginAsync = async (app) => {
     if (request.method === 'POST' && request.url.split('?', 1)[0] === '/v1/webhooks/izipay') return;
     if (request.headers['x-pingapp'] !== '1' ||
       typeof request.headers.origin !== 'string' ||
-      !config.CORS_ORIGINS.includes(request.headers.origin)) {
+      !allowedOrigins.includes(request.headers.origin)) {
       throw errors.csrf();
     }
   });

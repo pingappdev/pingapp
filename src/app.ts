@@ -5,7 +5,7 @@ import helmet from '@fastify/helmet';
 import Fastify, { type FastifyBaseLogger, type FastifyError } from 'fastify';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 import { ZodError } from 'zod';
-import { config } from './config.js';
+import { allowedOrigins } from './config.js';
 import { AppError, errors } from './lib/errors.js';
 import { logger } from './lib/logger.js';
 import { loadRouteModules } from './lib/modules.js';
@@ -40,10 +40,10 @@ export async function buildApp() {
   await app.register(helmet, { contentSecurityPolicy: false });
   await app.register(cookie);
   await app.register(cors, {
-    origin: config.CORS_ORIGINS,
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['content-type', 'x-pingapp'],
+    allowedHeaders: ['content-type', 'x-pingapp', 'authorization'],
     maxAge: 600,
   });
   await app.register(security);

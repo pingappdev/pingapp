@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
 const csv = z.string().default('').transform((value) => value.split(',').map((part) => part.trim()).filter(Boolean));
+export const nativeAppOriginsSchema = csv.pipe(z.array(z.string().regex(/^[a-z][a-z0-9+.-]*:\/\/localhost$/)));
+
+export function canIssueNativeToken(origin: unknown, settings: { NATIVE_APP_ORIGINS: readonly string[] }): boolean {
+  return typeof origin === 'string' && settings.NATIVE_APP_ORIGINS.includes(origin);
+}
 const boolean = (defaultValue: boolean) => z.enum(['true', 'false']).default(String(defaultValue) as 'true' | 'false').transform((value) => value === 'true');
 const positiveInt = (defaultValue: number) => z.coerce.number().int().positive().default(defaultValue);
 const decimal = (defaultValue: string) => z.string().regex(/^\d+(\.\d+)?$/).default(defaultValue);
@@ -20,6 +25,7 @@ const envSchema = z.object({
   PHONE_ENC_KEY: hexKey,
   IP_HASH_SALT: z.string().min(1),
   CORS_ORIGINS: csv,
+  NATIVE_APP_ORIGINS: nativeAppOriginsSchema,
   SIWE_ALLOWED_DOMAINS: csv,
   COOKIE_DOMAIN: z.string().default(''),
   COOKIE_SECURE: boolean(false),
@@ -85,6 +91,9 @@ export const config = Object.freeze({
     ? 'https://rpc.mainnet.chain.robinhood.com'
     : 'https://rpc.testnet.chain.robinhood.com'),
 });
+
+// Keep the web origins first: SIWE and the dev-login command use their own web allowlist.
+export const allowedOrigins = [...new Set([...config.CORS_ORIGINS, ...config.NATIVE_APP_ORIGINS])];
 
 if (config.NODE_ENV === 'production' && config.SMS_DRIVER === 'log') {
   process.stderr.write('WARNING: SMS_DRIVER=log in production; SMS messages will appear in logs.\n');
