@@ -157,10 +157,13 @@ export default function WalletSection({ address }: { address: string }) {
           Lock now
         </button>
       </div>
-      <NativeWalletLifecycleDialog action="remove" onExport={() => {
-        setError("");
-        setStep("warning");
-      }} />
+      <NativeWalletLifecycleDialog
+        action="remove"
+        onExport={() => {
+          setError("");
+          setStep("warning");
+        }}
+      />
       <Dialog
         open={step !== "closed"}
         onOpenChange={(open) => {

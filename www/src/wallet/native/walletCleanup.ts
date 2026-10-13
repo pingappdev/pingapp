@@ -21,13 +21,19 @@ function publish(next: Cleanup) {
 export const walletCleanup = {
   subscribe(listener: () => void) {
     listeners.add(listener);
-    return () => { listeners.delete(listener); };
+    return () => {
+      listeners.delete(listener);
+    };
   },
   getSnapshot: () => snapshot,
   async discover() {
     const stored = await platform.secureStorage.get(CLEANUP_KEY);
     if (stored === "delete" || stored === "remove" || stored === "delete-pending")
-      publish({ action: stored, busy: false, error: "Finish removing this wallet from your device." });
+      publish({
+        action: stored,
+        busy: false,
+        error: "Finish removing this wallet from your device.",
+      });
     return snapshot !== null;
   },
   async beforeDelete() {
@@ -38,13 +44,21 @@ export const walletCleanup = {
   async deleteFailed(confirmedFailure: boolean) {
     if (!confirmedFailure) {
       keyManager.lock();
-      publish({ action: "delete-pending", busy: false, error: "Account deletion could not be confirmed. Your wallet has been preserved." });
+      publish({
+        action: "delete-pending",
+        busy: false,
+        error: "Account deletion could not be confirmed. Your wallet has been preserved.",
+      });
       return;
     }
     try {
       await platform.secureStorage.remove(CLEANUP_KEY);
     } catch {
-      publish({ action: "delete-pending", busy: false, error: "Account deletion could not be confirmed. Your wallet has been preserved." });
+      publish({
+        action: "delete-pending",
+        busy: false,
+        error: "Account deletion could not be confirmed. Your wallet has been preserved.",
+      });
       throw new Error("Account deletion could not be confirmed. Your wallet has been preserved.");
     }
   },
@@ -56,7 +70,12 @@ export const walletCleanup = {
       platformNavigateHome();
       publish(null);
     } catch {
-      publish({ action: "delete-pending", busy: false, error: "Could not clear the interrupted deletion. Your wallet has been preserved. Try again." });
+      publish({
+        action: "delete-pending",
+        busy: false,
+        error:
+          "Could not clear the interrupted deletion. Your wallet has been preserved. Try again.",
+      });
     }
   },
   start(action: Action, client: QueryClient) {
@@ -88,7 +107,9 @@ export const walletCleanup = {
         platformNavigateHome();
         publish(null);
         if (revocationUnconfirmed)
-          toast.warning("Wallet removed. Server sign-out could not be confirmed; its session may remain valid until it expires.");
+          toast.warning(
+            "Wallet removed. Server sign-out could not be confirmed; its session may remain valid until it expires.",
+          );
       } catch {
         // Never show cached account data or claim that a failed local wipe succeeded.
         keyManager.lock();
@@ -97,12 +118,15 @@ export const walletCleanup = {
         publish({
           action,
           busy: false,
-          error: action === "delete"
-            ? "Your PingApp account was deleted. Device cleanup is incomplete. Retry to remove the local wallet and session."
-            : "Device cleanup is incomplete. Your PingApp account stays on the server. Retry to remove the local wallet and session.",
+          error:
+            action === "delete"
+              ? "Your PingApp account was deleted. Device cleanup is incomplete. Retry to remove the local wallet and session."
+              : "Device cleanup is incomplete. Your PingApp account stays on the server. Retry to remove the local wallet and session.",
         });
       }
-    })().finally(() => { running = undefined; });
+    })().finally(() => {
+      running = undefined;
+    });
     return running;
   },
 };

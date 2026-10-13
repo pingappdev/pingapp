@@ -14,13 +14,17 @@ import { useDeleteAccount } from "../../../api/hooks";
 import { useAuth } from "../../../auth/useAuth";
 import { useDisconnect } from "wagmi";
 
-const NativeDeleteAccountCard = import.meta.env.VITE_TARGET === "native"
-  ? lazy(() => import("./NativeDeleteAccountCard")) : null;
+const NativeDeleteAccountCard =
+  import.meta.env.VITE_TARGET === "native" ? lazy(() => import("./NativeDeleteAccountCard")) : null;
 
 export default function DeleteAccountCard() {
-  return NativeDeleteAccountCard
-    ? <Suspense fallback={null}><NativeDeleteAccountCard /></Suspense>
-    : <WebDeleteAccountCard />;
+  return NativeDeleteAccountCard ? (
+    <Suspense fallback={null}>
+      <NativeDeleteAccountCard />
+    </Suspense>
+  ) : (
+    <WebDeleteAccountCard />
+  );
 }
 
 function WebDeleteAccountCard() {

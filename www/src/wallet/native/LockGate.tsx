@@ -82,15 +82,46 @@ export default function LockGate({ children }: { children: ReactNode }) {
     }
   }, [cleanup]);
 
-  if (cleanup) return <main className="contact-page section" role="dialog" aria-modal="true" aria-label="Finish wallet cleanup">
-    <span className="wordmark">PingApp</span>
-    <div className="card settings-card" style={{ maxWidth: 460, margin: "60px auto", display: "grid", gap: 18 }}>
-      <h1 style={{ fontSize: 30 }}>Finish device cleanup</h1>
-      <p>{cleanup.action === "delete" ? "Your PingApp account was deleted. Funds stay on-chain." : cleanup.action === "delete-pending" ? "Account deletion was interrupted and could not be confirmed. Your key is still on this device. Keeping it preserves access to on-chain funds. If deletion completed, signing in again creates an account for this wallet." : "Your PingApp account stays on the server. Funds stay on-chain."}</p>
-      {cleanup.error && <p role="alert">{cleanup.error}</p>}
-      <button className="button accent" disabled={cleanup.busy} onClick={() => void (cleanup.action === "delete-pending" ? walletCleanup.keepUnconfirmedWallet() : walletCleanup.retry(queryClient))}>{cleanup.busy ? "Removing wallet…" : cleanup.action === "delete-pending" ? "Keep wallet and continue" : "Retry device cleanup"}</button>
-    </div>
-  </main>;
+  if (cleanup)
+    return (
+      <main
+        className="contact-page section"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Finish wallet cleanup"
+      >
+        <span className="wordmark">PingApp</span>
+        <div
+          className="card settings-card"
+          style={{ maxWidth: 460, margin: "60px auto", display: "grid", gap: 18 }}
+        >
+          <h1 style={{ fontSize: 30 }}>Finish device cleanup</h1>
+          <p>
+            {cleanup.action === "delete"
+              ? "Your PingApp account was deleted. Funds stay on-chain."
+              : cleanup.action === "delete-pending"
+                ? "Account deletion was interrupted and could not be confirmed. Your key is still on this device. Keeping it preserves access to on-chain funds. If deletion completed, signing in again creates an account for this wallet."
+                : "Your PingApp account stays on the server. Funds stay on-chain."}
+          </p>
+          {cleanup.error && <p role="alert">{cleanup.error}</p>}
+          <button
+            className="button accent"
+            disabled={cleanup.busy}
+            onClick={() =>
+              void (cleanup.action === "delete-pending"
+                ? walletCleanup.keepUnconfirmedWallet()
+                : walletCleanup.retry(queryClient))
+            }
+          >
+            {cleanup.busy
+              ? "Removing wallet…"
+              : cleanup.action === "delete-pending"
+                ? "Keep wallet and continue"
+                : "Retry device cleanup"}
+          </button>
+        </div>
+      </main>
+    );
   if (discovered && access === "ready" && (onboarding || state === "none" || state === "unlocked"))
     return <>{children}</>;
   return (
