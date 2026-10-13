@@ -105,7 +105,9 @@ export default function LockGate({ children }: { children: ReactNode }) {
           className="card settings-card"
           style={{ maxWidth: 460, margin: "60px auto", display: "grid", gap: 18 }}
         >
-          <h1 style={{ fontSize: 30 }}>Finish device cleanup</h1>
+          <h1 style={{ fontSize: 30 }}>
+            {cleanup.finished ? "Wallet removed" : "Finish device cleanup"}
+          </h1>
           <p>
             {cleanup.action === "delete"
               ? "Your PingApp account was deleted. Funds stay on-chain."
@@ -118,16 +120,20 @@ export default function LockGate({ children }: { children: ReactNode }) {
             className="button accent"
             disabled={cleanup.busy}
             onClick={() =>
-              void (cleanup.action === "delete-pending"
-                ? walletCleanup.keepUnconfirmedWallet()
-                : walletCleanup.retry(queryClient))
+              void (cleanup.finished
+                ? walletCleanup.finish()
+                : cleanup.action === "delete-pending"
+                  ? walletCleanup.keepUnconfirmedWallet()
+                  : walletCleanup.retry(queryClient))
             }
           >
             {cleanup.busy
               ? "Removing wallet…"
-              : cleanup.action === "delete-pending"
-                ? "Keep wallet and continue"
-                : "Retry device cleanup"}
+              : cleanup.finished
+                ? "Continue to Welcome"
+                : cleanup.action === "delete-pending"
+                  ? "Keep wallet and continue"
+                  : "Retry device cleanup"}
           </button>
         </div>
       </main>

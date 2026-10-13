@@ -1,5 +1,4 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import { clearToken, getToken, signOutNative } from "@/auth/nativeSession";
 import { platform } from "@/platform";
 import { platformNavigateHome } from "@/platform/navigation";
@@ -7,7 +6,7 @@ import { keyManager } from "./keyManager";
 
 const CLEANUP_KEY = "pingapp.wallet.cleanup.v1";
 type Action = "delete" | "remove" | "delete-pending";
-type Cleanup = { action: Action; busy: boolean; error: string } | null;
+type Cleanup = { action: Action; busy: boolean; error: string; finished?: boolean } | null;
 let snapshot: Cleanup = null;
 let running: Promise<void> | undefined;
 let revocationUnconfirmed = false;
@@ -92,9 +91,15 @@ export const walletCleanup = {
     publish({ action, busy: true, error: "" });
     return this.retry(client);
   },
+  finish() {
+    if (!snapshot?.finished) return;
+    platformNavigateHome();
+    publish(null);
+  },
   retry(client: QueryClient): Promise<void> {
     if (running) return running;
-    if (!snapshot || snapshot.action === "delete-pending") return Promise.resolve();
+    if (!snapshot || snapshot.finished || snapshot.action === "delete-pending")
+      return Promise.resolve();
     const action = snapshot.action;
     publish({ action, busy: true, error: "" });
     running = (async () => {
@@ -119,12 +124,18 @@ export const walletCleanup = {
         await client.cancelQueries();
         client.clear();
         await removeCleanupIntent();
+        if (revocationUnconfirmed) {
+          publish({
+            action,
+            busy: false,
+            finished: true,
+            error:
+              "The key and session were removed from this phone. Server sign-out could not be confirmed; its session may remain valid until it expires.",
+          });
+          return;
+        }
         platformNavigateHome();
         publish(null);
-        if (revocationUnconfirmed)
-          toast.warning(
-            "Wallet removed. Server sign-out could not be confirmed; its session may remain valid until it expires.",
-          );
       } catch {
         // Never show cached account data or claim that a failed local wipe succeeded.
         keyManager.lock();
