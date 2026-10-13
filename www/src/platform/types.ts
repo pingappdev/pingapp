@@ -29,6 +29,7 @@ export interface Platform {
   share(content: ShareContent): Promise<void>;
   canShare(): Promise<boolean>;
   copyText(text: string): Promise<void>;
+  clearCopiedText(expected: string): Promise<void>;
   persistentStorage: {
     get(key: string): Promise<string | null>;
     set(key: string, value: string): Promise<void>;

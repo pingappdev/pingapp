@@ -48,6 +48,7 @@ export const platform: Platform = {
   share: async (content) => (await getPlatform()).share(content),
   canShare: async () => (await getPlatform()).canShare(),
   copyText: async (text) => (await getPlatform()).copyText(text),
+  clearCopiedText: async (expected) => (await getPlatform()).clearCopiedText(expected),
   persistentStorage: {
     get: async (key) => (await getPlatform()).persistentStorage.get(key),
     set: async (key, value) => (await getPlatform()).persistentStorage.set(key, value),

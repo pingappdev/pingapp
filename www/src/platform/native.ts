@@ -92,6 +92,11 @@ export async function createNativePlatform(os: PlatformOS): Promise<Platform> {
       }),
     canShare: () => deviceAction(async () => (await Share.canShare()).value),
     copyText: (text) => deviceAction(() => Clipboard.write({ string: text })),
+    clearCopiedText: (expected) => deviceAction(async () => {
+      const current = await Clipboard.read();
+      if (current.type === "text/plain" && current.value === expected)
+        await Clipboard.write({ string: "" });
+    }),
     persistentStorage: {
       get: (key) => deviceAction(async () => (await Preferences.get({ key })).value),
       set: (key, value) => deviceAction(() => Preferences.set({ key, value })),

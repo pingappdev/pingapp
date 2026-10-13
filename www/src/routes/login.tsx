@@ -1,10 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useSession } from "../api/hooks";
 import LoginForm from "../auth/login-form";
 import { safeReturnTo } from "../auth/return-to";
 import { useRouter } from "../routing";
 import type ClientLogin from "../wallet/client-login";
+
+const NativeOnboarding = import.meta.env.VITE_TARGET === "native"
+  ? lazy(() => import("../wallet/native/onboarding/Onboarding")) : null;
 
 // Wallet SDKs must stay out of both initial browser loading and server builds.
 const loadWalletLogin = import.meta.env.SSR ? null : () => import("../wallet/client-login");
@@ -27,6 +30,12 @@ export const Route = createFileRoute("/login")({
 });
 
 function Login() {
+  const { returnTo } = Route.useSearch();
+  if (NativeOnboarding) return <Suspense fallback={<main className="contact-page section">Opening your wallet…</main>}><NativeOnboarding returnTo={returnTo} /></Suspense>;
+  return <WebLogin />;
+}
+
+function WebLogin() {
   const { returnTo } = Route.useSearch();
   const router = useRouter();
   const session = useSession();

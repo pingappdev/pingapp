@@ -6,6 +6,7 @@ const unsupported = async (): Promise<never> => {
 const noListener = async () => async () => {};
 
 export const webPlatform: Platform = {
+  clearCopiedText: async () => {},
   isNative: false,
   os: "web",
   openAppSettings: unsupported,
