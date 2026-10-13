@@ -1,6 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { clearToken, signOutNative } from "@/auth/nativeSession";
+import { clearToken, getToken, signOutNative } from "@/auth/nativeSession";
 import { platform } from "@/platform";
 import { platformNavigateHome } from "@/platform/navigation";
 import { keyManager } from "./keyManager";
@@ -10,6 +10,7 @@ type Action = "delete" | "remove" | "delete-pending";
 type Cleanup = { action: Action; busy: boolean; error: string } | null;
 let snapshot: Cleanup = null;
 let running: Promise<void> | undefined;
+let revocationUnconfirmed = false;
 const listeners = new Set<() => void>();
 function publish(next: Cleanup) {
   snapshot = next;
@@ -59,6 +60,7 @@ export const walletCleanup = {
     }
   },
   start(action: Action, client: QueryClient) {
+    revocationUnconfirmed = false;
     publish({ action, busy: true, error: "" });
     return this.retry(client);
   },
@@ -68,14 +70,14 @@ export const walletCleanup = {
     const action = snapshot.action;
     publish({ action, busy: true, error: "" });
     running = (async () => {
-      let revocationUnconfirmed = false;
       try {
         // A cold start must finish cleanup rather than sign in with a deleted account.
         await platform.secureStorage.set(CLEANUP_KEY, action);
+        if (action === "remove" && !(await getToken())) revocationUnconfirmed = true;
         try {
           await signOutNative();
         } catch {
-          revocationUnconfirmed = action === "remove";
+          if (action === "remove") revocationUnconfirmed = true;
         }
         // Retry local token removal separately: logout can fail offline or in storage.
         await clearToken();
