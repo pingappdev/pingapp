@@ -64,7 +64,14 @@ export default defineConfig({
         }
       : {}),
   },
-  nitro: native ? false : { preset: process.env.VERCEL ? "vercel" : "node-server" },
+  nitro: native
+    ? false
+    : {
+        preset: process.env.VERCEL ? "vercel" : "node-server",
+        routeRules: {
+          "/.well-known/assetlinks.json": { headers: { "content-type": "application/json" } },
+        },
+      },
   plugins: native ? [nativeBundle()] : [],
   vite: {
     ...(native
