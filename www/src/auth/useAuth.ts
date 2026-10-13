@@ -9,6 +9,7 @@ import { chain } from "../config";
 import { openConnect } from "../wallet/appkit";
 import { safeReturnTo } from "./return-to";
 import { useRouter } from "../routing";
+import { isNativeBuild } from "../env";
 
 export { safeReturnTo } from "./return-to";
 
@@ -34,22 +35,35 @@ export function useAuth(): {
   const { switchChainAsync } = useSwitchChain();
   const me = session.data ?? null;
   const error = session.error instanceof Error ? session.error : null;
-  const address = account.isConnected ? account.address : undefined;
+  const address = isNativeBuild ? me?.address : account.isConnected ? account.address : undefined;
   const refetchSession = session.refetch;
 
   const signOut = useCallback(async () => {
+    if (import.meta.env.VITE_TARGET === "native" && isNativeBuild) {
+      try { await (await import("./nativeSession")).signOutNative(); }
+      finally {
+        await transitionSession(queryClient, null, { cancelSessionQuery: true });
+        router.replace("/login");
+      }
+      return;
+    }
     await endpoints.auth.logout();
     await transitionSession(queryClient, null, { cancelSessionQuery: true });
     if (account.isConnected) await disconnectAsync();
-  }, [account.isConnected, disconnectAsync, queryClient]);
+  }, [account.isConnected, disconnectAsync, queryClient, router]);
 
   const retrySession = useCallback(async () => {
     await refetchSession();
   }, [refetchSession]);
 
   const signIn = useCallback(() => {
+    if (isNativeBuild) {
+      const returnTo = safeReturnTo(window.location.pathname + window.location.search);
+      router.replace(`/login?returnTo=${encodeURIComponent(returnTo)}`);
+      return;
+    }
     void openConnect();
-  }, []);
+  }, [router]);
 
   const reauth = useCallback(async () => {
     if (!me || !address || address.toLowerCase() !== me.address.toLowerCase()) {
@@ -57,6 +71,15 @@ export function useAuth(): {
     }
     if (account.chainId !== chain.id) await switchChainAsync({ chainId: chain.id });
     const { nonce } = await endpoints.auth.nonce();
+    if (import.meta.env.VITE_TARGET === "native" && isNativeBuild) {
+      const { signAppSiwe } = await import("../wallet/native/siweApproval");
+      const { message, signature } = await signAppSiwe("reauth", nonce, me.address,
+        (message) => signMessageAsync({ message }));
+      await endpoints.auth.reauth(message, signature);
+      await queryClient.invalidateQueries({ queryKey: qk.me });
+      await queryClient.invalidateQueries({ queryKey: qk.session });
+      return;
+    }
     const message = createSiweMessage({
       domain: window.location.host,
       address: me.address,
@@ -108,7 +131,7 @@ export function useAuth(): {
       ? "error"
       : !me
         ? "signed-out"
-        : address && address.toLowerCase() !== me.address.toLowerCase()
+        : !isNativeBuild && address && address.toLowerCase() !== me.address.toLowerCase()
           ? "mismatch"
           : "signed-in";
 

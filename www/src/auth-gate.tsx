@@ -6,6 +6,7 @@ import { useAccount } from "wagmi";
 import { useAuth, safeReturnTo } from "./auth/useAuth";
 import { trimAddress } from "./dashboard/format";
 import { useRouter } from "./routing";
+import { isNativeBuild } from "./env";
 
 export default function AuthGate({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -31,10 +32,12 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     router.replace(`/login?returnTo=${encodeURIComponent(returnTo)}`);
   }, [status, switching, router]);
 
+  if (isNativeBuild && status === "signed-in") return <>{children}</>;
+
   if (
     status === "loading" ||
     (status === "signed-out" && !switching) ||
-    (status === "signed-in" && (account.status === "reconnecting" || !walletSettled))
+    (!isNativeBuild && status === "signed-in" && (account.status === "reconnecting" || !walletSettled))
   ) {
     return (
       <main className="premium-workspace contact-page section">
