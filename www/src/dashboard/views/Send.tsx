@@ -1,3 +1,5 @@
+import { platform } from "@/platform";
+import { navigateTo } from "@/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight, ShieldCheck, Wallet } from "lucide-react";
 import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
@@ -318,7 +320,10 @@ function SendSession({ me }: { me: Me | null }) {
     setTokenAddress(null);
     setReview(null);
     setReviewOpen(false);
-    if (intentId) window.location.assign("/dashboard/send");
+    if (intentId) {
+      if (platform.isNative) navigateTo("/dashboard/send");
+      else window.location.assign("/dashboard/send");
+    }
   }
 
   return (

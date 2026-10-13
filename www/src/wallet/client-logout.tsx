@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../auth/useAuth";
+import { platformNavigateHome } from "../platform/navigation";
 import { WalletProvider } from "./appkit";
 
 export default function ClientLogout() {
@@ -20,7 +21,7 @@ function LogoutContent() {
     setError("");
     try {
       await signOut();
-      window.location.replace("/");
+      platformNavigateHome();
     } catch (reason) {
       setError((reason as Error).message || "Could not sign out. Please try again.");
       setBusy(false);

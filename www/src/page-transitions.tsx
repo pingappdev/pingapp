@@ -3,6 +3,9 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "./routing";
 import { flushSync } from "react-dom";
 import { isStandaloneMarketingPath } from "./lib/marketing-paths";
+import { platform } from "./platform";
+import { nativeExternalDestination } from "./platform/navigation";
+import { toast } from "sonner";
 
 type Transition = { finished: Promise<void>; skipTransition: () => void };
 type TransitionDocument = Document & {
@@ -59,12 +62,21 @@ export default function PageTransitions({ children }: { children: React.ReactNod
   }, [route]);
   useEffect(() => {
     const doc = document as TransitionDocument;
-    const go = (href: string) => {
+    const openExternal = (href: string) => {
+      void platform.openExternal(href).catch(() => toast.error("Could not open this link."));
+    };
+    const go = (href: string, replace = false) => {
+      if (platform.isNative) {
+        const external = nativeExternalDestination(href);
+        if (external) return openExternal(external);
+        if (replace) return routerRef.current.replace(href);
+      }
       const url = new URL(href, location.href);
       if (
+        !platform.isNative && (
         url.origin !== location.origin ||
         reserved(url.pathname) ||
-        isStandaloneMarketingPath(url.pathname)
+        isStandaloneMarketingPath(url.pathname))
       ) {
         location.assign(url.href);
         return;
@@ -138,7 +150,17 @@ export default function PageTransitions({ children }: { children: React.ReactNod
       )
         return;
       const a = getAnchor(event);
-      if (!a || !eligible(a)) return;
+      if (!a) return;
+      if (platform.isNative) {
+        const external = nativeExternalDestination(a.href, a.target);
+        if (external) {
+          event.preventDefault();
+          event.stopPropagation();
+          openExternal(external);
+          return;
+        }
+      }
+      if (!eligible(a)) return;
       if (a.pathname === location.pathname && a.search === location.search && a.hash) return;
       event.preventDefault();
       go(a.href);
@@ -152,8 +174,8 @@ export default function PageTransitions({ children }: { children: React.ReactNod
       routerRef.current.prefetch(path);
     };
     const programmatic = (event: Event) => {
-      const href = (event as CustomEvent<{ href: string }>).detail?.href;
-      if (typeof href === "string") go(href);
+      const href = (event as CustomEvent<{ href: string; replace?: boolean }>).detail?.href;
+      if (typeof href === "string") go(href, (event as CustomEvent).detail?.replace === true);
     };
     document.addEventListener("click", clicked, { capture: true });
     document.addEventListener("pointerover", warm, { passive: true });
