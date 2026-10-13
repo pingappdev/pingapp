@@ -168,7 +168,7 @@ export default function PageTransitions({ children }: { children: React.ReactNod
       event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
     const eligible = (a: HTMLAnchorElement) =>
       !a.download &&
-      (!a.target || a.target === "_self") &&
+      (platform.isNative || !a.target || a.target === "_self") &&
       !a.hasAttribute("data-native-navigation") &&
       a.origin === location.origin &&
       /^https?:$/.test(a.protocol) &&

@@ -11,6 +11,7 @@ const config: CapacitorConfig = {
   android: { allowMixedContent: process.env.CAP_ALLOW_MIXED === "1" },
   plugins: {
     SplashScreen: { launchShowDuration: 500, backgroundColor: "#08080C", showSpinner: false },
+    SystemBars: { style: "DARK" },
     StatusBar: { style: "DARK", backgroundColor: "#08080C", overlaysWebView: false },
     Keyboard: { resize: "body", resizeOnFullScreen: true },
   },

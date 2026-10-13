@@ -1128,3 +1128,7 @@ html.ping-native body {
   padding-right: env(safe-area-inset-right);
   background: #08080C;
 }
+html.ping-native [data-slot="dialog-content"], html.ping-native [data-slot="alert-dialog-content"] {
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+}

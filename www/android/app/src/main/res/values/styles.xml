@@ -13,6 +13,10 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- Android 15+ reserves edge-to-edge system insets outside the WebView. -->
+        <item name="android:windowBackground">#08080C</item>
+        <item name="android:navigationBarColor">#08080C</item>
+        <item name="android:windowLightNavigationBar">false</item>
     </style>
 
 
