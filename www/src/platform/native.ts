@@ -39,6 +39,7 @@ const DeviceSettings = registerPlugin<{
 }>("DeviceSettings");
 
 const SecurityLifecycle = registerPlugin<{
+  clearCopiedText(options: { expected: string }): Promise<void>;
   addListener(event: "pause" | "resume", handler: () => void): Promise<{ remove(): Promise<void> }>;
 }>("SecurityLifecycle");
 
@@ -98,6 +99,7 @@ export async function createNativePlatform(os: PlatformOS): Promise<Platform> {
     copyText: (text) => deviceAction(() => Clipboard.write({ string: text })),
     clearCopiedText: (expected) =>
       deviceAction(async () => {
+        if (os === "android") return SecurityLifecycle.clearCopiedText({ expected });
         const current = await Clipboard.read();
         if (current.type === "text/plain" && current.value === expected)
           await Clipboard.write({ string: "" });
