@@ -7,8 +7,8 @@ const config: CapacitorConfig = {
   server: { androidScheme: 'https' },
   android: { allowMixedContent: process.env.CAP_ALLOW_MIXED === '1' },
   plugins: {
-    SplashScreen: { launchShowDuration: 500, backgroundColor: '#14151C', showSpinner: false },
-    StatusBar: { style: 'DARK', backgroundColor: '#14151C' },
+    SplashScreen: { launchShowDuration: 500, backgroundColor: '#08080C', showSpinner: false },
+    StatusBar: { style: 'DARK', backgroundColor: '#08080C' },
     Keyboard: { resize: 'body' },
   },
 }
