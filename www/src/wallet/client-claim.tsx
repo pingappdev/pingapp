@@ -1,3 +1,4 @@
+import { platform } from "@/platform";
 import { useCallback, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowUpRight, Check, LoaderCircle, RefreshCw, Wallet } from "lucide-react";
@@ -37,7 +38,7 @@ function ClaimContent({ code }: { code: string }) {
 
   return (
     <main className="contact-page section claim-page">
-      <a className="wordmark" href="/">
+      <a className="wordmark" href={platform.isNative ? "/dashboard" : "/"}>
         PingApp
       </a>
       <div className="card settings-card claim-card">
@@ -62,7 +63,7 @@ function ClaimContent({ code }: { code: string }) {
                 <RefreshCw size={15} /> Try again
               </button>
             )}
-            <a className="text-link" href="/">
+            <a className="text-link" href={platform.isNative ? "/dashboard" : "/"}>
               Open PingApp
             </a>
           </div>
@@ -143,7 +144,7 @@ function ClaimContent({ code }: { code: string }) {
                   No transfer can be completed from this invite. Ask the sender if you need an
                   updated link.
                 </p>
-                <a className="button outline" href="/">
+                <a className="button outline" href={platform.isNative ? "/dashboard" : "/"}>
                   Open PingApp <ArrowUpRight size={15} />
                 </a>
               </div>
@@ -310,7 +311,11 @@ function ClaimSessionStep({
     return (
       <div className="claim-state">
         <h2>Your connected wallet differs from this PingApp session.</h2>
-        <p>Switch to the wallet for this session, or sign out and connect the intended wallet.</p>
+        <p>
+          {platform.isNative
+            ? "Refresh your session to continue with the wallet on this device."
+            : "Switch to the wallet for this session, or sign out and connect the intended wallet."}
+        </p>
         {actionError && <p role="alert">{actionError}</p>}
         <button
           className="button accent"

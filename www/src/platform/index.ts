@@ -40,6 +40,8 @@ export function getPlatform(): Promise<Platform> {
 // at module evaluation. It never falls back to web storage on native failure.
 export const platform: Platform = {
   ...platformInfo,
+  minimizeApp: async () => (await getPlatform()).minimizeApp(),
+  configureSystemUI: async () => (await getPlatform()).configureSystemUI(),
   openExternal: async (url) => (await getPlatform()).openExternal(url),
   share: async (content) => (await getPlatform()).share(content),
   canShare: async () => (await getPlatform()).canShare(),

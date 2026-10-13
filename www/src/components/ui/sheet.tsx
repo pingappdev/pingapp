@@ -1,5 +1,7 @@
 "use client";
 
+import { useOverlayBackHandler } from "@/platform/backHandlerStack";
+
 import * as React from "react";
 import { XIcon } from "lucide-react";
 import { Dialog as SheetPrimitive } from "radix-ui";
@@ -7,7 +9,8 @@ import { Dialog as SheetPrimitive } from "radix-ui";
 import { cn } from "@/lib/utils";
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
-  return <SheetPrimitive.Root data-slot="sheet" {...props} />;
+  const onOpenChange = useOverlayBackHandler(props);
+  return <SheetPrimitive.Root data-slot="sheet" {...props} onOpenChange={onOpenChange} />;
 }
 
 function SheetTrigger({ ...props }: React.ComponentProps<typeof SheetPrimitive.Trigger>) {

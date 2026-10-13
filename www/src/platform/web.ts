@@ -8,6 +8,8 @@ const noListener = async () => async () => {};
 export const webPlatform: Platform = {
   isNative: false,
   os: "web",
+  minimizeApp: unsupported,
+  configureSystemUI: noListener,
   openExternal: (url) =>
     deviceAction(async () => {
       const popup = window.open(externalUrl(url), "_blank", "noopener,noreferrer");

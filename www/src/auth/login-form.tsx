@@ -1,3 +1,4 @@
+import { platform } from "@/platform";
 import type { AuthStatus } from "./useAuth";
 
 export default function LoginForm({
@@ -17,9 +18,13 @@ export default function LoginForm({
 }) {
   return (
     <main className="contact-page section">
-      <a className="wordmark" href="/">
-        PingApp
-      </a>
+      {platform.isNative ? (
+        <span className="wordmark">PingApp</span>
+      ) : (
+        <a className="wordmark" href="/">
+          PingApp
+        </a>
+      )}
       <div className="card settings-card" style={{ maxWidth: 460, margin: "60px auto" }}>
         <h1 style={{ fontSize: 44 }}>Sign in with your wallet.</h1>
         <p>No email, no password. PingApp never asks for your seed phrase.</p>
@@ -56,9 +61,11 @@ export default function LoginForm({
         <p className="field-help" style={{ marginTop: 18 }}>
           Signing is free. It proves you own this wallet and moves no funds.
         </p>
-        <a className="text-link" href="/what-we-do/connect">
-          New to crypto wallets?
-        </a>
+        {!platform.isNative && (
+          <a className="text-link" href="/what-we-do/connect">
+            New to crypto wallets?
+          </a>
+        )}
       </div>
     </main>
   );

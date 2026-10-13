@@ -1,4 +1,6 @@
 import { Capacitor } from "@capacitor/core";
+import { Keyboard } from "@capacitor/keyboard";
+import { StatusBar, Style } from "@capacitor/status-bar";
 import { App } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
 import { Clipboard } from "@capacitor/clipboard";
@@ -43,6 +45,39 @@ export async function createNativePlatform(os: PlatformOS): Promise<Platform> {
   return {
     isNative: true,
     os,
+    minimizeApp: () => deviceAction(() => App.minimizeApp()),
+    configureSystemUI: () =>
+      deviceAction(async () => {
+        await StatusBar.setStyle({ style: Style.Dark });
+        // Capacitor's Android edge-to-edge inset handling keeps content outside
+        // system bars on Android 15+. Older Android/iOS use a non-overlay bar.
+        await StatusBar.setOverlaysWebView({ overlay: false });
+        await StatusBar.setBackgroundColor({ color: "#08080C" });
+        const root = document.documentElement;
+        root.classList.add("ping-native");
+        const revealInput = () => {
+          const input = document.activeElement;
+          if (
+            input instanceof HTMLElement &&
+            input.matches("input,textarea,[contenteditable=true]")
+          )
+            input.scrollIntoView({ block: "center", behavior: "smooth" });
+        };
+        const shown = await Keyboard.addListener("keyboardDidShow", () => {
+          root.classList.add("keyboard-open");
+          revealInput();
+        });
+        const hidden = await Keyboard.addListener("keyboardDidHide", () =>
+          root.classList.remove("keyboard-open"),
+        );
+        document.addEventListener("focusin", revealInput);
+        return async () => {
+          document.removeEventListener("focusin", revealInput);
+          root.classList.remove("keyboard-open", "ping-native");
+          await shown.remove();
+          await hidden.remove();
+        };
+      }),
     openExternal: (url) => deviceAction(() => Browser.open({ url: externalUrl(url) })),
     share: (content) =>
       deviceAction(async () => {

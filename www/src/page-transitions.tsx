@@ -1,10 +1,11 @@
 "use client";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "./routing";
 import { flushSync } from "react-dom";
 import { isStandaloneMarketingPath } from "./lib/marketing-paths";
 import { platform } from "./platform";
 import { nativeExternalDestination } from "./platform/navigation";
+import { closeTopBackHandler } from "./platform/backHandlerStack";
 import { toast } from "sonner";
 
 type Transition = { finished: Promise<void>; skipTransition: () => void };
@@ -20,6 +21,12 @@ export default function PageTransitions({ children }: { children: React.ReactNod
   const router = useRouter(),
     pathname = usePathname(),
     params = useSearchParams();
+  const [remount, setRemount] = useState(0);
+  useEffect(() => {
+    const refresh = () => setRemount((value) => value + 1);
+    window.addEventListener("pingapp:remount", refresh);
+    return () => window.removeEventListener("pingapp:remount", refresh);
+  }, []);
   const [entrance, setEntrance] = useState(true),
     [entranceRun, setEntranceRun] = useState(0);
   const route = pathname + "?" + params.toString();
@@ -41,6 +48,33 @@ export default function PageTransitions({ children }: { children: React.ReactNod
     entranceTimer.current = window.setTimeout(() => setEntrance(false), 1900);
     return () => {
       if (entranceTimer.current !== null) window.clearTimeout(entranceTimer.current);
+    };
+  }, []);
+  useEffect(() => {
+    if (!platform.isNative) return;
+    let disposed = false;
+    const unsubscribe: (() => Promise<void>)[] = [];
+    const remember = (cleanup: () => Promise<void>) => {
+      if (disposed) void cleanup().catch(() => {});
+      else unsubscribe.push(cleanup);
+    };
+    void platform
+      .configureSystemUI()
+      .then(remember)
+      .catch(() => toast.error("Could not configure device display."));
+    void platform
+      .onBackButton(() => {
+        if (closeTopBackHandler()) return;
+        if (routerRef.current.canGoBack()) routerRef.current.back();
+        else if (location.pathname !== "/dashboard" && location.pathname.startsWith("/dashboard/"))
+          routerRef.current.replace("/dashboard");
+        else void platform.minimizeApp().catch(() => {});
+      })
+      .then(remember)
+      .catch(() => toast.error("Could not configure device navigation."));
+    return () => {
+      disposed = true;
+      for (const cleanup of unsubscribe) void cleanup().catch(() => {});
     };
   }, []);
   useLayoutEffect(() => {
@@ -73,10 +107,10 @@ export default function PageTransitions({ children }: { children: React.ReactNod
       }
       const url = new URL(href, location.href);
       if (
-        !platform.isNative && (
-        url.origin !== location.origin ||
-        reserved(url.pathname) ||
-        isStandaloneMarketingPath(url.pathname))
+        !platform.isNative &&
+        (url.origin !== location.origin ||
+          reserved(url.pathname) ||
+          isStandaloneMarketingPath(url.pathname))
       ) {
         location.assign(url.href);
         return;
@@ -194,7 +228,7 @@ export default function PageTransitions({ children }: { children: React.ReactNod
   }, []);
   return (
     <>
-      {children}
+      <Fragment key={remount}>{children}</Fragment>
       <div
         key={entranceRun}
         className={`brand-entrance${entrance ? "" : " brand-entrance--done"}`}

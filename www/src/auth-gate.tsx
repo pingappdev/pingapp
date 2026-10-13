@@ -1,3 +1,5 @@
+import { platform } from "@/platform";
+import { useRefreshApp } from "@/platform/useRefreshApp";
 import { useEffect, useState, type ReactNode } from "react";
 import { RefreshCw, Wallet } from "lucide-react";
 import { useAccount } from "wagmi";
@@ -7,6 +9,7 @@ import { useRouter } from "./routing";
 
 export default function AuthGate({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const refreshApp = useRefreshApp();
   const { status, me, address, error: sessionError, retrySession, signIn, signOut } = useAuth();
   const [busy, setBusy] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -78,6 +81,20 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     );
   }
 
+  if (platform.isNative && (status === "mismatch" || (status === "signed-in" && walletMissing))) {
+    return (
+      <main className="premium-workspace contact-page section">
+        <div className="card settings-card wallet-gate">
+          <h1>Your device wallet is unavailable.</h1>
+          <p>Refresh your session to continue with the wallet on this device.</p>
+          <button className="button accent" onClick={refreshApp}>
+            Try again
+          </button>
+        </div>
+      </main>
+    );
+  }
+
   if (status === "mismatch") {
     return (
       <main className="premium-workspace contact-page section">
@@ -108,7 +125,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
             >
               Sign in as the new wallet
             </button>
-            <button className="button outline" onClick={() => window.location.reload()}>
+            <button className="button outline" onClick={refreshApp}>
               Switch back in your wallet
             </button>
           </div>

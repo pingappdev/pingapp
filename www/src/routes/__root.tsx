@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-router";
 import { type ReactNode } from "react";
 
+import { isNativeBuild } from "../env";
 import appCss from "../styles.css?url";
 import PageTransitions from "../page-transitions";
 
@@ -73,7 +74,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      {
+        name: "viewport",
+        content: isNativeBuild
+          ? "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+          : "width=device-width, initial-scale=1",
+      },
       { title: "PingApp — Your number. Your wallet." },
       {
         name: "description",

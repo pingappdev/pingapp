@@ -64,7 +64,9 @@ function apiUrl(path: string): string {
 
 export async function api<T>(path: string, opts: ApiOptions = {}): Promise<T> {
   const method = opts.method ?? "GET";
-  const headers: Record<string, string> = { accept: opts.responseType === "blob" ? "text/csv" : "application/json" };
+  const headers: Record<string, string> = {
+    accept: opts.responseType === "blob" ? "text/csv" : "application/json",
+  };
   if (method !== "GET") {
     headers["content-type"] = "application/json";
     headers["x-pingapp"] = "1";
@@ -238,7 +240,10 @@ export const endpoints = {
     get: (id: string, options?: ApiRequestOptions) =>
       api<{ transfer: Transfer }>(`/v1/transfers/${encodeURIComponent(id)}`, options),
     exportCsv: (direction: TransferDirection = "all", options?: ApiRequestOptions) =>
-      api<Blob>(withQuery("/v1/transfers/export.csv", { direction }), { ...options, responseType: "blob" }),
+      api<Blob>(withQuery("/v1/transfers/export.csv", { direction }), {
+        ...options,
+        responseType: "blob",
+      }),
     exportUrl: (direction: TransferDirection = "all") =>
       apiUrl(withQuery("/v1/transfers/export.csv", { direction })),
   },

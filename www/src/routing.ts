@@ -14,6 +14,9 @@ export function useRouter() {
   const router = useTanstackRouter();
   return useMemo(
     () => ({
+      canGoBack: () => router.history.canGoBack(),
+      back: () => router.history.back(),
+      invalidate: () => router.invalidate(),
       push: (href: string, options?: { scroll?: boolean }) => {
         void (router.navigate as (opts: { href: string }) => unknown)({ href });
         if (options?.scroll !== false) window.scrollTo({ top: 0, left: 0, behavior: "instant" });

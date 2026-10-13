@@ -1,5 +1,7 @@
 "use client";
 
+import { useOverlayBackHandler } from "@/platform/backHandlerStack";
+
 import * as React from "react";
 import { XIcon } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
@@ -8,7 +10,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />;
+  const onOpenChange = useOverlayBackHandler(props);
+  return <DialogPrimitive.Root data-slot="dialog" {...props} onOpenChange={onOpenChange} />;
 }
 
 function DialogTrigger({ ...props }: React.ComponentProps<typeof DialogPrimitive.Trigger>) {

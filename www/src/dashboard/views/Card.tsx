@@ -1,3 +1,4 @@
+import { useRefreshApp } from "@/platform/useRefreshApp";
 import { useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUpRight, Eye, Plus, Smartphone } from "lucide-react";
 import { useCards, useCardsConfig, useCardTransactions, type CardSummary } from "@/api/cards";
@@ -30,6 +31,7 @@ function CardDashboard({
   userId: string;
   withReauth: ReturnType<typeof useAuth>["withReauth"];
 }) {
+  const refreshApp = useRefreshApp();
   const request = useCardRequest(userId);
   const configQuery = useCardsConfig(userId, !request.accountChanged);
   const cardsQuery = useCards(userId, !request.accountChanged);
@@ -103,7 +105,7 @@ function CardDashboard({
           Refresh your session before continuing. To recover this application, switch back to the
           account that started it. Any pending request remains saved for that account.
         </p>
-        <button type="button" className="button outline" onClick={() => window.location.reload()}>
+        <button type="button" className="button outline" onClick={refreshApp}>
           Refresh session
         </button>
       </section>

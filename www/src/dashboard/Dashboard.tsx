@@ -63,7 +63,9 @@ function DashboardLayout() {
     } catch (error) {
       if (!(error instanceof Error && "code" in error && error.code === "cancelled"))
         toast.error("Could not export Activity. Please try again.");
-    } finally { setExporting(false); }
+    } finally {
+      setExporting(false);
+    }
   }
   const [contactDialog, setContactDialog] = useState<{ contact: Contact | null } | null>(null);
   const [removeContact, setRemoveContact] = useState<Contact | null>(null);
@@ -163,10 +165,12 @@ function DashboardLayout() {
             <strong>Your keys. Your control.</strong>
             <p>Your funds stay in your wallet.</p>
           </div>
-          {!platform.isNative && <a className="back-site" href="/">
-            <ArrowLeft size={15} />
-            Back to website
-          </a>}
+          {!platform.isNative && (
+            <a className="back-site" href="/">
+              <ArrowLeft size={15} />
+              Back to website
+            </a>
+          )}
         </SidebarFooter>
       </Sidebar>
       <nav className="ping-mobile-tabbar" aria-label="Dashboard sections">
@@ -208,10 +212,14 @@ function DashboardLayout() {
             <NotificationsBell />
             <button
               className="account-chip"
-              onClick={() => platform.isNative ? navigateTo("/dashboard/settings#wallet") : void openAccount()}
+              onClick={() =>
+                platform.isNative ? navigateTo("/dashboard/settings#wallet") : void openAccount()
+              }
               aria-label={platform.isNative ? "Open wallet settings" : "Open wallet account"}
             >
-              {platform.isNative ? trimAddress(me?.address ?? "") : me?.displayName || trimAddress(me?.address ?? "")}
+              {platform.isNative
+                ? trimAddress(me?.address ?? "")
+                : me?.displayName || trimAddress(me?.address ?? "")}
             </button>
           </div>
         </header>
@@ -247,17 +255,23 @@ function DashboardLayout() {
                 <Plus size={17} />
                 Add contact
               </button>
-            ) : view === "activity" ? (platform.isNative ? (
-              <button className="button outline" disabled={exporting} onClick={() => void exportCsv()}>
-                <Download size={17} />
-                {exporting ? "Exporting…" : "Export CSV"}
-              </button>
-            ) : (
-              <a className="button outline" href={endpoints.transfers.exportUrl(direction)}>
-                <Download size={17} />
-                Export CSV
-              </a>
-            )) : null}
+            ) : view === "activity" ? (
+              platform.isNative ? (
+                <button
+                  className="button outline"
+                  disabled={exporting}
+                  onClick={() => void exportCsv()}
+                >
+                  <Download size={17} />
+                  {exporting ? "Exporting…" : "Export CSV"}
+                </button>
+              ) : (
+                <a className="button outline" href={endpoints.transfers.exportUrl(direction)}>
+                  <Download size={17} />
+                  Export CSV
+                </a>
+              )
+            ) : null}
           </div>
           {view === "overview" && <Overview />}
           {view === "contacts" && (
