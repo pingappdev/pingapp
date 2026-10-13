@@ -1,6 +1,7 @@
 package app.pingapp.android;
 
 import android.os.Bundle;
+import android.view.WindowManager;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -9,5 +10,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(DeviceSettingsPlugin.class);
         registerPlugin(SecurityLifecyclePlugin.class);
         super.onCreate(savedInstanceState);
+        if (BuildConfig.FLAVOR.equals("prod")) {
+            getWindow().setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE);
+        }
     }
 }
