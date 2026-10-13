@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { isNativeBuild } from "@/env";
 import { webPlatform } from "./web";
 import type { Platform, PlatformOS } from "./types";
+import { deviceAction } from "./types";
 
 export { PlatformError } from "./types";
 export type { Platform, PlatformErrorCode, ShareFile, ContactPhone, Unsubscribe } from "./types";
@@ -26,7 +27,9 @@ let implementation: Promise<Platform> | undefined;
 export function getPlatform(): Promise<Platform> {
   implementation ??=
     isNativeBuild && isNative
-      ? import("./native").then((module) => module.createNativePlatform(platformInfo.os))
+      ? deviceAction(() =>
+          import("./native").then((module) => module.createNativePlatform(platformInfo.os)),
+        )
       : Promise.resolve(webPlatform);
   return implementation;
 }
