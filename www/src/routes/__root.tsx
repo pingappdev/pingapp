@@ -16,7 +16,9 @@ import PageTransitions from "../page-transitions";
 const NativeLockGate =
   import.meta.env.VITE_TARGET === "native" ? lazy(() => import("../wallet/native/LockGate")) : null;
 const NativeDeepLinkRouting =
-  import.meta.env.VITE_TARGET === "native" ? lazy(() => import("../wallet/native/DeepLinkRouting")) : null;
+  import.meta.env.VITE_TARGET === "native"
+    ? lazy(() => import("../wallet/native/DeepLinkRouting"))
+    : null;
 
 function NotFoundComponent() {
   return (
@@ -127,7 +129,11 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {NativeDeepLinkRouting && <Suspense fallback={null}><NativeDeepLinkRouting /></Suspense>}
+      {NativeDeepLinkRouting && (
+        <Suspense fallback={null}>
+          <NativeDeepLinkRouting />
+        </Suspense>
+      )}
       <PageTransitions>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         {NativeLockGate ? (
