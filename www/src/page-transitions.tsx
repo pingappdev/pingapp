@@ -228,7 +228,7 @@ export default function PageTransitions({ children }: { children: React.ReactNod
   }, []);
   return (
     <>
-      <Fragment key={remount}>{children}</Fragment>
+      <Fragment key={`app-${remount}`}>{children}</Fragment>
       <div
         key={entranceRun}
         className={`brand-entrance${entrance ? "" : " brand-entrance--done"}`}
