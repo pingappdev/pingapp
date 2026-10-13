@@ -26,7 +26,9 @@ export const platformInfo: { isNative: boolean; os: PlatformOS } = {
 let implementation: Promise<Platform> | undefined;
 export function getPlatform(): Promise<Platform> {
   implementation ??=
-    isNativeBuild && isNative
+    // Keep the literal env check here: Vite removes this import before creating
+    // the web chunk graph; an imported constant alone can leave orphan plugins.
+    import.meta.env.VITE_TARGET === "native" && isNativeBuild && isNative
       ? deviceAction(() =>
           import("./native").then((module) => module.createNativePlatform(platformInfo.os)),
         )
