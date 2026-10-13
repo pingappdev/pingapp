@@ -22,6 +22,8 @@ export interface Platform {
   readonly isNative: boolean;
   readonly os: PlatformOS;
   openExternal(url: string): Promise<void>;
+  openAppSettings(): Promise<void>;
+  openSecuritySettings(): Promise<void>;
   minimizeApp(): Promise<void>;
   configureSystemUI(): Promise<Unsubscribe>;
   share(content: ShareContent): Promise<void>;

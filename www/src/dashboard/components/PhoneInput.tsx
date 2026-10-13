@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { getCountries, type Country } from "react-phone-number-input";
 import labels from "react-phone-number-input/locale/en";
 import "react-phone-number-input/style.css";
@@ -34,6 +34,8 @@ export default function PhoneInput({
   name,
   placeholder = "Phone number",
   disabled = false,
+  accessory,
+  onCountryChange,
 }: {
   value?: string;
   onChange: (value?: string) => void;
@@ -42,12 +44,17 @@ export default function PhoneInput({
   name?: string;
   placeholder?: string;
   disabled?: boolean;
+  accessory?: ReactNode;
+  onCountryChange?: (country: Country) => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const controlledValue = value || undefined;
   const [draft, setDraft] = useState(() =>
     phoneDraftFromValue(controlledValue, defaultCountry ?? countryFromLocale()),
   );
+  useEffect(() => {
+    onCountryChange?.(draft.country);
+  }, [draft.country, onCountryChange]);
 
   // Parent echoes retain the editing draft; contact prefills and resets replace it.
   if (controlledValue !== draft.value) {
@@ -109,6 +116,7 @@ export default function PhoneInput({
           }
         }}
       />
+      {accessory}
     </div>
   );
 }

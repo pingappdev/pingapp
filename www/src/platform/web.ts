@@ -8,6 +8,8 @@ const noListener = async () => async () => {};
 export const webPlatform: Platform = {
   isNative: false,
   os: "web",
+  openAppSettings: unsupported,
+  openSecuritySettings: unsupported,
   minimizeApp: unsupported,
   configureSystemUI: noListener,
   openExternal: (url) =>

@@ -1,6 +1,15 @@
 diff --git a/android/src/main/java/getcapacitor/community/contacts/ContactsPlugin.java b/android/src/main/java/getcapacitor/community/contacts/ContactsPlugin.java
 --- a/android/src/main/java/getcapacitor/community/contacts/ContactsPlugin.java
 +++ b/android/src/main/java/getcapacitor/community/contacts/ContactsPlugin.java
+@@ -24,7 +24,7 @@
+ 
+ @CapacitorPlugin(
+     name = "Contacts",
+-    permissions = { @Permission(strings = { Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS }, alias = "contacts") }
++    permissions = { @Permission(strings = { Manifest.permission.READ_CONTACTS }, alias = "contacts") }
+ )
+ public class ContactsPlugin extends Plugin {
+ 
 @@ -218,6 +218,10 @@
  
      @ActivityCallback

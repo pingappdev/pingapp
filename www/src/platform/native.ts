@@ -1,4 +1,4 @@
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import { Keyboard } from "@capacitor/keyboard";
 import { StatusBar, Style } from "@capacitor/status-bar";
 import { App } from "@capacitor/app";
@@ -33,6 +33,11 @@ const kinds: Record<BiometryType, BiometricKind> = {
   [BiometryType.irisAuthentication]: "iris",
 };
 
+const DeviceSettings = registerPlugin<{
+  openAppSettings(): Promise<void>;
+  openSecuritySettings(): Promise<void>;
+}>("DeviceSettings");
+
 export async function createNativePlatform(os: PlatformOS): Promise<Platform> {
   if (!Capacitor.isNativePlatform()) {
     throw new PlatformError("not_available", "The native bridge is not available.");
@@ -45,6 +50,8 @@ export async function createNativePlatform(os: PlatformOS): Promise<Platform> {
   return {
     isNative: true,
     os,
+    openAppSettings: () => deviceAction(() => DeviceSettings.openAppSettings()),
+    openSecuritySettings: () => deviceAction(() => DeviceSettings.openSecuritySettings()),
     minimizeApp: () => deviceAction(() => App.minimizeApp()),
     configureSystemUI: () =>
       deviceAction(async () => {
