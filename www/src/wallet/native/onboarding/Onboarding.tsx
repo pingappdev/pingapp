@@ -16,6 +16,7 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import { keyManager, WalletError } from "../keyManager";
+import { unlockWallet } from "../lockPolicy";
 
 type Step =
   "loading" | "welcome" | "device" | "import" | "backup" | "existing" | "signing" | "failed";
@@ -188,7 +189,7 @@ export default function Onboarding({ returnTo }: { returnTo?: string }) {
       setAddress(result.address);
       setStep("backup");
       if (!active(generation)) return;
-      await keyManager.unlock();
+      await unlockWallet(() => active(generation));
       if (!active(generation)) return;
       setAddress(result.address);
       setPrivateKey(result.privateKey);
@@ -207,7 +208,7 @@ export default function Onboarding({ returnTo }: { returnTo?: string }) {
     setBusy(true);
     setError("");
     try {
-      await keyManager.unlock();
+      await unlockWallet(() => active(generation));
       if (!active(generation)) return;
       const key = await keyManager.revealPrivateKey();
       if (active(generation) && keyManager.getState() === "unlocked") setPrivateKey(key);

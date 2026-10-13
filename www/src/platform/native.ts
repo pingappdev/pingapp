@@ -38,6 +38,10 @@ const DeviceSettings = registerPlugin<{
   openSecuritySettings(): Promise<void>;
 }>("DeviceSettings");
 
+const SecurityLifecycle = registerPlugin<{
+  addListener(event: "pause" | "resume", handler: () => void): Promise<{ remove(): Promise<void> }>;
+}>("SecurityLifecycle");
+
 export async function createNativePlatform(os: PlatformOS): Promise<Platform> {
   if (!Capacitor.isNativePlatform()) {
     throw new PlatformError("not_available", "The native bridge is not available.");
@@ -132,15 +136,22 @@ export async function createNativePlatform(os: PlatformOS): Promise<Platform> {
             kind: kinds[result.biometryType] ?? "none",
           };
         }),
-      authenticate: (reason) =>
-        deviceAction(() =>
-          BiometricAuth.authenticate({
+      authenticate: async (reason) => {
+        try {
+          await BiometricAuth.authenticate({
             reason,
             allowDeviceCredential: true,
             androidBiometryStrength: AndroidBiometryStrength.strong,
-            androidTitle: "Unlock PingApp",
-          }),
-        ),
+            androidTitle: reason,
+          });
+        } catch (error) {
+          // Only this biometric OS error may retain its OS-provided text.
+          // Storage and all other plugin failures remain sanitized.
+          if ((error as { code?: string })?.code === "biometryLockout")
+            throw new PlatformError("failed", String((error as Error).message));
+          throw platformError(error);
+        }
+      },
     },
     pickContactPhone: async () => {
       try {
@@ -176,12 +187,18 @@ export async function createNativePlatform(os: PlatformOS): Promise<Platform> {
       }),
     onResume: (handler) =>
       deviceAction(async () => {
-        const listener = await App.addListener("resume", handler);
+        const listener = await (os === "android" ? SecurityLifecycle : App).addListener(
+          "resume",
+          handler,
+        );
         return () => deviceAction(() => listener.remove());
       }),
     onPause: (handler) =>
       deviceAction(async () => {
-        const listener = await App.addListener("pause", handler);
+        const listener = await (os === "android" ? SecurityLifecycle : App).addListener(
+          "pause",
+          handler,
+        );
         return () => deviceAction(() => listener.remove());
       }),
     onAppUrlOpen: (handler) =>

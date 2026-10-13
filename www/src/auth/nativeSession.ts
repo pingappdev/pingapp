@@ -5,8 +5,8 @@ import { qk, transitionSession } from "../api/hooks";
 import type { Me } from "../api/types";
 import { platform } from "../platform";
 import { keyManager } from "../wallet/native/keyManager";
-import { ProviderError, setApprovalHandler } from "../wallet/native/provider";
-import { consumeTrustedSiwe, signAppSiwe } from "../wallet/native/siweApproval";
+import { signAppSiwe } from "../wallet/native/siweApproval";
+import { unlockWallet } from "../wallet/native/lockPolicy";
 import { connectNativeWallet, nativeWagmiConfig } from "../wallet/native/wagmi";
 
 const TOKEN_KEY = "pingapp.session.v1";
@@ -58,13 +58,6 @@ function sessionGuard(allow: () => boolean = () => true) {
   };
 }
 const clients = new Set<QueryClient>();
-
-// MOB-08 replaces this handler with its lock/biometric policy and consumes the
-// same one-shot SIWE permits. Other signatures fail closed in this interim.
-setApprovalHandler(async (request) => {
-  if (!consumeTrustedSiwe(request))
-    throw new ProviderError(4100, "Unlock and approve this action before signing.");
-});
 
 export async function getToken(): Promise<string | null> {
   if (token !== undefined) return token;
@@ -179,7 +172,10 @@ export async function resumeNativeSession(allow: () => boolean = () => true): Pr
       throw error;
     }
     suspended = false;
-    await keyManager.unlock();
+    await unlockWallet(() => {
+      guard();
+      return true;
+    });
     guard();
     const me = await signInSilently();
     guard();
@@ -246,7 +242,10 @@ export function readNativeSession(client: QueryClient): Promise<Me | null> {
       if (needsBackup) return null;
       if (keyManager.getState() !== "unlocked") {
         assertStartup();
-        await keyManager.unlock();
+        await unlockWallet(() => {
+          assertStartup();
+          return true;
+        });
         assertStartup();
       }
       await connectNativeWallet();

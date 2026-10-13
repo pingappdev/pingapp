@@ -193,12 +193,16 @@ export const keyManager = {
     return account;
   },
   getEpoch: () => epoch,
-  revealPrivateKey: () =>
-    run(async () => {
+  revealPrivateKey: () => {
+    const expectedEpoch = epoch;
+    return run(async () => {
+      if (state !== "unlocked" || epoch !== expectedEpoch) throw new WalletLocked();
       const stored = await read();
       if (!stored) throw new WalletError("WalletMissing", "There is no wallet on this device.");
+      if (state !== "unlocked" || epoch !== expectedEpoch) throw new WalletLocked();
       return stored.pk;
-    }),
+    });
+  },
   wipe() {
     this.lock();
     return run(async () => {

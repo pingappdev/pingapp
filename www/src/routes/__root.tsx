@@ -7,11 +7,14 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { type ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 
 import { isNativeBuild } from "../env";
 import appCss from "../styles.css?url";
 import PageTransitions from "../page-transitions";
+
+const NativeLockGate =
+  import.meta.env.VITE_TARGET === "native" ? lazy(() => import("../wallet/native/LockGate")) : null;
 
 function NotFoundComponent() {
   return (
@@ -124,7 +127,15 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <PageTransitions>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <Outlet />
+        {NativeLockGate ? (
+          <Suspense fallback={<main role="status">Opening your wallet…</main>}>
+            <NativeLockGate>
+              <Outlet />
+            </NativeLockGate>
+          </Suspense>
+        ) : (
+          <Outlet />
+        )}
       </PageTransitions>
     </QueryClientProvider>
   );
