@@ -4,6 +4,7 @@ import {
   stringToHex,
   toHex,
   type Address,
+  type AccessList,
   type Hex,
   type TransactionSerializable,
   type TypedDataDefinition,
@@ -79,9 +80,12 @@ export class InsufficientFunds extends ProviderError {
 export const relayTransport = http(config.rpcUrl, {
   batch: true,
   fetchOptions: { headers: { "x-pingapp": "1" }, credentials: "omit" },
-  async onFetchRequest(request) {
+  async onFetchRequest(request, init) {
     const token = await platform.secureStorage.get("pingapp.session.v1");
     if (token) request.headers.set("authorization", `Bearer ${token}`);
+    // viem fetches its original init; mutating the temporary Request alone
+    // does not update those copied headers. Return the actual fetch options.
+    return { ...init, headers: request.headers };
   },
 });
 const relay = relayTransport({ chain, retryCount: 0 });
@@ -99,6 +103,28 @@ function quantity(value: unknown): bigint {
 function bytes(value: unknown): Hex {
   if (typeof value !== "string" || !/^0x(?:[0-9a-f]{2})*$/i.test(value)) invalid();
   return value as Hex;
+}
+function accessList(value: unknown): AccessList | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) invalid();
+  return value.map((item: unknown) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) invalid();
+    const entry = item as Record<string, unknown>;
+    if (
+      Object.keys(entry).some((key) => key !== "address" && key !== "storageKeys") ||
+      typeof entry.address !== "string" ||
+      !isAddress(entry.address, { strict: false }) ||
+      !Array.isArray(entry.storageKeys)
+    )
+      invalid();
+    return {
+      address: entry.address as Address,
+      storageKeys: entry.storageKeys.map((key: unknown) => {
+        if (typeof key !== "string" || !/^0x[0-9a-f]{64}$/i.test(key)) invalid();
+        return key as Hex;
+      }),
+    };
+  });
 }
 function signerAddress(value: unknown): Address {
   if (typeof value !== "string" || !isAddress(value, { strict: false })) invalid();
@@ -158,6 +184,7 @@ async function sendTransaction(input: unknown, epoch: number): Promise<Hex> {
         : invalid();
   const value = tx.value === undefined ? 0n : quantity(tx.value);
   const data = bytes(tx.data ?? tx.input ?? "0x");
+  const list = accessList(tx.accessList);
   if (tx.data !== undefined && tx.input !== undefined && tx.data !== tx.input) invalid();
   const chainId = quantity(await rpc("eth_chainId"));
   if (chainId !== BigInt(chain.id))
@@ -175,7 +202,15 @@ async function sendTransaction(input: unknown, epoch: number): Promise<Hex> {
   if (quantity(await rpc("eth_getBalance", [from, "pending"])) <= value)
     throw new InsufficientFunds();
   const estimated = quantity(
-    await rpc("eth_estimateGas", [{ from, ...(to ? { to } : {}), value: toHex(value), data }]),
+    await rpc("eth_estimateGas", [
+      {
+        from,
+        ...(to ? { to } : {}),
+        value: toHex(value),
+        data,
+        ...(list ? { accessList: list } : {}),
+      },
+    ]),
   );
   let gas = tx.gas === undefined ? (estimated * 120n + 99n) / 100n : quantity(tx.gas);
   if (gas > blockGasLimit) gas = blockGasLimit;
@@ -215,7 +250,6 @@ async function sendTransaction(input: unknown, epoch: number): Promise<Hex> {
         tx.gasPrice === undefined ? quantity(await rpc("eth_gasPrice")) : quantity(tx.gasPrice),
     };
   }
-  if (tx.accessList !== undefined && !Array.isArray(tx.accessList)) invalid();
   const transaction = {
     chainId: chain.id,
     nonce: Number(nonceRaw),
@@ -224,9 +258,8 @@ async function sendTransaction(input: unknown, epoch: number): Promise<Hex> {
     data,
     gas,
     ...fees,
-    ...(tx.accessList ? { accessList: tx.accessList } : {}),
-    type:
-      "gasPrice" in fees ? (tx.type === "0x1" || tx.accessList ? "eip2930" : "legacy") : "eip1559",
+    ...(list ? { accessList: list } : {}),
+    type: "gasPrice" in fees ? (tx.type === "0x1" || list ? "eip2930" : "legacy") : "eip1559",
   } as TransactionSerializable;
   const maxFee = "gasPrice" in fees ? fees.gasPrice : fees.maxFeePerGas;
   async function checkBalance() {
