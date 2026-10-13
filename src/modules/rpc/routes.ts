@@ -28,7 +28,9 @@ function safeUpstream(value: unknown): unknown {
   }
   if (Array.isArray(value)) return value.map(safeUpstream);
   if (isRecord(value)) return Object.fromEntries(Object.entries(value)
-    .filter(([key]) => !/^stack(?:trace)?$/i.test(key))
+    // Provider diagnostics can use an endpoint URL or credential as a map key.
+    // Drop those properties instead of exposing keys or merging redacted keys.
+    .filter(([key]) => !/^stack(?:trace)?$/i.test(key) && safeUpstream(key) === key)
     .map(([key, child]) => [key, safeUpstream(child)]));
   return value;
 }
