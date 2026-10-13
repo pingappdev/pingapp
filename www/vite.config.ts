@@ -68,8 +68,11 @@ export default defineConfig({
     ? false
     : {
         preset: process.env.VERCEL ? "vercel" : "node-server",
-        routeRules: {
-          "/.well-known/assetlinks.json": { headers: { "content-type": "application/json" } },
+        // Nitro accepts routeRules; the wrapper's narrow option type omits it.
+        ...{
+          routeRules: {
+            "/.well-known/assetlinks.json": { headers: { "content-type": "application/json" } },
+          },
         },
       },
   plugins: native ? [nativeBundle()] : [],
