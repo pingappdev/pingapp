@@ -193,6 +193,9 @@ export const keyManager = {
     return account;
   },
   getEpoch: () => epoch,
+  cancelPendingOperations() {
+    epoch++;
+  },
   revealPrivateKey: () => {
     const expectedEpoch = epoch;
     return run(async () => {

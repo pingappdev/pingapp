@@ -8,6 +8,21 @@ let lifecycle = 0;
 let pausedAt = 0;
 let authenticating = false;
 let unlockFlight: Promise<void> | undefined;
+let access: "ready" | "checking" | "blocked" = "ready";
+const listeners = new Set<() => void>();
+function publish(next: typeof access) {
+  access = next;
+  for (const listener of listeners) listener();
+}
+export const lockAccess = {
+  getSnapshot: () => access,
+  subscribe(listener: () => void) {
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  },
+};
 
 void platform
   .onPause(() => {
@@ -16,6 +31,7 @@ void platform
     pausedAt = Date.now();
     // Every pending approval loses its key epoch, even for a short background.
     if (authenticating) keyManager.lock();
+    else keyManager.cancelPendingOperations();
   })
   .catch(() => {});
 void platform
@@ -23,6 +39,23 @@ void platform
     foreground = true;
     if (pausedAt && Date.now() - pausedAt > 60_000) keyManager.lock();
     pausedAt = 0;
+    const expectedLifecycle = lifecycle;
+    publish("checking");
+    void platform.biometric
+      .isAvailable()
+      .then((security) => {
+        if (!foreground || lifecycle !== expectedLifecycle) return;
+        if (!security.deviceSecure) {
+          keyManager.lock();
+          publish("blocked");
+        } else publish("ready");
+      })
+      .catch(() => {
+        if (foreground && lifecycle === expectedLifecycle) {
+          keyManager.lock();
+          publish("ready");
+        }
+      });
   })
   .catch(() => {});
 
@@ -48,8 +81,10 @@ export async function authenticateWallet(reason: string, allow: () => boolean = 
     guard();
     if (!security.deviceSecure) {
       keyManager.lock();
+      publish("blocked");
       throw new WalletError("DeviceLockRequired", "Set a screen lock to use PingApp.");
     }
+    publish("ready");
     await platform.biometric.authenticate(reason);
     guard();
   } finally {

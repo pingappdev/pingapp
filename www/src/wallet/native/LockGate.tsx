@@ -1,10 +1,11 @@
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { platform, PlatformError } from "@/platform";
 import { keyManager, WalletError } from "./keyManager";
-import { unlockWallet } from "./lockPolicy";
+import { lockAccess, unlockWallet } from "./lockPolicy";
 
 export default function LockGate({ children }: { children: ReactNode }) {
   const state = useSyncExternalStore(keyManager.subscribe, keyManager.getState);
+  const access = useSyncExternalStore(lockAccess.subscribe, lockAccess.getSnapshot);
   const [discovered, setDiscovered] = useState(false);
   const [address, setAddress] = useState("");
   const [busy, setBusy] = useState(false);
@@ -49,8 +50,11 @@ export default function LockGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (state === "unlocked") setOnboarding(false);
   }, [state]);
+  useEffect(() => {
+    if (access === "blocked") setBlocked(true);
+  }, [access]);
 
-  if (discovered && (onboarding || state === "none" || state === "unlocked"))
+  if (discovered && access === "ready" && (onboarding || state === "none" || state === "unlocked"))
     return <>{children}</>;
   return (
     <main
@@ -92,7 +96,7 @@ export default function LockGate({ children }: { children: ReactNode }) {
         )}
         <button
           className="button accent"
-          disabled={busy || !discovered}
+          disabled={busy || !discovered || access === "checking"}
           onClick={() => void unlock()}
         >
           {busy ? "Unlocking…" : error ? "Retry" : "Unlock"}

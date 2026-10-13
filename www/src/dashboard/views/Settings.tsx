@@ -1,5 +1,5 @@
 import { ArrowUpRight, Check, Wallet } from "lucide-react";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ApiError } from "../../api/client";
 import { useUpdateMe } from "../../api/hooks";
@@ -10,6 +10,9 @@ import PhoneLinkFlow from "../components/PhoneLinkFlow";
 import { openAccount } from "../../wallet/appkit";
 import DeleteAccountCard from "./settings/DeleteAccountCard";
 import SessionsCard from "./settings/SessionsCard";
+
+const NativeWalletSection =
+  import.meta.env.VITE_TARGET === "native" ? lazy(() => import("./settings/WalletSection")) : null;
 
 export default function Settings() {
   const { me } = useAuth();
@@ -90,16 +93,22 @@ export default function Settings() {
       </section>
 
       <div>
-        <section className="card settings-card">
-          <h2>Wallet connection</h2>
-          <p>Your address is public. Your keys stay private.</p>
-          <div className="settings-buttons">
-            <button className="button outline" onClick={() => void openAccount()}>
-              Manage wallet
-              <Wallet size={15} />
-            </button>
-          </div>
-        </section>
+        {NativeWalletSection ? (
+          <Suspense fallback={null}>
+            <NativeWalletSection address={me.address} />
+          </Suspense>
+        ) : (
+          <section className="card settings-card">
+            <h2>Wallet connection</h2>
+            <p>Your address is public. Your keys stay private.</p>
+            <div className="settings-buttons">
+              <button className="button outline" onClick={() => void openAccount()}>
+                Manage wallet
+                <Wallet size={15} />
+              </button>
+            </div>
+          </section>
+        )}
         <section className="card settings-card">
           <h2>Phone verification</h2>
           <PhoneLinkFlow compact />
