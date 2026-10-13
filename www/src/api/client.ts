@@ -1,4 +1,4 @@
-import { config } from "../env";
+import { config, isNativeBuild } from "../env";
 import type {
   ApiRequestOptions,
   Address,
@@ -50,6 +50,15 @@ type ApiOptions = ApiRequestOptions & {
   responseType?: "blob";
 };
 
+let nativeTokenProvider: (() => Promise<string | null>) | undefined;
+let nativeUnauthenticated: ((failedToken: string | null) => Promise<boolean>) | undefined;
+export function setNativeTokenProvider(provider: () => Promise<string | null>) {
+  nativeTokenProvider = provider;
+}
+export function onNativeUnauthenticated(handler: (failedToken: string | null) => Promise<boolean>) {
+  nativeUnauthenticated = handler;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -62,7 +71,7 @@ function apiUrl(path: string): string {
   return `${config.apiUrl.replace(/\/+$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
-export async function api<T>(path: string, opts: ApiOptions = {}): Promise<T> {
+export async function api<T>(path: string, opts: ApiOptions = {}, retried = false): Promise<T> {
   const method = opts.method ?? "GET";
   const headers: Record<string, string> = {
     accept: opts.responseType === "blob" ? "text/csv" : "application/json",
@@ -71,12 +80,14 @@ export async function api<T>(path: string, opts: ApiOptions = {}): Promise<T> {
     headers["content-type"] = "application/json";
     headers["x-pingapp"] = "1";
   }
+  const token = isNativeBuild ? ((await nativeTokenProvider?.()) ?? null) : null;
+  if (token) headers.authorization = `Bearer ${token}`;
 
   let response: Response;
   try {
     response = await fetch(apiUrl(path), {
       method,
-      credentials: "include",
+      credentials: isNativeBuild ? "omit" : "include",
       headers,
       ...(opts.cache === undefined ? {} : { cache: opts.cache }),
       ...(method === "GET" ? {} : { body: JSON.stringify(opts.body ?? {}) }),
@@ -106,8 +117,18 @@ export async function api<T>(path: string, opts: ApiOptions = {}): Promise<T> {
     const details = isRecord(errorPayload?.details) ? errorPayload.details : undefined;
     const error = new ApiError(code, response.status, message, details);
 
+    const authPath = path.split("?", 1)[0];
+    const recoverable = !["/v1/auth/nonce", "/v1/auth/verify", "/v1/auth/logout"].includes(authPath);
+    if (isNativeBuild && response.status === 401 && code === "UNAUTHENTICATED" && recoverable) {
+      if (!retried && (await nativeUnauthenticated?.(token))) return api<T>(path, opts, true);
+      // A stale response must never invalidate a newer session.
+      const currentToken = (await nativeTokenProvider?.()) ?? null;
+      if (currentToken === token && typeof window !== "undefined")
+        window.dispatchEvent(new Event("pingapp:unauthenticated"));
+    }
+
     if (
-      response.status === 401 &&
+      !isNativeBuild && response.status === 401 &&
       error.code === "UNAUTHENTICATED" &&
       path.split("?", 1)[0] !== "/v1/auth/session" &&
       typeof window !== "undefined"
