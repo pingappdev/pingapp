@@ -2,17 +2,26 @@ package app.pingapp.android;
 
 import android.os.Bundle;
 import android.content.Intent;
+import android.net.Uri;
 import android.view.WindowManager;
 import android.webkit.WebView;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
+    private static final String SAVED_LINK = "pingapp.currentAppUrl";
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        // Android's task record can retain the original VIEW URL after its
-        // Activity intent has been acknowledged. Recents is a history resume,
-        // not a fresh link. Durable pending links are restored by Preferences.
-        setIntent(withoutHistoryUrl(getIntent()));
+        // ActivityManager retains the task's original VIEW intent, even after
+        // setIntent acknowledges it. Restore our latest URI (including null)
+        // before Bridge snapshots it for App.getLaunchUrl and appUrlOpen.
+        Intent intent = withoutHistoryUrl(getIntent());
+        if (intent != null && savedInstanceState != null && savedInstanceState.containsKey(SAVED_LINK)) {
+            intent = new Intent(intent);
+            String url = savedInstanceState.getString(SAVED_LINK);
+            intent.setData(url == null ? null : Uri.parse(url));
+        }
+        setIntent(intent);
         registerPlugin(DeviceSettingsPlugin.class);
         registerPlugin(SecurityLifecyclePlugin.class);
         registerPlugin(DeepLinksPlugin.class);
@@ -24,10 +33,17 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
+    public void onSaveInstanceState(Bundle outState) {
+        Intent intent = getIntent();
+        outState.putString(SAVED_LINK, intent == null ? null : intent.getDataString());
+        super.onSaveInstanceState(outState);
+    }
+
+    @Override
     protected void onNewIntent(Intent intent) {
         intent = withoutHistoryUrl(intent);
-        // Keep the current task's intent in sync so an acknowledged URL cannot
-        // reappear after process death. Capacitor still delivers appUrlOpen.
+        // A genuine new delivery remains eligible even for the same URL.
+        // BridgeActivity also calls this with our restored intent during load.
         if (intent != null) setIntent(intent);
         super.onNewIntent(intent);
     }
