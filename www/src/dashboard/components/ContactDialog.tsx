@@ -1,8 +1,9 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Plus, Save } from "lucide-react";
-import { isValidPhoneNumber } from "libphonenumber-js";
+import { isValidPhoneNumber, type CountryCode } from "libphonenumber-js";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import ContactPickButton from "@/components/ContactPickButton";
 import { useCreateContact, useUpdateContact } from "../../api/hooks";
 import type { Contact } from "../../api/types";
 import PhoneInput from "./PhoneInput";
@@ -21,6 +22,7 @@ export default function ContactDialog({
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
+  const [country, setCountry] = useState<CountryCode>();
   const busy = create.isPending || update.isPending;
 
   useEffect(() => {
@@ -72,6 +74,18 @@ export default function ContactDialog({
             maxLength={80}
             placeholder="Contact name"
             disabled={busy}
+            onCountryChange={setCountry}
+            accessory={
+              <ContactPickButton
+                country={country}
+                disabled={busy}
+                onPick={(picked) => {
+                  setName((current) => (current.trim() ? current : picked.name.slice(0, 80)));
+                  setPhone(picked.e164);
+                  setError("");
+                }}
+              />
+            }
             required
           />
           <label htmlFor="contact-phone">Phone number</label>
