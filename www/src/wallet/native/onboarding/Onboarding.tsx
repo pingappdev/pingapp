@@ -54,6 +54,7 @@ export default function Onboarding({ returnTo }: { returnTo?: string }) {
     setShow(false);
     setLastFour("");
     setSaved(false);
+    setCopied(false);
     clearClipboard();
   }, [clearClipboard]);
 
@@ -360,7 +361,11 @@ export default function Onboarding({ returnTo }: { returnTo?: string }) {
                       void platform
                         .copyText(privateKey)
                         .then(() => {
-                          clearClipboard();
+                          if (!mounted.current || !foreground.current) {
+                            void platform.clearCopiedText(privateKey).catch(() => {});
+                            return;
+                          }
+                          if (clipboardTimer.current) clearTimeout(clipboardTimer.current);
                           copiedKey.current = privateKey;
                           setCopied(true);
                           clipboardTimer.current = setTimeout(() => {

@@ -109,8 +109,12 @@ export async function signOutNative(): Promise<void> {
   // This intent survives a restart and prevents refetch/cold-start auto-login.
   suspended = true;
   epoch++;
-  await platform.secureStorage.set(SIGNED_OUT_KEY, "1");
+  keyManager.lock();
   try {
+    // A pre-logout storage read may be invalidated by the epoch above. Resolve
+    // its persisted token explicitly so that logout still revokes that row.
+    token ??= await platform.secureStorage.get(TOKEN_KEY);
+    await platform.secureStorage.set(SIGNED_OUT_KEY, "1");
     if (await getToken()) await endpoints.auth.logout();
   } finally {
     keyManager.lock();
@@ -125,6 +129,9 @@ export async function signOutNative(): Promise<void> {
 export async function removeNativeWallet(): Promise<void> {
   try {
     await signOutNative();
+  } catch {
+    // Offline removal must still remove the local key and session. Logout was
+    // attempted first; an unreachable server may retain its expiring row.
   } finally {
     await keyManager.wipe();
   }
