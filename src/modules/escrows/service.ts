@@ -117,7 +117,7 @@ export async function claimEscrow(user: AuthUser, id: string, ipHash: string) {
     await lockPhoneMutation(tx);
     const { escrow, me } = await lockClaimableEscrow(tx, user, id);
     if (await kvGet<boolean>(selfClaimKey(escrow.id), tx)) {
-      throw errors.conflict('This payout needs more gas than the relayer covers. Claim it from your wallet.');
+      throw errors.conflict('This payout needs more gas than the relayer covers. Claim it from your wallet on the Requests page.');
     }
     return prepareClaim(tx, escrow, me, ipHash);
   });
