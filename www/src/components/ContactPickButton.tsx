@@ -74,9 +74,11 @@ function NativeContactPickButton({ country, disabled, onPick }: Props) {
           action: {
             label: "Open settings",
             onClick: () => {
-              void platform.openAppSettings().catch(() =>
-                toast.error("Open your device Settings and allow contacts access for PingApp"),
-              );
+              void platform
+                .openAppSettings()
+                .catch(() =>
+                  toast.error("Open your device Settings and allow contacts access for PingApp"),
+                );
             },
           },
         });
@@ -104,7 +106,9 @@ function NativeContactPickButton({ country, disabled, onPick }: Props) {
         <SheetContent side="bottom" className="max-h-[70dvh] overflow-y-auto rounded-t-2xl pb-8">
           <SheetHeader>
             <SheetTitle>Choose a phone number</SheetTitle>
-            <SheetDescription>{contact?.name || "This contact"} has more than one number.</SheetDescription>
+            <SheetDescription>
+              {contact?.name || "This contact"} has more than one number.
+            </SheetDescription>
           </SheetHeader>
           <div className="flex flex-col gap-2 px-4">
             {contact?.phones.map((phone, index) => (
@@ -115,7 +119,9 @@ function NativeContactPickButton({ country, disabled, onPick }: Props) {
                 onClick={() => select(contact, phone.number)}
               >
                 <span>{phone.label || "Phone"}</span>
-                <span className="break-all" dir="ltr">{phone.number}</span>
+                <span className="break-all" dir="ltr">
+                  {phone.number}
+                </span>
               </button>
             ))}
           </div>

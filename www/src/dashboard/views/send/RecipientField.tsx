@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { ChevronsUpDown } from "lucide-react";
+import type { CountryCode } from "libphonenumber-js";
+import ContactPickButton from "@/components/ContactPickButton";
 import {
   Command,
   CommandEmpty,
@@ -29,6 +31,7 @@ export default function RecipientField({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [country, setCountry] = useState<CountryCode>();
   const digits = search.replace(/\D/g, "");
   const matches = contacts.filter(
     (contact) =>
@@ -45,6 +48,14 @@ export default function RecipientField({
           value={value}
           onChange={(next) => onChange(next ?? "")}
           disabled={locked}
+          onCountryChange={setCountry}
+          accessory={
+            <ContactPickButton
+              country={country}
+              disabled={locked}
+              onPick={({ e164 }) => onChange(e164)}
+            />
+          }
         />
         {!locked && contacts.length > 0 && (
           <Popover open={open} onOpenChange={setOpen}>
