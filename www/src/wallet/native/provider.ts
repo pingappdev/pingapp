@@ -51,9 +51,11 @@ export type ApprovalRequest =
     };
 export type ApprovalHandler = (request: ApprovalRequest) => Promise<void>;
 let approvalHandler: ApprovalHandler | undefined;
+let approvalVersion = 0;
 
 export function setApprovalHandler(handler: ApprovalHandler | undefined) {
   approvalHandler = handler;
+  approvalVersion++;
 }
 
 export class ProviderError extends Error {
@@ -67,7 +69,7 @@ export class ProviderError extends Error {
 }
 export class InsufficientFunds extends ProviderError {
   constructor() {
-    super(-32000, "Insufficient ETH for the amount and network fee.");
+    super(-32000, "Insufficient funds: not enough ETH for the amount and network fee.");
     this.name = "InsufficientFunds";
   }
 }
@@ -111,12 +113,19 @@ function ensureUnlocked(epoch: number) {
 }
 async function approve(request: ApprovalRequest, epoch: number) {
   ensureUnlocked(epoch);
+  const version = approvalVersion;
   if (approvalHandler) await approvalHandler(structuredClone(request));
   // Temporary local Vite development only; no APK build-time bypass variable.
   // MOB-08 supplies the biometric approval handler. Bundled APKs fail closed.
   else if (!import.meta.env.DEV)
     throw new ProviderError(4100, "Wallet approval is not available. Unlock and try again.");
   ensureUnlocked(epoch);
+  ensureApproval(version);
+  return version;
+}
+function ensureApproval(version: number) {
+  if (version !== approvalVersion)
+    throw new ProviderError(4100, "Wallet approval changed. Review and try again.");
 }
 
 async function sendTransaction(input: unknown, epoch: number): Promise<Hex> {
@@ -225,7 +234,7 @@ async function sendTransaction(input: unknown, epoch: number): Promise<Hex> {
     if (balance < value + gas * maxFee) throw new InsufficientFunds();
   }
   await checkBalance();
-  await approve(
+  const approval = await approve(
     {
       kind: "transaction",
       summary: {
@@ -247,8 +256,10 @@ async function sendTransaction(input: unknown, epoch: number): Promise<Hex> {
   );
   await checkBalance();
   ensureUnlocked(epoch);
+  ensureApproval(approval);
   const raw = await keyManager.getAccount().signTransaction(transaction);
   ensureUnlocked(epoch);
+  ensureApproval(approval);
   return rpc<Hex>("eth_sendRawTransaction", [raw]);
 }
 
@@ -314,9 +325,13 @@ export const nativeProvider = {
         const message = params[reversed ? 1 : 0];
         if (typeof message !== "string") invalid();
         const raw = message.startsWith("0x") ? bytes(message) : stringToHex(message);
-        await approve({ kind: "message", summary: { address, message: raw } }, epoch);
+        const approval = await approve(
+          { kind: "message", summary: { address, message: raw } },
+          epoch,
+        );
         const signature = await keyManager.getAccount().signMessage({ message: { raw } });
         ensureUnlocked(epoch);
+        ensureApproval(approval);
         return signature;
       }
       if (method === "eth_signTypedData_v4") {
@@ -334,9 +349,13 @@ export const nativeProvider = {
           invalid();
         if (data.domain.chainId !== undefined && BigInt(data.domain.chainId) !== BigInt(chain.id))
           throw new ProviderError(4902, "This signature belongs to another network.");
-        await approve({ kind: "typedData", summary: { address, typedData: data } }, epoch);
+        const approval = await approve(
+          { kind: "typedData", summary: { address, typedData: data } },
+          epoch,
+        );
         const signature = await keyManager.getAccount().signTypedData(data);
         ensureUnlocked(epoch);
+        ensureApproval(approval);
         return signature;
       }
       if (method === "eth_sendTransaction") {
