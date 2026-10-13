@@ -141,10 +141,7 @@ async function approve(request: ApprovalRequest, epoch: number) {
   ensureUnlocked(epoch);
   const version = approvalVersion;
   if (approvalHandler) await approvalHandler(structuredClone(request));
-  // Temporary local Vite development only; no APK build-time bypass variable.
-  // MOB-08 supplies the biometric approval handler. Bundled APKs fail closed.
-  else if (!import.meta.env.DEV)
-    throw new ProviderError(4100, "Wallet approval is not available. Unlock and try again.");
+  else throw new ProviderError(4100, "Wallet approval is not available. Unlock and try again.");
   ensureUnlocked(epoch);
   ensureApproval(version);
   return version;
