@@ -1,3 +1,5 @@
+import { platform } from "@/platform";
+import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { ArrowLeft, ChevronRight, Download, Plus, ShieldCheck } from "lucide-react";
 import {
@@ -51,6 +53,18 @@ function DashboardLayout() {
   const { view } = useDashboard();
   const direction = activityDirection(useSearchParams().get("direction"));
   const { me } = useAuth();
+  const [exporting, setExporting] = useState(false);
+  async function exportCsv() {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const data = await endpoints.transfers.exportCsv(direction);
+      await platform.saveAndShareFile({ filename: "pingapp-activity.csv", mime: "text/csv", data });
+    } catch (error) {
+      if (!(error instanceof Error && "code" in error && error.code === "cancelled"))
+        toast.error("Could not export Activity. Please try again.");
+    } finally { setExporting(false); }
+  }
   const [contactDialog, setContactDialog] = useState<{ contact: Contact | null } | null>(null);
   const [removeContact, setRemoveContact] = useState<Contact | null>(null);
 
@@ -111,7 +125,7 @@ function DashboardLayout() {
       <Toaster theme="dark" position="bottom-right" richColors />
       <Sidebar className="ping-sidebar">
         <SidebarHeader>
-          <a href="/" className="dashboard-logo">
+          <a href={platform.isNative ? "/dashboard" : "/"} className="dashboard-logo">
             <img src="/assets/pingapp-logo-1x1.png" alt="" />
             <span>PingApp</span>
           </a>
@@ -149,10 +163,10 @@ function DashboardLayout() {
             <strong>Your keys. Your control.</strong>
             <p>Your funds stay in your wallet.</p>
           </div>
-          <a className="back-site" href="/">
+          {!platform.isNative && <a className="back-site" href="/">
             <ArrowLeft size={15} />
             Back to website
-          </a>
+          </a>}
         </SidebarFooter>
       </Sidebar>
       <nav className="ping-mobile-tabbar" aria-label="Dashboard sections">
@@ -194,10 +208,10 @@ function DashboardLayout() {
             <NotificationsBell />
             <button
               className="account-chip"
-              onClick={() => void openAccount()}
-              aria-label="Open wallet account"
+              onClick={() => platform.isNative ? navigateTo("/dashboard/settings#wallet") : void openAccount()}
+              aria-label={platform.isNative ? "Open wallet settings" : "Open wallet account"}
             >
-              {me?.displayName || trimAddress(me?.address ?? "")}
+              {platform.isNative ? trimAddress(me?.address ?? "") : me?.displayName || trimAddress(me?.address ?? "")}
             </button>
           </div>
         </header>
@@ -233,12 +247,17 @@ function DashboardLayout() {
                 <Plus size={17} />
                 Add contact
               </button>
-            ) : view === "activity" ? (
+            ) : view === "activity" ? (platform.isNative ? (
+              <button className="button outline" disabled={exporting} onClick={() => void exportCsv()}>
+                <Download size={17} />
+                {exporting ? "Exporting…" : "Export CSV"}
+              </button>
+            ) : (
               <a className="button outline" href={endpoints.transfers.exportUrl(direction)}>
                 <Download size={17} />
                 Export CSV
               </a>
-            ) : null}
+            )) : null}
           </div>
           {view === "overview" && <Overview />}
           {view === "contacts" && (

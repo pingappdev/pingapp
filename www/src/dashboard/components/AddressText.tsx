@@ -1,3 +1,4 @@
+import { platform } from "@/platform";
 import { Copy } from "lucide-react";
 import { toast } from "sonner";
 
@@ -10,7 +11,7 @@ export default function AddressText({ value, full = false }: { value: string; fu
 
   async function copyAddress() {
     try {
-      await navigator.clipboard.writeText(value);
+      await platform.copyText(value);
       toast.success("Copied to clipboard");
     } catch {
       toast.error("Copy was unavailable. You can select and copy the address.");

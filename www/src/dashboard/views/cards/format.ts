@@ -1,3 +1,4 @@
+import { platform } from "@/platform";
 export function usd(value: string | null | undefined): string {
   if (value == null || !/^-?\d+(\.\d+)?$/.test(value)) return "Unavailable";
   const [whole, fraction = ""] = value.split(".");
@@ -14,5 +15,5 @@ export function statusLabel(value: string): string {
 }
 
 export async function copyText(value: string) {
-  await navigator.clipboard.writeText(value);
+  await platform.copyText(value);
 }

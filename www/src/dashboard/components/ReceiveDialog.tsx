@@ -1,3 +1,4 @@
+import { platform } from "@/platform";
 import { Copy, ExternalLink } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
@@ -12,7 +13,7 @@ export default function ReceiveDialog() {
 
   async function copyAddress() {
     try {
-      await navigator.clipboard.writeText(walletAddress);
+      await platform.copyText(walletAddress);
       toast.success("Address copied");
     } catch {
       toast.error("Copy was unavailable. You can select and copy the address.");

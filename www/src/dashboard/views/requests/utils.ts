@@ -1,3 +1,4 @@
+import { platform, PlatformError } from "@/platform";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { toast } from "sonner";
 import type { Address, Intent, Token } from "../../../api/types";
@@ -47,7 +48,7 @@ export function smsCopy(status: Intent["smsStatus"]): string {
 
 export async function copyInvite(url: string) {
   try {
-    await navigator.clipboard.writeText(url);
+    await platform.copyText(url);
     toast.success("Invite link copied");
   } catch {
     toast.error("Could not copy. Open the invite link in a new tab, then copy its URL.");
@@ -55,15 +56,15 @@ export async function copyInvite(url: string) {
 }
 
 export async function shareInvite(intent: Intent) {
-  if (typeof navigator.share !== "function") return;
+  if (!(await platform.canShare())) return;
   try {
-    await navigator.share({
+    await platform.share({
       title: "PingApp invite",
       text: "A pending send is waiting for you on PingApp.",
       url: intent.claimUrl,
     });
   } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") return;
+    if (error instanceof PlatformError && error.code === "cancelled") return;
     toast.error("Could not share the invite link.");
   }
 }

@@ -1,3 +1,4 @@
+import { useCanShare } from "@/platform/useCanShare";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { ArrowUpRight, Copy, LoaderCircle, Plus, Send, Share2 } from "lucide-react";
 import { toast } from "sonner";
@@ -41,7 +42,7 @@ export default function IntentForm({
   const belowMinimum =
     currentRaw !== null && minRaw !== null && currentRaw > 0n && currentRaw < minRaw;
   const configReady = Boolean(config.data?.limits.minSendUsd);
-  const shareAvailable = typeof navigator !== "undefined" && typeof navigator.share === "function";
+  const shareAvailable = useCanShare();
 
   useEffect(() => {
     if (!tokensQuery.data || prefilledSearch.current === searchKey) return;

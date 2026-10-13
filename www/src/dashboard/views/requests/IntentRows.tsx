@@ -1,3 +1,4 @@
+import { useCanShare } from "@/platform/useCanShare";
 import {
   AlertCircle,
   ArrowUpRight,
@@ -23,6 +24,7 @@ export function IntentCard({
   canceling: boolean;
   readOnly?: boolean;
 }) {
+  const shareAvailable = useCanShare();
   const ready = intent.status === "ready";
   const recipient = intent.recipient;
   const name = recipient?.displayName || "PingApp recipient";
@@ -59,7 +61,7 @@ export function IntentCard({
             >
               <Copy size={14} /> Copy invite link
             </button>
-            {typeof navigator !== "undefined" && typeof navigator.share === "function" && (
+            {shareAvailable && (
               <button
                 className="button outline"
                 type="button"

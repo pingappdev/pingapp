@@ -47,6 +47,7 @@ type ApiOptions = ApiRequestOptions & {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
   cache?: RequestCache;
+  responseType?: "blob";
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -63,7 +64,7 @@ function apiUrl(path: string): string {
 
 export async function api<T>(path: string, opts: ApiOptions = {}): Promise<T> {
   const method = opts.method ?? "GET";
-  const headers: Record<string, string> = { accept: "application/json" };
+  const headers: Record<string, string> = { accept: opts.responseType === "blob" ? "text/csv" : "application/json" };
   if (method !== "GET") {
     headers["content-type"] = "application/json";
     headers["x-pingapp"] = "1";
@@ -115,7 +116,7 @@ export async function api<T>(path: string, opts: ApiOptions = {}): Promise<T> {
     throw error;
   }
 
-  return (await response.json()) as T;
+  return (opts.responseType === "blob" ? await response.blob() : await response.json()) as T;
 }
 
 function withQuery(path: string, values: Record<string, string | number | undefined>): string {
@@ -236,6 +237,8 @@ export const endpoints = {
       api<Page<Transfer>>(withQuery("/v1/transfers", params), options),
     get: (id: string, options?: ApiRequestOptions) =>
       api<{ transfer: Transfer }>(`/v1/transfers/${encodeURIComponent(id)}`, options),
+    exportCsv: (direction: TransferDirection = "all", options?: ApiRequestOptions) =>
+      api<Blob>(withQuery("/v1/transfers/export.csv", { direction }), { ...options, responseType: "blob" }),
     exportUrl: (direction: TransferDirection = "all") =>
       apiUrl(withQuery("/v1/transfers/export.csv", { direction })),
   },
