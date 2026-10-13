@@ -5,5 +5,6 @@ workspace_dir="$(cd -- "$contracts_dir/../.." && pwd)"
 cd "$contracts_dir"
 bin/forge.sh build
 sudo docker run --rm --network host --user "$(id -u):$(id -g)" \
-  -v "$workspace_dir:/workspace" -w /workspace/backend --entrypoint node node:22-alpine \
+  -v "$workspace_dir/app:/workspace/app" -v "$workspace_dir/docs:/workspace/docs" \
+  -w /workspace/app --entrypoint node node:22-alpine \
   contracts/script/deploy-fork.mjs
