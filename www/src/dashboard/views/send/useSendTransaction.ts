@@ -1,3 +1,4 @@
+import { platform } from "@/platform";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -46,9 +47,37 @@ type PendingRecord =
     };
 const pendingKey = (sender: string) => `pingapp:pending-transfer-record:${sender.toLowerCase()}`;
 
-function restorePending(sender: Address): PendingRecord | null {
+const pendingWrites = new Map<string, Promise<void>>();
+async function writePending(key: string, value: string | null) {
+  if (!platform.isNative) {
+    if (value === null) sessionStorage.removeItem(key);
+    else sessionStorage.setItem(key, value);
+    return;
+  }
+  // Serialize writes/removals for one sender so delayed writes cannot resurrect
+  // an already-recorded hash. Other wallets keep their own independent keys.
+  const write = (pendingWrites.get(key) ?? Promise.resolve())
+    .catch(() => {})
+    .then(() =>
+      value === null
+        ? platform.persistentStorage.remove(key)
+        : platform.persistentStorage.set(key, value),
+    );
+  pendingWrites.set(key, write);
   try {
-    const stored = sessionStorage.getItem(pendingKey(sender));
+    await write;
+  } finally {
+    if (pendingWrites.get(key) === write) pendingWrites.delete(key);
+  }
+}
+
+async function restorePending(sender: Address): Promise<PendingRecord | null> {
+  try {
+    const key = pendingKey(sender);
+    await pendingWrites.get(key);
+    const stored = platform.isNative
+      ? await platform.persistentStorage.get(key)
+      : sessionStorage.getItem(key);
     if (!stored) return null;
     const parsed = JSON.parse(stored) as PendingRecord;
     if (
@@ -65,13 +94,14 @@ function restorePending(sender: Address): PendingRecord | null {
     const recovered = { sender, input: { ...parsed.input, expectedSenderAddress: sender } };
     if (parsed.input.expectedSenderAddress?.toLowerCase() !== sender.toLowerCase()) {
       try {
-        sessionStorage.setItem(pendingKey(sender), JSON.stringify(recovered));
+        await writePending(pendingKey(sender), JSON.stringify(recovered));
       } catch {
         /* The in-memory draft still retains the hash. */
       }
     }
     return recovered;
-  } catch {
+  } catch (error) {
+    if (platform.isNative) throw error;
     return null;
   }
 }
@@ -101,6 +131,8 @@ export function useSendTransaction(
     null,
   );
   const [busy, setBusy] = useState(false);
+  const [recovering, setRecovering] = useState(platform.isNative);
+  const [recoveryFailed, setRecoveryFailed] = useState(false);
   const actionRunning = useRef(false);
   const displayedSession = queryClient.getQueryData<Me | null>(qk.session);
   const sameSession =
@@ -133,17 +165,45 @@ export function useSendTransaction(
       : "";
 
   useEffect(() => {
-    if (!me) return;
-    setPending(restorePending(me.address));
+    let active = true;
+    if (!me) {
+      setPending(null);
+      return;
+    }
+    setRecovering(true);
+    setRecoveryFailed(false);
+    void restorePending(me.address)
+      .then((value) => {
+        if (active) setPending(value);
+      })
+      .catch(() => {
+        if (active) {
+          setRecoveryFailed(true);
+          setRecordFailure({
+            sender: me.address,
+            message: "Could not recover pending transactions. Restart the app before sending.",
+          });
+        }
+      })
+      .finally(() => {
+        if (active) setRecovering(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [me]);
 
-  function persist(next: PendingRecord | null, sender?: string) {
+  async function persist(next: PendingRecord | null, sender?: string) {
     setPending(next);
     try {
-      if (next) sessionStorage.setItem(pendingKey(next.sender), JSON.stringify(next));
-      else if (sender) sessionStorage.removeItem(pendingKey(sender));
+      if (next) await writePending(pendingKey(next.sender), JSON.stringify(next));
+      else if (sender) await writePending(pendingKey(sender), null);
     } catch {
-      /* The current page still retains the transaction hash. */
+      // Keep the hash in memory and stop the next send until it is recorded.
+      if (platform.isNative)
+        toast.error(
+          "Could not save this transaction on the device. Keep the hash until it appears in Activity.",
+        );
     }
   }
 
@@ -191,7 +251,7 @@ export function useSendTransaction(
       }
       setTracked({ id: transfer.id, sender: expected.address, userId: expected.id });
       setRecordFailure(null);
-      persist(null, expected.address);
+      await persist(null, expected.address);
     } catch (error) {
       setRecordFailure({ sender: expected.address, message: errorMessage(error) });
     }
@@ -222,7 +282,7 @@ export function useSendTransaction(
       }
       setTracked({ id: escrow.id, sender: expected.address, userId: expected.id, mode: "escrow" });
       setRecordFailure(null);
-      persist(null, expected.address);
+      await persist(null, expected.address);
     } catch (error) {
       setRecordFailure({ sender: expected.address, message: errorMessage(error) });
     }
@@ -232,6 +292,8 @@ export function useSendTransaction(
     if (
       actionRunning.current ||
       busy ||
+      recovering ||
+      recoveryFailed ||
       visiblePending ||
       visibleTransferId ||
       visibleEscrowId ||
@@ -239,14 +301,14 @@ export function useSendTransaction(
     )
       return;
     const expectedRevision = sessionRevision(queryClient);
-    const previous = restorePending(me.address);
-    if (previous) {
-      setPending(previous);
-      return;
-    }
     actionRunning.current = true;
     setBusy(true);
     try {
+      const previous = await restorePending(me.address);
+      if (previous) {
+        setPending(previous);
+        return;
+      }
       if (!currentAccount(me, expectedRevision)) {
         toast.error("Connect the wallet you signed in with.");
         await openConnect();
@@ -403,7 +465,7 @@ export function useSendTransaction(
             escrowId: authorization.escrowId,
           },
         };
-        persist(draft);
+        await persist(draft);
         await saveEscrow(draft.input, me, expectedRevision);
       }
     } catch (error) {
@@ -452,6 +514,6 @@ export function useSendTransaction(
     recordError:
       visibleRecordError ||
       (visiblePending ? "This transaction still needs to be saved to Activity." : ""),
-    busy,
+    busy: busy || recovering || recoveryFailed,
   };
 }
