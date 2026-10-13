@@ -162,7 +162,7 @@ async function sendTransaction(input: unknown, epoch: number): Promise<Hex> {
   const chainId = quantity(await rpc("eth_chainId"));
   if (chainId !== BigInt(chain.id))
     throw new ProviderError(4902, "The wallet and API networks do not match.");
-  const block = await rpc<{ gasLimit: Hex; baseFeePerGas?: Hex }>("eth_getBlockByNumber", [
+  const block = await rpc<{ gasLimit: Hex; baseFeePerGas?: Hex | null }>("eth_getBlockByNumber", [
     "latest",
     false,
   ]);
@@ -186,7 +186,7 @@ async function sendTransaction(input: unknown, epoch: number): Promise<Hex> {
   if (explicitLegacy && (tx.maxFeePerGas !== undefined || tx.maxPriorityFeePerGas !== undefined))
     invalid();
   let fees: { gasPrice: bigint } | { maxFeePerGas: bigint; maxPriorityFeePerGas: bigint };
-  if (block.baseFeePerGas !== undefined && !explicitLegacy) {
+  if (block.baseFeePerGas != null && !explicitLegacy) {
     const base = quantity(block.baseFeePerGas);
     let priority: bigint;
     if (tx.maxPriorityFeePerGas !== undefined) priority = quantity(tx.maxPriorityFeePerGas);
