@@ -1,13 +1,26 @@
-DEV = docker compose -f docker-compose.dev.yml
-PROD = docker compose --project-directory /opt/pingapp -f /opt/pingapp/docker-compose.yml
+APP_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+DOCS_ROOT ?= $(abspath $(APP_ROOT)/../docs)
+DOCKER ?= docker
+DEV = $(DOCKER) compose --project-directory "$(APP_ROOT)" -f "$(DOCS_ROOT)/deploy/app/compose.backend.dev.yml"
+PROD_ROOT ?= /opt/pingapp
+PROD = $(DOCKER) compose --project-directory "$(PROD_ROOT)" -f "$(PROD_ROOT)/docs/deploy/app/compose.prod.yml"
 
-.PHONY: up down logs ps sh npm install typecheck test build db-generate db-migrate psql redis-cli admin deploy prod-status prod-image-check prod-down prod-logs prod-admin prod-psql down-volumes
+.PHONY: up down api-up api-down www-up www-down www-install www-typecheck www-lint www-build check logs ps sh npm install typecheck test build db-generate db-migrate psql redis-cli admin release deploy prod-status prod-image-check prod-down prod-logs prod-admin prod-psql down-volumes
 
-up:
+up: api-up www-up
+
+api-up:
 	$(DEV) up -d --build
 
-down:
+down: www-down api-down
+
+api-down:
 	$(DEV) down
+
+www-up www-down www-install www-typecheck www-lint www-build:
+	$(MAKE) -C "$(APP_ROOT)/www" $(patsubst www-%,%,$@) DOCKER="$(DOCKER)" DOCS_ROOT="$(DOCS_ROOT)"
+
+check: typecheck test www-typecheck www-lint
 
 logs:
 	$(DEV) logs -f --tail=200 api worker
@@ -48,14 +61,17 @@ redis-cli:
 admin:
 	$(DEV) exec api npx tsx src/cli/admin.ts $(ARGS)
 
+release:
+	"$(DOCS_ROOT)/deploy/app/prepare-release.sh" $(ARGS)
+
 deploy:
-	../docs/deploy/deploy.sh $(ARGS)
+	PINGAPP_SRC="$(APP_ROOT)" "$(DOCS_ROOT)/deploy/deploy.sh" $(ARGS)
 
 prod-status:
-	../docs/deploy/deploy.sh --status
+	"$(DOCS_ROOT)/deploy/deploy.sh" --status
 
 prod-image-check:
-	docker compose -f docker-compose.yml build
+	$(DOCKER) build -f "$(DOCS_ROOT)/deploy/app/backend.Dockerfile" --target runtime "$(APP_ROOT)"
 
 prod-down:
 	$(PROD) down

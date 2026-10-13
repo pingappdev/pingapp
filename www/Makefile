@@ -1,4 +1,7 @@
-COMPOSE = docker compose -f docker-compose.dev.yml
+WWW_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+DOCS_ROOT ?= $(abspath $(WWW_ROOT)/../../docs)
+DOCKER ?= docker
+COMPOSE = $(DOCKER) compose --project-directory "$(WWW_ROOT)" -f "$(DOCS_ROOT)/deploy/app/compose.frontend.dev.yml"
 
 .PHONY: up down logs sh bun install typecheck lint build
 

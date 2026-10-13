@@ -3,3 +3,8 @@ dist
 .git
 *.log
 .env*
+www
+contracts
+test
+coverage
+.playwright-cli

@@ -4,3 +4,7 @@ dist/
 .env*
 *.log
 coverage/
+.playwright-cli/
+.vercel/
+# Documentation and credentials belong in the separate sibling docs repository.
+/docs/
