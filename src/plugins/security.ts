@@ -22,7 +22,9 @@ const security: FastifyPluginAsync = async (app) => {
     request.clientIp = ip;
     request.ipHash = createHash('sha256').update(config.IP_HASH_SALT + ip).digest('hex');
 
-    if (request.url.split('?', 1)[0] !== '/health') {
+    const path = request.url.split('?', 1)[0];
+    // The RPC relay applies its own per-session and per-IP limits.
+    if (path !== '/health' && !(request.method === 'POST' && path === '/v1/rpc')) {
       // An invalid Authorization header cannot authenticate via cookies, but the
       // general limiter still counts its cookie identity before falling back to IP.
       const session = readSessionToken(request)?.token ?? request.cookies?.pa_session;
