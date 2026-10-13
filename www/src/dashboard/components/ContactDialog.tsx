@@ -74,6 +74,14 @@ export default function ContactDialog({
             maxLength={80}
             placeholder="Contact name"
             disabled={busy}
+            required
+          />
+          <label htmlFor="contact-phone">Phone number</label>
+          <PhoneInput
+            id="contact-phone"
+            value={phone || undefined}
+            onChange={(value) => setPhone(value ?? "")}
+            disabled={busy}
             onCountryChange={setCountry}
             accessory={
               <ContactPickButton
@@ -86,14 +94,6 @@ export default function ContactDialog({
                 }}
               />
             }
-            required
-          />
-          <label htmlFor="contact-phone">Phone number</label>
-          <PhoneInput
-            id="contact-phone"
-            value={phone || undefined}
-            onChange={(value) => setPhone(value ?? "")}
-            disabled={busy}
           />
           {error && (
             <p className="field-help contact-form-error" role="alert">
