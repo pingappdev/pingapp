@@ -45,6 +45,9 @@ export interface Platform {
   onResume(handler: () => void): Promise<Unsubscribe>;
   onPause(handler: () => void): Promise<Unsubscribe>;
   onAppUrlOpen(handler: (event: { url: string }) => void): Promise<Unsubscribe>;
+  getLaunchUrl(): Promise<string | null>;
+  appLinkConfiguration(): Promise<{ host: string; scheme: string }>;
+  acknowledgeAppUrl(url: string): Promise<void>;
   saveAndShareFile(file: ShareFile): Promise<void>;
 }
 

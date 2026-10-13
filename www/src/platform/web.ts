@@ -42,6 +42,9 @@ export const webPlatform: Platform = {
   onResume: noListener,
   onPause: noListener,
   onAppUrlOpen: noListener,
+  getLaunchUrl: async () => null,
+  appLinkConfiguration: unsupported,
+  acknowledgeAppUrl: async () => {},
   saveAndShareFile: (file) =>
     deviceAction(async () => {
       const blob =

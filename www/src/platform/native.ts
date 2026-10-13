@@ -38,6 +38,11 @@ const DeviceSettings = registerPlugin<{
   openSecuritySettings(): Promise<void>;
 }>("DeviceSettings");
 
+const DeepLinks = registerPlugin<{
+  configuration(): Promise<{ host: string; scheme: string }>;
+  acknowledge(options: { url: string }): Promise<void>;
+}>("DeepLinks");
+
 const SecurityLifecycle = registerPlugin<{
   copyPrivateKey(options: { key: string }): Promise<void>;
   clearCopiedText(options: { expected: string }): Promise<void>;
@@ -214,6 +219,15 @@ export async function createNativePlatform(os: PlatformOS): Promise<Platform> {
         const listener = await App.addListener("appUrlOpen", handler);
         return () => deviceAction(() => listener.remove());
       }),
+    getLaunchUrl: () => deviceAction(async () => (await App.getLaunchUrl())?.url ?? null),
+    appLinkConfiguration: () =>
+      deviceAction(() =>
+        os === "android"
+          ? DeepLinks.configuration()
+          : Promise.resolve({ host: "<production-domain>", scheme: "pingapp" }),
+      ),
+    acknowledgeAppUrl: (url) =>
+      deviceAction(() => (os === "android" ? DeepLinks.acknowledge({ url }) : Promise.resolve())),
     saveAndShareFile: (file) =>
       deviceAction(async () => {
         if (

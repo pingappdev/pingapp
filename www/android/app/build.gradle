@@ -31,12 +31,16 @@ android {
             resValue 'string', 'app_name', 'PingApp Dev'
             resValue 'string', 'title_activity_main', 'PingApp Dev'
             manifestPlaceholders = [appLinksHost: 'localhost.invalid', appLinkScheme: 'pingapp-dev']
+            buildConfigField 'String', 'APP_LINKS_HOST', '"' + manifestPlaceholders.appLinksHost + '"'
+            buildConfigField 'String', 'APP_LINK_SCHEME', '"' + manifestPlaceholders.appLinkScheme + '"'
         }
         prod {
             dimension 'environment'
             resValue 'string', 'app_name', 'PingApp'
             resValue 'string', 'title_activity_main', 'PingApp'
             manifestPlaceholders = [appLinksHost: '<production-domain>', appLinkScheme: 'pingapp']
+            buildConfigField 'String', 'APP_LINKS_HOST', '"' + manifestPlaceholders.appLinksHost + '"'
+            buildConfigField 'String', 'APP_LINK_SCHEME', '"' + manifestPlaceholders.appLinkScheme + '"'
         }
     }
     signingConfigs {

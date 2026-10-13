@@ -69,6 +69,9 @@ export const platform: Platform = {
   onResume: async (handler) => (await getPlatform()).onResume(handler),
   onPause: async (handler) => (await getPlatform()).onPause(handler),
   onAppUrlOpen: async (handler) => (await getPlatform()).onAppUrlOpen(handler),
+  getLaunchUrl: async () => (await getPlatform()).getLaunchUrl(),
+  appLinkConfiguration: async () => (await getPlatform()).appLinkConfiguration(),
+  acknowledgeAppUrl: async (url) => (await getPlatform()).acknowledgeAppUrl(url),
   saveAndShareFile: async (file) => (await getPlatform()).saveAndShareFile(file),
 };
 
