@@ -6,8 +6,10 @@ import { safeReturnTo } from "../auth/return-to";
 import { useRouter } from "../routing";
 import type ClientLogin from "../wallet/client-login";
 
-const NativeOnboarding = import.meta.env.VITE_TARGET === "native"
-  ? lazy(() => import("../wallet/native/onboarding/Onboarding")) : null;
+const NativeOnboarding =
+  import.meta.env.VITE_TARGET === "native"
+    ? lazy(() => import("../wallet/native/onboarding/Onboarding"))
+    : null;
 
 // Wallet SDKs must stay out of both initial browser loading and server builds.
 const loadWalletLogin = import.meta.env.SSR ? null : () => import("../wallet/client-login");
@@ -31,7 +33,12 @@ export const Route = createFileRoute("/login")({
 
 function Login() {
   const { returnTo } = Route.useSearch();
-  if (NativeOnboarding) return <Suspense fallback={<main className="contact-page section">Opening your wallet…</main>}><NativeOnboarding returnTo={returnTo} /></Suspense>;
+  if (NativeOnboarding)
+    return (
+      <Suspense fallback={<main className="contact-page section">Opening your wallet…</main>}>
+        <NativeOnboarding returnTo={returnTo} />
+      </Suspense>
+    );
   return <WebLogin />;
 }
 

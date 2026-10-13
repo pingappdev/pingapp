@@ -7,7 +7,13 @@ import { platform, platformInfo } from "@/platform";
 export type WalletState = "none" | "locked" | "unlocked";
 const STORAGE_KEY = "pingapp.wallet.v1";
 const CURVE_ORDER = BigInt("0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
-type StoredWallet = { v: 1; pk: Hex; address: Address; createdAt: string; backupRequired?: boolean };
+type StoredWallet = {
+  v: 1;
+  pk: Hex;
+  address: Address;
+  createdAt: string;
+  backupRequired?: boolean;
+};
 let account: ReturnType<typeof privateKeyToAccount> | undefined;
 let walletAddress: Address | undefined;
 let state: WalletState = "none";
@@ -88,7 +94,13 @@ async function read(): Promise<StoredWallet | null> {
       "The stored wallet is invalid. Recover it from your backup.",
     );
   }
-  return { v: 1, pk, address, createdAt: value.createdAt, backupRequired: value.backupRequired === true };
+  return {
+    v: 1,
+    pk,
+    address,
+    createdAt: value.createdAt,
+    backupRequired: value.backupRequired === true,
+  };
 }
 
 async function store(pk: Hex, backupRequired = false): Promise<Address> {
@@ -144,10 +156,19 @@ export const keyManager = {
   completeBackup: (expectedAddress: Address, lastFour: string) =>
     run(async () => {
       const stored = await read();
-      if (!stored || stored.address !== expectedAddress ||
-          lastFour.trim().toLowerCase() !== stored.pk.slice(-4))
-        throw new WalletError("BackupIncomplete", "Check the last 4 characters of your private key.");
-      await platform.secureStorage.set(STORAGE_KEY, JSON.stringify({ ...stored, backupRequired: false }));
+      if (
+        !stored ||
+        stored.address !== expectedAddress ||
+        lastFour.trim().toLowerCase() !== stored.pk.slice(-4)
+      )
+        throw new WalletError(
+          "BackupIncomplete",
+          "Check the last 4 characters of your private key.",
+        );
+      await platform.secureStorage.set(
+        STORAGE_KEY,
+        JSON.stringify({ ...stored, backupRequired: false }),
+      );
     }),
   unlock: () => {
     const expectedEpoch = epoch;

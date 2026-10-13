@@ -40,8 +40,9 @@ export function useAuth(): {
 
   const signOut = useCallback(async () => {
     if (import.meta.env.VITE_TARGET === "native" && isNativeBuild) {
-      try { await (await import("./nativeSession")).signOutNative(); }
-      finally {
+      try {
+        await (await import("./nativeSession")).signOutNative();
+      } finally {
         await transitionSession(queryClient, null, { cancelSessionQuery: true });
         router.replace("/login");
       }
@@ -73,8 +74,9 @@ export function useAuth(): {
     const { nonce } = await endpoints.auth.nonce();
     if (import.meta.env.VITE_TARGET === "native" && isNativeBuild) {
       const { signAppSiwe } = await import("../wallet/native/siweApproval");
-      const { message, signature } = await signAppSiwe("reauth", nonce, me.address,
-        (message) => signMessageAsync({ message }));
+      const { message, signature } = await signAppSiwe("reauth", nonce, me.address, (message) =>
+        signMessageAsync({ message }),
+      );
       await endpoints.auth.reauth(message, signature);
       await queryClient.invalidateQueries({ queryKey: qk.me });
       await queryClient.invalidateQueries({ queryKey: qk.session });

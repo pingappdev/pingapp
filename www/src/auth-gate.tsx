@@ -37,7 +37,9 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   if (
     status === "loading" ||
     (status === "signed-out" && !switching) ||
-    (!isNativeBuild && status === "signed-in" && (account.status === "reconnecting" || !walletSettled))
+    (!isNativeBuild &&
+      status === "signed-in" &&
+      (account.status === "reconnecting" || !walletSettled))
   ) {
     return (
       <main className="premium-workspace contact-page section">

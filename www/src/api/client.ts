@@ -118,7 +118,9 @@ export async function api<T>(path: string, opts: ApiOptions = {}, retried = fals
     const error = new ApiError(code, response.status, message, details);
 
     const authPath = path.split("?", 1)[0];
-    const recoverable = !["/v1/auth/nonce", "/v1/auth/verify", "/v1/auth/logout"].includes(authPath);
+    const recoverable = !["/v1/auth/nonce", "/v1/auth/verify", "/v1/auth/logout"].includes(
+      authPath,
+    );
     if (isNativeBuild && response.status === 401 && code === "UNAUTHENTICATED" && recoverable) {
       if (!retried && (await nativeUnauthenticated?.(token))) return api<T>(path, opts, true);
       // A stale response must never invalidate a newer session.
@@ -128,7 +130,8 @@ export async function api<T>(path: string, opts: ApiOptions = {}, retried = fals
     }
 
     if (
-      !isNativeBuild && response.status === 401 &&
+      !isNativeBuild &&
+      response.status === 401 &&
       error.code === "UNAUTHENTICATED" &&
       path.split("?", 1)[0] !== "/v1/auth/session" &&
       typeof window !== "undefined"

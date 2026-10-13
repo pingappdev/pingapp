@@ -29,10 +29,15 @@ setApprovalHandler(async (request) => {
 export async function getToken(): Promise<string | null> {
   if (token !== undefined) return token;
   const expectedEpoch = epoch;
-  tokenLoad ??= platform.secureStorage.get(TOKEN_KEY).then((stored) => {
-    if (epoch === expectedEpoch) token = stored;
-    return epoch === expectedEpoch ? stored : (token ?? null);
-  }).finally(() => { tokenLoad = undefined; });
+  tokenLoad ??= platform.secureStorage
+    .get(TOKEN_KEY)
+    .then((stored) => {
+      if (epoch === expectedEpoch) token = stored;
+      return epoch === expectedEpoch ? stored : (token ?? null);
+    })
+    .finally(() => {
+      tokenLoad = undefined;
+    });
   return tokenLoad;
 }
 
@@ -43,32 +48,42 @@ export async function clearToken(): Promise<void> {
 }
 
 async function publish(me: Me | null) {
-  await Promise.all([...clients].map(async (client) => {
-    await transitionSession(client, me);
-    if (me) void client.invalidateQueries({ queryKey: qk.me });
-  }));
+  await Promise.all(
+    [...clients].map(async (client) => {
+      await transitionSession(client, me);
+      if (me) void client.invalidateQueries({ queryKey: qk.me });
+    }),
+  );
 }
 
 export function signInSilently(): Promise<Me> {
   if (signInFlight) return signInFlight;
   const expectedEpoch = epoch;
   signInFlight = (async () => {
-    if (suspended || await platform.secureStorage.get(SIGNED_OUT_KEY) ||
-        await keyManager.backupRequired() || keyManager.getState() !== "unlocked")
+    if (
+      suspended ||
+      (await platform.secureStorage.get(SIGNED_OUT_KEY)) ||
+      (await keyManager.backupRequired()) ||
+      keyManager.getState() !== "unlocked"
+    )
       throw new Error("Continue wallet sign-in to open your workspace.");
     const address = await keyManager.address();
     if (!address) throw new Error("Create or import a wallet first.");
     await connectNativeWallet();
     const { nonce } = await endpoints.auth.nonce();
-    const { message, signature } = await signAppSiwe("login", nonce, address,
-      (message) => signMessage(nativeWagmiConfig, { message }));
+    const { message, signature } = await signAppSiwe("login", nonce, address, (message) =>
+      signMessage(nativeWagmiConfig, { message }),
+    );
     const result = await api<{ me: Me; token: string }>("/v1/auth/verify", {
-      method: "POST", body: { message, signature, client: "native" },
+      method: "POST",
+      body: { message, signature, client: "native" },
     });
     if (expectedEpoch !== epoch || suspended || keyManager.getState() !== "unlocked")
       throw new Error("Wallet sign-in was cancelled.");
     if (!/^[A-Za-z0-9_-]{43}$/.test(result.token))
       throw new Error("PingApp could not create a device session. Try again.");
+    if (result.me.address.toLowerCase() !== address.toLowerCase())
+      throw new Error("The device session belongs to another wallet. Try again.");
     await platform.secureStorage.set(TOKEN_KEY, result.token);
     if (expectedEpoch !== epoch || suspended) {
       await platform.secureStorage.remove(TOKEN_KEY);
@@ -77,7 +92,9 @@ export function signInSilently(): Promise<Me> {
     token = result.token;
     await publish(result.me);
     return result.me;
-  })().finally(() => { signInFlight = undefined; });
+  })().finally(() => {
+    signInFlight = undefined;
+  });
   return signInFlight;
 }
 
@@ -96,41 +113,67 @@ export async function signOutNative(): Promise<void> {
   try {
     if (await getToken()) await endpoints.auth.logout();
   } finally {
-    await clearToken();
     keyManager.lock();
-    await publish(null);
+    try {
+      await clearToken();
+    } finally {
+      await publish(null);
+    }
   }
 }
 
 export async function removeNativeWallet(): Promise<void> {
-  await signOutNative();
-  await keyManager.wipe();
+  try {
+    await signOutNative();
+  } finally {
+    await keyManager.wipe();
+  }
 }
 
 export function readNativeSession(client: QueryClient): Promise<Me | null> {
   clients.add(client);
   if (startupFlight) return startupFlight;
   startupFlight = (async () => {
-    if (suspended || await platform.secureStorage.get(SIGNED_OUT_KEY) ||
-        !await keyManager.hasWallet() || await keyManager.backupRequired()) return null;
+    if (
+      suspended ||
+      (await platform.secureStorage.get(SIGNED_OUT_KEY)) ||
+      !(await keyManager.hasWallet()) ||
+      (await keyManager.backupRequired())
+    )
+      return null;
     if (keyManager.getState() !== "unlocked") await keyManager.unlock();
     await connectNativeWallet();
-    if (!await getToken()) {
-      try { return await signInSilently(); } catch { return null; }
+    if (!(await getToken())) {
+      try {
+        return await signInSilently();
+      } catch {
+        return null;
+      }
     }
     return (await endpoints.auth.session()).me;
-  })().finally(() => { startupFlight = undefined; });
+  })().finally(() => {
+    startupFlight = undefined;
+  });
   return startupFlight;
 }
 
 setNativeTokenProvider(getToken);
 onNativeUnauthenticated(async (failedToken) => {
-  if (suspended || await keyManager.backupRequired() || keyManager.getState() !== "unlocked") return false;
+  if (suspended || (await keyManager.backupRequired()) || keyManager.getState() !== "unlocked")
+    return false;
   const current = await getToken();
   if (current && current !== failedToken) return true;
-  try { await signInSilently(); return true; } catch {
+  try {
+    await signInSilently();
+    return true;
+  } catch {
     // A stale failure cannot erase a successful token rotation.
-    if (await getToken() === failedToken) await clearToken();
+    if ((await getToken()) === failedToken) {
+      suspended = true;
+      keyManager.lock();
+      await clearToken();
+      await publish(null);
+    }
     return false;
   }
 });

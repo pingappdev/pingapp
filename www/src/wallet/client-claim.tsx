@@ -200,7 +200,7 @@ function ClaimReadyStep({
       {auth.status === "signed-out" && (
         <div className="claim-actions">
           <button className="button accent" type="button" onClick={auth.signIn}>
-            <Wallet size={15} /> Connect wallet
+            <Wallet size={15} /> {platform.isNative ? "Create or import wallet" : "Connect wallet"}
           </button>
           <a className="button outline" href={loginHref}>
             Continue on the sign-in page
@@ -350,7 +350,7 @@ function ClaimSessionStep({
             : `${claim.senderDisplayName} may then choose to complete this pending send.`}
         </p>
         <button className="button accent" type="button" onClick={auth.signIn}>
-          <Wallet size={15} /> Connect wallet
+          <Wallet size={15} /> {platform.isNative ? "Create or import wallet" : "Connect wallet"}
         </button>
         <a className="text-link" href="/what-we-do/connect">
           Don&apos;t have a wallet?

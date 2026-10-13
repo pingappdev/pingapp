@@ -129,9 +129,10 @@ export function useSession() {
     queryFn: async ({ signal }) => {
       const expectedRevision = sessionRevision(queryClient);
       try {
-        const me = import.meta.env.VITE_TARGET === "native" && isNativeBuild
-          ? await (await import("../auth/nativeSession")).readNativeSession(queryClient)
-          : (await endpoints.auth.session({ signal })).me;
+        const me =
+          import.meta.env.VITE_TARGET === "native" && isNativeBuild
+            ? await (await import("../auth/nativeSession")).readNativeSession(queryClient)
+            : (await endpoints.auth.session({ signal })).me;
         const applied = await transitionSession(queryClient, me, { expectedRevision });
         return applied ? me : (queryClient.getQueryData<Me | null>(qk.session) ?? null);
       } catch (error) {

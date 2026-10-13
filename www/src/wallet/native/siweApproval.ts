@@ -14,8 +14,10 @@ const permits = new Set<{ address: Address; message: Hex }>();
 export function consumeTrustedSiwe(request: ApprovalRequest): boolean {
   if (request.kind !== "message") return false;
   for (const permit of permits) {
-    if (permit.address.toLowerCase() === request.summary.address.toLowerCase() &&
-        permit.message === request.summary.message) {
+    if (
+      permit.address.toLowerCase() === request.summary.address.toLowerCase() &&
+      permit.message === request.summary.message
+    ) {
       permits.delete(permit);
       return true;
     }
