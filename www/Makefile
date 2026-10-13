@@ -39,3 +39,22 @@ build-native:
 	$(DOCKER) run --rm --env-file "$(NATIVE_ENV)" -e VITE_TARGET=native \
 		-v "$(WWW_ROOT):/app" -w /app \
 		$$($(COMPOSE) images -q web) bun run build
+
+VARIANT ?= emu
+ANDROID_DOCKER = DOCKER="$(DOCKER)" NATIVE_ENV="$(DOCS_ROOT)/deploy/frontend.android-$(VARIANT).env" bash "$(DOCS_ROOT)/deploy/app/android-build.sh"
+.PHONY: android-image android-sync android-apk android-keystore android-release
+
+android-image:
+	$(ANDROID_DOCKER) image $(VARIANT)
+
+android-sync:
+	$(ANDROID_DOCKER) sync $(VARIANT)
+
+android-apk:
+	$(ANDROID_DOCKER) apk $(VARIANT)
+
+android-keystore:
+	$(ANDROID_DOCKER) keystore $(VARIANT)
+
+android-release:
+	DOCKER="$(DOCKER)" NATIVE_ENV="$(DOCS_ROOT)/deploy/frontend.android-prod.env" bash "$(DOCS_ROOT)/deploy/app/android-build.sh" release prod
