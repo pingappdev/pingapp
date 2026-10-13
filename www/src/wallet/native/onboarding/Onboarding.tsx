@@ -76,7 +76,9 @@ export default function Onboarding({ returnTo }: { returnTo?: string }) {
     void platform
       .onResume(() => {
         foreground.current = true;
-        setBusy(false);
+        // A paused write may still be settling. Reconcile its durable result
+        // before allowing another mutation or navigation within onboarding.
+        setBusy(pendingOperations.current.size > 0);
         setStep((current) => (current === "signing" ? "existing" : current));
         const generation = lifecycle.current;
         void keyManager
@@ -84,9 +86,16 @@ export default function Onboarding({ returnTo }: { returnTo?: string }) {
           .then(async (exists) => {
             if (!exists) return;
             const needsBackup = await keyManager.backupRequired();
-            if (active(generation)) setStep(needsBackup ? "backup" : "existing");
+            const ownAddress = await keyManager.address();
+            if (active(generation)) {
+              setAddress(ownAddress);
+              setStep(needsBackup ? "backup" : "existing");
+            }
           })
-          .catch(() => {});
+          .catch(() => {})
+          .finally(() => {
+            if (active(generation)) setBusy(false);
+          });
       })
       .then((off) => {
         if (mounted.current) resume = off;
@@ -273,13 +282,18 @@ export default function Onboarding({ returnTo }: { returnTo?: string }) {
     }
   }
   const askDiscard = useCallback(() => {
-    if (!busy) setDiscard(true);
+    if (!busy && !pendingOperations.current.size) setDiscard(true);
   }, [busy]);
-  useBackHandler(step === "backup", askDiscard);
-  useBackHandler(step === "device" || step === "import", () => {
+  const backToWelcome = useCallback(() => {
+    // Back is consumed while secure storage/sign-in is pending. Once idle,
+    // changing steps also invalidates any outstanding device discovery.
+    if (busy || pendingOperations.current.size) return;
+    cancelPending();
     clearSecrets();
     setStep("welcome");
-  });
+  }, [busy, cancelPending, clearSecrets]);
+  useBackHandler(step === "backup", askDiscard);
+  useBackHandler(step === "device" || step === "import", backToWelcome);
 
   return (
     <main className="contact-page section">
@@ -334,7 +348,11 @@ export default function Onboarding({ returnTo }: { returnTo?: string }) {
                 Open settings
               </button>
             )}
-            <button className="button outline" onClick={() => void checkDevice(choice)}>
+            <button
+              className="button outline"
+              disabled={busy}
+              onClick={() => void checkDevice(choice)}
+            >
               Check again
             </button>
             <button
@@ -344,7 +362,7 @@ export default function Onboarding({ returnTo }: { returnTo?: string }) {
             >
               {busy ? "Creating wallet…" : "Continue"}
             </button>
-            <button className="text-link" onClick={() => setStep("welcome")}>
+            <button className="text-link" disabled={busy} onClick={backToWelcome}>
               Back
             </button>
           </>
@@ -375,13 +393,7 @@ export default function Onboarding({ returnTo }: { returnTo?: string }) {
             >
               Continue
             </button>
-            <button
-              className="text-link"
-              onClick={() => {
-                clearSecrets();
-                setStep("welcome");
-              }}
-            >
+            <button className="text-link" disabled={busy} onClick={backToWelcome}>
               Back
             </button>
           </>
