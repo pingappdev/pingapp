@@ -115,5 +115,8 @@
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
     "vite": "8.1.5"
+  },
+  "patchedDependencies": {
+    "@capacitor-community/contacts@8.0.0": "patches/@capacitor-community+contacts@8.0.0.patch"
   }
 }

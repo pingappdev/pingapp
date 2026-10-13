@@ -1,0 +1,41 @@
+diff --git a/android/src/main/java/getcapacitor/community/contacts/ContactsPlugin.java b/android/src/main/java/getcapacitor/community/contacts/ContactsPlugin.java
+--- a/android/src/main/java/getcapacitor/community/contacts/ContactsPlugin.java
++++ b/android/src/main/java/getcapacitor/community/contacts/ContactsPlugin.java
+@@ -218,6 +218,10 @@
+ 
+     @ActivityCallback
+     private void pickContactResult(PluginCall call, ActivityResult activityResult) {
++        if (call != null && activityResult.getResultCode() == Activity.RESULT_CANCELED) {
++            call.reject("Contact picker cancelled.", "cancelled");
++            return;
++        }
+         if (call != null && activityResult.getResultCode() == Activity.RESULT_OK && activityResult.getData() != null) {
+             // This will return a URI for retrieving the contact, e.g.: "content://com.android.contacts/contacts/1234"
+             Uri uri = activityResult.getData().getData();
+diff --git a/ios/Sources/ContactsPlugin/ContactsPlugin.swift b/ios/Sources/ContactsPlugin/ContactsPlugin.swift
+--- a/ios/Sources/ContactsPlugin/ContactsPlugin.swift
++++ b/ios/Sources/ContactsPlugin/ContactsPlugin.swift
+@@ -213,6 +213,16 @@
+         }
+     }
+ 
++    public func contactPickerDidCancel(_ picker: CNContactPickerViewController) {
++        guard let callbackId = self.pickContactCallbackId,
++              let call = self.bridge?.savedCall(withID: callbackId) else {
++            return
++        }
++        call.reject("Contact picker cancelled.", "cancelled")
++        self.bridge?.releaseCall(call)
++        self.pickContactCallbackId = nil
++    }
++
+     public func contactPicker(_ picker: CNContactPickerViewController, didSelect selectedContact: CNContact) {
+         let call = self.bridge?.savedCall(withID: self.pickContactCallbackId ?? "")
+ 
+@@ -229,5 +239,6 @@
+         ])
+ 
+         self.bridge?.releaseCall(call)
++        self.pickContactCallbackId = nil
+     }
+ }

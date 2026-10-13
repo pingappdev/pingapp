@@ -1,0 +1,174 @@
+import { Capacitor } from "@capacitor/core";
+import { App } from "@capacitor/app";
+import { Browser } from "@capacitor/browser";
+import { Clipboard } from "@capacitor/clipboard";
+import { Directory, Filesystem } from "@capacitor/filesystem";
+import { Preferences } from "@capacitor/preferences";
+import { Share } from "@capacitor/share";
+import { KeychainAccess, SecureStorage } from "@aparajita/capacitor-secure-storage";
+import {
+  AndroidBiometryStrength,
+  BiometricAuth,
+  BiometryType,
+} from "@aparajita/capacitor-biometric-auth";
+import { Contacts } from "@capacitor-community/contacts";
+import {
+  deviceAction,
+  externalUrl,
+  platformError,
+  PlatformError,
+  type BiometricKind,
+  type Platform,
+  type PlatformOS,
+} from "./types";
+
+const kinds: Record<BiometryType, BiometricKind> = {
+  [BiometryType.none]: "none",
+  [BiometryType.touchId]: "fingerprint",
+  [BiometryType.faceId]: "face",
+  [BiometryType.fingerprintAuthentication]: "fingerprint",
+  [BiometryType.faceAuthentication]: "face",
+  [BiometryType.irisAuthentication]: "iris",
+};
+
+export async function createNativePlatform(os: PlatformOS): Promise<Platform> {
+  if (!Capacitor.isNativePlatform()) {
+    throw new PlatformError("not_available", "The native bridge is not available.");
+  }
+  await deviceAction(async () => {
+    await SecureStorage.setKeyPrefix("pingapp_");
+    await SecureStorage.setSynchronize(false);
+    await SecureStorage.setDefaultKeychainAccess(KeychainAccess.whenPasscodeSetThisDeviceOnly);
+  });
+  return {
+    isNative: true,
+    os,
+    openExternal: (url) => deviceAction(() => Browser.open({ url: externalUrl(url) })),
+    share: (content) =>
+      deviceAction(async () => {
+        await Share.share(content);
+      }),
+    canShare: () => deviceAction(async () => (await Share.canShare()).value),
+    copyText: (text) => deviceAction(() => Clipboard.write({ string: text })),
+    persistentStorage: {
+      get: (key) => deviceAction(async () => (await Preferences.get({ key })).value),
+      set: (key, value) => deviceAction(() => Preferences.set({ key, value })),
+      remove: (key) => deviceAction(() => Preferences.remove({ key })),
+    },
+    secureStorage: {
+      get: (key) =>
+        deviceAction(async () => {
+          const value = await SecureStorage.get(key, false, false);
+          if (value !== null && typeof value !== "string") {
+            throw new PlatformError("failed", "The stored value is invalid.");
+          }
+          return value;
+        }),
+      set: (key, value) =>
+        deviceAction(() =>
+          SecureStorage.set(key, value, false, false, KeychainAccess.whenPasscodeSetThisDeviceOnly),
+        ),
+      remove: (key) =>
+        deviceAction(async () => {
+          await SecureStorage.remove(key, false);
+        }),
+      clear: () => deviceAction(() => SecureStorage.clear(false)),
+    },
+    biometric: {
+      isAvailable: () =>
+        deviceAction(async () => {
+          const result = await BiometricAuth.checkBiometry();
+          return {
+            available: result.strongBiometryIsAvailable,
+            deviceSecure: result.deviceIsSecure,
+            kind: kinds[result.biometryType] ?? "none",
+          };
+        }),
+      authenticate: (reason) =>
+        deviceAction(() =>
+          BiometricAuth.authenticate({
+            reason,
+            allowDeviceCredential: true,
+            androidBiometryStrength: AndroidBiometryStrength.strong,
+            androidTitle: "Unlock PingApp",
+          }),
+        ),
+    },
+    pickContactPhone: async () => {
+      try {
+        const { contact } = await Contacts.pickContact({
+          projection: { name: true, phones: true },
+        });
+        if (!contact) return null;
+        return {
+          name:
+            contact.name?.display ??
+            [contact.name?.given, contact.name?.family].filter(Boolean).join(" "),
+          phones: (contact.phones ?? []).flatMap((phone) =>
+            phone.number
+              ? [
+                  {
+                    number: phone.number,
+                    label: phone.label ?? phone.type,
+                  },
+                ]
+              : [],
+          ),
+        };
+      } catch (error) {
+        const typed = platformError(error);
+        if (typed.code === "cancelled") return null;
+        throw typed;
+      }
+    },
+    onBackButton: (handler) =>
+      deviceAction(async () => {
+        const listener = await App.addListener("backButton", handler);
+        return () => deviceAction(() => listener.remove());
+      }),
+    onResume: (handler) =>
+      deviceAction(async () => {
+        const listener = await App.addListener("resume", handler);
+        return () => deviceAction(() => listener.remove());
+      }),
+    onPause: (handler) =>
+      deviceAction(async () => {
+        const listener = await App.addListener("pause", handler);
+        return () => deviceAction(() => listener.remove());
+      }),
+    onAppUrlOpen: (handler) =>
+      deviceAction(async () => {
+        const listener = await App.addListener("appUrlOpen", handler);
+        return () => deviceAction(() => listener.remove());
+      }),
+    saveAndShareFile: (file) =>
+      deviceAction(async () => {
+        if (
+          !file.filename ||
+          /[/\\]/.test(file.filename) ||
+          file.filename.includes(String.fromCharCode(0)) ||
+          /^\.{1,2}$/.test(file.filename)
+        ) {
+          throw new PlatformError("failed", "The filename is invalid.");
+        }
+        const blob =
+          file.data instanceof Blob ? file.data : new Blob([file.data], { type: file.mime });
+        const data = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result).split(",")[1]);
+          reader.onerror = () => reject(new PlatformError("failed", "The file could not be read."));
+          reader.readAsDataURL(blob);
+        });
+        // Cache only, never Documents or cloud-synced storage. Unique directories
+        // prevent concurrent exports from overwriting each other's attachments.
+        const path = `pingapp-share/${crypto.randomUUID()}/${file.filename}`;
+        await Filesystem.writeFile({ path, data, directory: Directory.Cache, recursive: true });
+        const { uri } = await Filesystem.getUri({ path, directory: Directory.Cache });
+        try {
+          await Share.share({ files: [uri] });
+        } finally {
+          await Filesystem.deleteFile({ path, directory: Directory.Cache });
+        }
+      }),
+  };
+}
