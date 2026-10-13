@@ -26,19 +26,23 @@ export function useBackHandler(open: boolean, close: () => void) {
 }
 
 /** Track controlled and uncontrolled Radix roots without changing web behavior. */
-export function useOverlayBackHandler(props: {
+export function useOverlayBackHandler({
+  open,
+  defaultOpen,
+  onOpenChange: notify,
+}: {
   open?: boolean;
   defaultOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
-  const [uncontrolledOpen, setUncontrolledOpen] = useState(props.defaultOpen ?? false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen ?? false);
   const onOpenChange = useCallback(
-    (open: boolean) => {
-      if (props.open === undefined) setUncontrolledOpen(open);
-      props.onOpenChange?.(open);
+    (nextOpen: boolean) => {
+      if (open === undefined) setUncontrolledOpen(nextOpen);
+      notify?.(nextOpen);
     },
-    [props.open, props.onOpenChange],
+    [open, notify],
   );
-  useBackHandler(props.open ?? uncontrolledOpen, () => onOpenChange(false));
+  useBackHandler(open ?? uncontrolledOpen, () => onOpenChange(false));
   return onOpenChange;
 }
