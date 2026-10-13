@@ -41,6 +41,17 @@ export default function Onboarding({ returnTo }: { returnTo?: string }) {
   const clipboardTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const mounted = useRef(true);
   const foreground = useRef(true);
+  const lifecycle = useRef(0);
+  const pendingOperations = useRef(new Set<object>());
+  const active = useCallback(
+    (generation: number) =>
+      mounted.current && foreground.current && lifecycle.current === generation,
+    [],
+  );
+  const cancelPending = useCallback(() => {
+    lifecycle.current++;
+    if (pendingOperations.current.size) keyManager.lock();
+  }, []);
 
   const clearClipboard = useCallback(() => {
     if (clipboardTimer.current) clearTimeout(clipboardTimer.current);
@@ -65,6 +76,17 @@ export default function Onboarding({ returnTo }: { returnTo?: string }) {
     void platform
       .onResume(() => {
         foreground.current = true;
+        setBusy(false);
+        setStep((current) => (current === "signing" ? "existing" : current));
+        const generation = lifecycle.current;
+        void keyManager
+          .hasWallet()
+          .then(async (exists) => {
+            if (!exists) return;
+            const needsBackup = await keyManager.backupRequired();
+            if (active(generation)) setStep(needsBackup ? "backup" : "existing");
+          })
+          .catch(() => {});
       })
       .then((off) => {
         if (mounted.current) resume = off;
@@ -74,6 +96,7 @@ export default function Onboarding({ returnTo }: { returnTo?: string }) {
     void platform
       .onPause(() => {
         foreground.current = false;
+        lifecycle.current++;
         clearSecrets();
         keyManager.lock();
       })
@@ -84,36 +107,45 @@ export default function Onboarding({ returnTo }: { returnTo?: string }) {
       .catch(() => {});
     return () => {
       mounted.current = false;
+      cancelPending();
       clearClipboard();
       void unsubscribe?.();
       void resume?.();
     };
-  }, [clearSecrets, clearClipboard]);
+  }, [active, cancelPending, clearSecrets, clearClipboard]);
   useEffect(() => {
     if (walletState !== "unlocked") clearSecrets();
   }, [walletState, clearSecrets]);
   useEffect(() => {
-    let active = true;
+    let initialActive = true;
+    const generation = lifecycle.current;
     void (async () => {
       const exists = await keyManager.hasWallet();
       const needsBackup = exists && (await keyManager.backupRequired());
       const ownAddress = exists ? await keyManager.address() : null;
-      if (!active) return;
+      if (!initialActive || !active(generation)) return;
       setAddress(ownAddress);
       setStep(needsBackup ? "backup" : exists ? "existing" : "welcome");
     })().catch(() => {
-      if (active) {
+      if (initialActive && active(generation)) {
         setError("The device wallet could not be opened. Try again.");
         setStep("failed");
       }
     });
     return () => {
-      active = false;
+      initialActive = false;
     };
-  }, []);
+  }, [active]);
   useEffect(() => {
-    if (session.data && walletState === "unlocked") router.replace(safeReturnTo(returnTo));
-  }, [session.data, walletState, returnTo, router]);
+    if (
+      !busy &&
+      session.data &&
+      walletState === "unlocked" &&
+      mounted.current &&
+      foreground.current
+    )
+      router.replace(safeReturnTo(returnTo));
+  }, [busy, session.data, walletState, returnTo, router]);
 
   function fail(reason: unknown) {
     setError(
@@ -123,93 +155,121 @@ export default function Onboarding({ returnTo }: { returnTo?: string }) {
     );
   }
   async function checkDevice(nextChoice: "create" | "import") {
+    const generation = lifecycle.current;
     setChoice(nextChoice);
     setStep("device");
     setError("");
     setDeviceSecure(null);
     try {
-      setDeviceSecure((await platform.biometric.isAvailable()).deviceSecure);
+      const security = await platform.biometric.isAvailable();
+      if (active(generation)) setDeviceSecure(security.deviceSecure);
     } catch {
-      setError("Could not check your screen lock. Try again.");
+      if (active(generation)) setError("Could not check your screen lock. Try again.");
     }
   }
   async function createWallet() {
+    const generation = lifecycle.current;
+    const operation = {};
+    pendingOperations.current.add(operation);
     setBusy(true);
     setError("");
     try {
       const result = await keyManager.create();
-      if (!mounted.current) return keyManager.lock();
+      if (!active(generation)) return;
       setAddress(result.address);
       setStep("backup");
-      if (!foreground.current) return keyManager.lock();
+      if (!active(generation)) return;
       await keyManager.unlock();
-      if (!mounted.current || !foreground.current) return keyManager.lock();
+      if (!active(generation)) return;
       setAddress(result.address);
       setPrivateKey(result.privateKey);
       setStep("backup");
     } catch (reason) {
-      fail(reason);
+      if (active(generation)) fail(reason);
     } finally {
-      setBusy(false);
+      pendingOperations.current.delete(operation);
+      if (active(generation)) setBusy(false);
     }
   }
   async function showBackup() {
+    const generation = lifecycle.current;
+    const operation = {};
+    pendingOperations.current.add(operation);
     setBusy(true);
     setError("");
     try {
       await keyManager.unlock();
+      if (!active(generation)) return;
       const key = await keyManager.revealPrivateKey();
-      if (mounted.current && foreground.current && keyManager.getState() === "unlocked")
-        setPrivateKey(key);
+      if (active(generation) && keyManager.getState() === "unlocked") setPrivateKey(key);
     } catch (reason) {
-      fail(reason);
+      if (active(generation)) fail(reason);
     } finally {
-      setBusy(false);
+      pendingOperations.current.delete(operation);
+      if (active(generation)) setBusy(false);
     }
   }
-  async function signIn() {
+  async function signIn(generation = lifecycle.current) {
+    if (!active(generation)) return;
+    const operation = {};
+    pendingOperations.current.add(operation);
     clearSecrets();
     setStep("signing");
     setBusy(true);
     setError("");
     try {
-      await resumeNativeSession();
-      router.replace(safeReturnTo(returnTo));
+      await resumeNativeSession(() => active(generation));
+      if (active(generation)) {
+        pendingOperations.current.delete(operation);
+        router.replace(safeReturnTo(returnTo));
+      }
     } catch (reason) {
-      if (mounted.current) {
+      if (active(generation)) {
         fail(reason);
         setStep("failed");
       }
     } finally {
-      if (mounted.current) setBusy(false);
+      pendingOperations.current.delete(operation);
+      if (active(generation)) setBusy(false);
     }
   }
   async function importWallet() {
+    const generation = lifecycle.current;
+    const operation = {};
+    pendingOperations.current.add(operation);
     setBusy(true);
     setError("");
     try {
       const result = await keyManager.importKey(importKey);
+      if (!active(generation)) return;
       setAddress(result.address);
       setImportKey("");
-      await signIn();
+      pendingOperations.current.delete(operation);
+      if (active(generation)) await signIn(generation);
     } catch (reason) {
-      fail(reason);
+      if (active(generation)) fail(reason);
     } finally {
-      setBusy(false);
+      pendingOperations.current.delete(operation);
+      if (active(generation)) setBusy(false);
     }
   }
   async function finishBackup() {
+    const generation = lifecycle.current;
+    const operation = {};
     if (!saved || !address || !privateKey || lastFour.trim().toLowerCase() !== privateKey.slice(-4))
       return;
+    pendingOperations.current.add(operation);
     setBusy(true);
     setError("");
     try {
       await keyManager.completeBackup(address, lastFour);
-      await signIn();
+      pendingOperations.current.delete(operation);
+      if (active(generation)) await signIn(generation);
     } catch (reason) {
-      fail(reason);
+      if (active(generation)) fail(reason);
     } finally {
-      setBusy(false);
+      pendingOperations.current.delete(operation);
+      if (active(generation)) setBusy(false);
     }
   }
   const askDiscard = useCallback(() => {
@@ -358,10 +418,11 @@ export default function Onboarding({ returnTo }: { returnTo?: string }) {
                   <button
                     className="button outline"
                     onClick={() => {
+                      const generation = lifecycle.current;
                       void platform
                         .copyText(privateKey)
                         .then(() => {
-                          if (!mounted.current || !foreground.current) {
+                          if (!active(generation)) {
                             void platform.clearCopiedText(privateKey).catch(() => {});
                             return;
                           }

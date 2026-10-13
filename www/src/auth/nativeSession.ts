@@ -17,6 +17,46 @@ let signInFlight: Promise<Me> | undefined;
 let startupFlight: Promise<Me | null> | undefined;
 let epoch = 0;
 let suspended = false;
+let foreground = true;
+let lifecycle = 0;
+let logoutFlight: Promise<void> | undefined;
+let resuming = 0;
+
+export class NativeSessionCancelled extends Error {
+  constructor() {
+    super("Wallet sign-in was cancelled.");
+  }
+}
+
+// Minimal lifecycle cancellation; MOB-08 adds its visible lock/prompt policy.
+void platform
+  .onPause(() => {
+    foreground = false;
+    lifecycle++;
+    if (signInFlight || startupFlight || resuming) keyManager.lock();
+  })
+  .catch(() => {});
+void platform
+  .onResume(() => {
+    foreground = true;
+  })
+  .catch(() => {});
+
+function sessionGuard(allow: () => boolean = () => true) {
+  const expectedEpoch = epoch;
+  const expectedLifecycle = lifecycle;
+  const expectedWalletEpoch = keyManager.getEpoch();
+  return () => {
+    if (
+      !foreground ||
+      lifecycle !== expectedLifecycle ||
+      epoch !== expectedEpoch ||
+      keyManager.getEpoch() !== expectedWalletEpoch ||
+      !allow()
+    )
+      throw new NativeSessionCancelled();
+  };
+}
 const clients = new Set<QueryClient>();
 
 // MOB-08 replaces this handler with its lock/biometric policy and consumes the
@@ -58,8 +98,13 @@ async function publish(me: Me | null) {
 
 export function signInSilently(): Promise<Me> {
   if (signInFlight) return signInFlight;
-  const expectedEpoch = epoch;
+  const guard = sessionGuard();
+  const assertSigning = () => {
+    guard();
+    if (suspended || keyManager.getState() !== "unlocked") throw new NativeSessionCancelled();
+  };
   signInFlight = (async () => {
+    assertSigning();
     if (
       suspended ||
       (await platform.secureStorage.get(SIGNED_OUT_KEY)) ||
@@ -67,30 +112,37 @@ export function signInSilently(): Promise<Me> {
       keyManager.getState() !== "unlocked"
     )
       throw new Error("Continue wallet sign-in to open your workspace.");
+    assertSigning();
     const address = await keyManager.address();
+    assertSigning();
     if (!address) throw new Error("Create or import a wallet first.");
     await connectNativeWallet();
+    assertSigning();
     const { nonce } = await endpoints.auth.nonce();
+    assertSigning();
     const { message, signature } = await signAppSiwe("login", nonce, address, (message) =>
       signMessage(nativeWagmiConfig, { message }),
     );
+    assertSigning();
     const result = await api<{ me: Me; token: string }>("/v1/auth/verify", {
       method: "POST",
       body: { message, signature, client: "native" },
     });
-    if (expectedEpoch !== epoch || suspended || keyManager.getState() !== "unlocked")
-      throw new Error("Wallet sign-in was cancelled.");
+    assertSigning();
     if (!/^[A-Za-z0-9_-]{43}$/.test(result.token))
       throw new Error("PingApp could not create a device session. Try again.");
     if (result.me.address.toLowerCase() !== address.toLowerCase())
       throw new Error("The device session belongs to another wallet. Try again.");
     await platform.secureStorage.set(TOKEN_KEY, result.token);
-    if (expectedEpoch !== epoch || suspended) {
+    try {
+      assertSigning();
+    } catch (error) {
       await platform.secureStorage.remove(TOKEN_KEY);
-      throw new Error("Wallet sign-in was cancelled.");
+      throw error;
     }
     token = result.token;
     await publish(result.me);
+    assertSigning();
     return result.me;
   })().finally(() => {
     signInFlight = undefined;
@@ -98,32 +150,67 @@ export function signInSilently(): Promise<Me> {
   return signInFlight;
 }
 
-export async function resumeNativeSession(): Promise<Me> {
-  suspended = false;
-  await platform.secureStorage.remove(SIGNED_OUT_KEY);
-  await keyManager.unlock();
-  return signInSilently();
+export async function resumeNativeSession(allow: () => boolean = () => true): Promise<Me> {
+  resuming++;
+  try {
+    const guard = sessionGuard(allow);
+    if (logoutFlight) {
+      try {
+        await logoutFlight;
+      } catch {
+        /* Local logout still completed. */
+      }
+    }
+    guard();
+    if (signInFlight) {
+      try {
+        await signInFlight;
+      } catch {
+        /* Cancelled prior operation. */
+      }
+    }
+    guard();
+    // Only the explicit resume may remove the persisted logout intent.
+    await platform.secureStorage.remove(SIGNED_OUT_KEY);
+    try {
+      guard();
+    } catch (error) {
+      if (suspended) await platform.secureStorage.set(SIGNED_OUT_KEY, "1");
+      throw error;
+    }
+    suspended = false;
+    await keyManager.unlock();
+    guard();
+    const me = await signInSilently();
+    guard();
+    return me;
+  } finally {
+    resuming--;
+  }
 }
 
-export async function signOutNative(): Promise<void> {
-  // This intent survives a restart and prevents refetch/cold-start auto-login.
+export function signOutNative(): Promise<void> {
+  if (logoutFlight) return logoutFlight;
   suspended = true;
   epoch++;
   keyManager.lock();
-  try {
-    // A pre-logout storage read may be invalidated by the epoch above. Resolve
-    // its persisted token explicitly so that logout still revokes that row.
-    token ??= await platform.secureStorage.get(TOKEN_KEY);
-    await platform.secureStorage.set(SIGNED_OUT_KEY, "1");
-    if (await getToken()) await endpoints.auth.logout();
-  } finally {
-    keyManager.lock();
+  logoutFlight = (async () => {
     try {
-      await clearToken();
+      token ??= await platform.secureStorage.get(TOKEN_KEY);
+      await platform.secureStorage.set(SIGNED_OUT_KEY, "1");
+      if (await getToken()) await endpoints.auth.logout();
     } finally {
-      await publish(null);
+      keyManager.lock();
+      try {
+        await clearToken();
+      } finally {
+        await publish(null);
+      }
     }
-  }
+  })().finally(() => {
+    logoutFlight = undefined;
+  });
+  return logoutFlight;
 }
 
 export async function removeNativeWallet(): Promise<void> {
@@ -140,24 +227,46 @@ export async function removeNativeWallet(): Promise<void> {
 export function readNativeSession(client: QueryClient): Promise<Me | null> {
   clients.add(client);
   if (startupFlight) return startupFlight;
+  const guard = sessionGuard();
+  const assertStartup = () => {
+    guard();
+    if (suspended || logoutFlight) throw new NativeSessionCancelled();
+  };
   startupFlight = (async () => {
-    if (
-      suspended ||
-      (await platform.secureStorage.get(SIGNED_OUT_KEY)) ||
-      !(await keyManager.hasWallet()) ||
-      (await keyManager.backupRequired())
-    )
-      return null;
-    if (keyManager.getState() !== "unlocked") await keyManager.unlock();
-    await connectNativeWallet();
-    if (!(await getToken())) {
-      try {
-        return await signInSilently();
-      } catch {
-        return null;
+    try {
+      assertStartup();
+      const signedOut = await platform.secureStorage.get(SIGNED_OUT_KEY);
+      assertStartup();
+      if (signedOut) return null;
+      const exists = await keyManager.hasWallet();
+      assertStartup();
+      if (!exists) return null;
+      const needsBackup = await keyManager.backupRequired();
+      assertStartup();
+      if (needsBackup) return null;
+      if (keyManager.getState() !== "unlocked") {
+        assertStartup();
+        await keyManager.unlock();
+        assertStartup();
       }
+      await connectNativeWallet();
+      assertStartup();
+      const current = await getToken();
+      assertStartup();
+      if (!current) {
+        try {
+          return await signInSilently();
+        } catch {
+          return null;
+        }
+      }
+      const result = await endpoints.auth.session();
+      assertStartup();
+      return result.me;
+    } catch (error) {
+      if (error instanceof NativeSessionCancelled) return null;
+      throw error;
     }
-    return (await endpoints.auth.session()).me;
   })().finally(() => {
     startupFlight = undefined;
   });
