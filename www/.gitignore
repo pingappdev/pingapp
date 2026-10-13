@@ -38,6 +38,7 @@ dist-native/
 # Native build artifacts; keep source/template and resources in Git.
 dist-apk/
 android/.gradle/
+android/.kotlin/
 android/build/
 android/app/build/
 android/app/src/main/assets/public/
