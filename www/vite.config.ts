@@ -42,7 +42,12 @@ const extraHosts = (process.env.DEV_ALLOWED_HOSTS ?? "")
 export default defineConfig({
   tanstackStart: {
     server: { entry: "server" },
-    ...(native ? { spa: { enabled: true, prerender: { outputPath: "/index" } } } : {}),
+    ...(native
+      ? {
+          client: { entry: "platform/client" },
+          spa: { enabled: true, prerender: { outputPath: "/index" } },
+        }
+      : {}),
   },
   nitro: native ? false : { preset: process.env.VERCEL ? "vercel" : "node-server" },
   plugins: native ? [nativeBundle()] : [],
