@@ -34,7 +34,12 @@ export const walletCleanup = {
     // old account. An unconfirmed request never authorizes a wallet wipe.
     await platform.secureStorage.set(CLEANUP_KEY, "delete-pending");
   },
-  async deleteFailed() {
+  async deleteFailed(confirmedFailure: boolean) {
+    if (!confirmedFailure) {
+      keyManager.lock();
+      publish({ action: "delete-pending", busy: false, error: "Account deletion could not be confirmed. Your wallet has been preserved." });
+      return;
+    }
     try {
       await platform.secureStorage.remove(CLEANUP_KEY);
     } catch {

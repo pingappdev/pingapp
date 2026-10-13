@@ -24,7 +24,7 @@ export default function NativeWalletLifecycleDialog({
   const mounted = useRef(true);
   const operation = useRef(false);
   const generation = useRef(0);
-  const balances = useBalances({ enabled: open });
+  const balances = useBalances({ enabled: open, refresh: true });
   const client = useQueryClient();
   const { me, withReauth } = useAuth();
   const word = action === "delete" ? "DELETE" : "REMOVE";
@@ -84,7 +84,7 @@ export default function NativeWalletLifecycleDialog({
             await endpoints.me.delete();
           });
         } catch (reason) {
-          await walletCleanup.deleteFailed();
+          await walletCleanup.deleteFailed(reason instanceof ApiError && reason.status >= 400 && reason.status < 500 && reason.status !== 408);
           throw reason;
         }
       }
