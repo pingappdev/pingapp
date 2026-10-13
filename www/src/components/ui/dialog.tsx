@@ -10,8 +10,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  const onOpenChange = useOverlayBackHandler(props);
-  return <DialogPrimitive.Root data-slot="dialog" {...props} onOpenChange={onOpenChange} />;
+  const backProps = useOverlayBackHandler(props);
+  return <DialogPrimitive.Root data-slot="dialog" {...props} {...backProps} />;
 }
 
 function DialogTrigger({ ...props }: React.ComponentProps<typeof DialogPrimitive.Trigger>) {

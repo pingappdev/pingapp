@@ -9,10 +9,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 function AlertDialog({ ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
-  const onOpenChange = useOverlayBackHandler(props);
-  return (
-    <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} onOpenChange={onOpenChange} />
-  );
+  const backProps = useOverlayBackHandler(props);
+  return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} {...backProps} />;
 }
 
 function AlertDialogTrigger({

@@ -9,8 +9,8 @@ import { Dialog as SheetPrimitive } from "radix-ui";
 import { cn } from "@/lib/utils";
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
-  const onOpenChange = useOverlayBackHandler(props);
-  return <SheetPrimitive.Root data-slot="sheet" {...props} onOpenChange={onOpenChange} />;
+  const backProps = useOverlayBackHandler(props);
+  return <SheetPrimitive.Root data-slot="sheet" {...props} {...backProps} />;
 }
 
 function SheetTrigger({ ...props }: React.ComponentProps<typeof SheetPrimitive.Trigger>) {

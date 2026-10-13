@@ -44,5 +44,5 @@ export function useOverlayBackHandler({
     [open, notify],
   );
   useBackHandler(open ?? uncontrolledOpen, () => onOpenChange(false));
-  return onOpenChange;
+  return { onOpenChange, ...(platform.isNative ? { open: open ?? uncontrolledOpen } : {}) };
 }

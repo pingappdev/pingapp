@@ -8,13 +8,9 @@ const Drawer = ({
   shouldScaleBackground = true,
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Root>) => {
-  const onOpenChange = useOverlayBackHandler(props);
+  const backProps = useOverlayBackHandler(props);
   return (
-    <DrawerPrimitive.Root
-      shouldScaleBackground={shouldScaleBackground}
-      {...props}
-      onOpenChange={onOpenChange}
-    />
+    <DrawerPrimitive.Root shouldScaleBackground={shouldScaleBackground} {...props} {...backProps} />
   );
 };
 Drawer.displayName = "Drawer";
