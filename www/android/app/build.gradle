@@ -30,13 +30,13 @@ android {
             applicationIdSuffix '.dev'
             resValue 'string', 'app_name', 'PingApp Dev'
             resValue 'string', 'title_activity_main', 'PingApp Dev'
-            manifestPlaceholders = [appLinksHost: '<production-domain>']
+            manifestPlaceholders = [appLinksHost: 'localhost.invalid', appLinkScheme: 'pingapp-dev']
         }
         prod {
             dimension 'environment'
             resValue 'string', 'app_name', 'PingApp'
             resValue 'string', 'title_activity_main', 'PingApp'
-            manifestPlaceholders = [appLinksHost: '<production-domain>']
+            manifestPlaceholders = [appLinksHost: '<production-domain>', appLinkScheme: 'pingapp']
         }
     }
     signingConfigs {
