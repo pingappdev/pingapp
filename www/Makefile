@@ -2,7 +2,8 @@ WWW_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 DOCS_ROOT ?= $(abspath $(WWW_ROOT)/../../docs)
 DOCKER ?= docker
 COMPOSE = $(DOCKER) compose --project-directory "$(WWW_ROOT)" -f "$(DOCS_ROOT)/deploy/app/compose.frontend.dev.yml"
-NATIVE_ENV ?= $(DOCS_ROOT)/deploy/frontend.android-emu.env
+VARIANT ?= emu
+NATIVE_ENV ?= $(DOCS_ROOT)/deploy/frontend.android-$(VARIANT).env
 
 .PHONY: up down logs sh bun install typecheck lint build build-native
 
@@ -40,8 +41,7 @@ build-native:
 		-v "$(WWW_ROOT):/app" -w /app \
 		$$($(COMPOSE) images -q web) bun run build
 
-VARIANT ?= emu
-ANDROID_DOCKER = DOCKER="$(DOCKER)" NATIVE_ENV="$(DOCS_ROOT)/deploy/frontend.android-$(VARIANT).env" bash "$(DOCS_ROOT)/deploy/app/android-build.sh"
+ANDROID_DOCKER = DOCKER="$(DOCKER)" NATIVE_ENV="$(NATIVE_ENV)" bash "$(DOCS_ROOT)/deploy/app/android-build.sh"
 .PHONY: android-image android-sync android-apk android-keystore android-release
 
 android-image:
