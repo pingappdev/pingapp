@@ -62,11 +62,13 @@ void platform
 export async function authenticateWallet(reason: string, allow: () => boolean = () => true) {
   const expectedLifecycle = lifecycle;
   const expectedEpoch = keyManager.getEpoch();
+  const expectedLocation = window.location.href;
   const guard = () => {
     if (
       !foreground ||
       lifecycle !== expectedLifecycle ||
       keyManager.getEpoch() !== expectedEpoch ||
+      (reason !== "Unlock PingApp" && window.location.href !== expectedLocation) ||
       !allow()
     )
       throw new WalletLocked();

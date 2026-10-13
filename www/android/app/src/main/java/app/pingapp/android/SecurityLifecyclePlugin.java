@@ -6,6 +6,7 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.os.Build;
+import android.os.PersistableBundle;
 import android.os.Bundle;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -52,6 +53,20 @@ public class SecurityLifecyclePlugin extends Plugin implements Application.Activ
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) clipboard.clearPrimaryClip();
                 else clipboard.setPrimaryClip(ClipData.newPlainText("", ""));
             }
+            call.resolve();
+        });
+    }
+    @PluginMethod public void copyPrivateKey(PluginCall call) {
+        final String key = call.getString("key");
+        if (key == null || !key.matches("(?:0x)?[0-9a-fA-F]{64}")) {
+            call.reject("Invalid private key clipboard value"); return;
+        }
+        getActivity().runOnUiThread(() -> {
+            ClipData clip = ClipData.newPlainText("Private key", key);
+            PersistableBundle extras = new PersistableBundle();
+            extras.putBoolean("android.content.extra.IS_SENSITIVE", true);
+            clip.getDescription().setExtras(extras);
+            ((ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE)).setPrimaryClip(clip);
             call.resolve();
         });
     }

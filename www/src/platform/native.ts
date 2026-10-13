@@ -39,6 +39,7 @@ const DeviceSettings = registerPlugin<{
 }>("DeviceSettings");
 
 const SecurityLifecycle = registerPlugin<{
+  copyPrivateKey(options: { key: string }): Promise<void>;
   clearCopiedText(options: { expected: string }): Promise<void>;
   addListener(event: "pause" | "resume", handler: () => void): Promise<{ remove(): Promise<void> }>;
 }>("SecurityLifecycle");
@@ -96,7 +97,12 @@ export async function createNativePlatform(os: PlatformOS): Promise<Platform> {
         await Share.share(content);
       }),
     canShare: () => deviceAction(async () => (await Share.canShare()).value),
-    copyText: (text) => deviceAction(() => Clipboard.write({ string: text })),
+    copyText: (text) =>
+      deviceAction(() =>
+        os === "android" && /^(?:0x)?[0-9a-f]{64}$/i.test(text)
+          ? SecurityLifecycle.copyPrivateKey({ key: text })
+          : Clipboard.write({ string: text }),
+      ),
     clearCopiedText: (expected) =>
       deviceAction(async () => {
         if (os === "android") return SecurityLifecycle.clearCopiedText({ expected });
