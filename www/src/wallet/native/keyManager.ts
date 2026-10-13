@@ -7,7 +7,7 @@ import { platform, platformInfo } from "@/platform";
 export type WalletState = "none" | "locked" | "unlocked";
 const STORAGE_KEY = "pingapp.wallet.v1";
 const CURVE_ORDER = BigInt("0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
-type StoredWallet = { v: 1; pk: Hex; address: Address; createdAt: string };
+type StoredWallet = { v: 1; pk: Hex; address: Address; createdAt: string; backupRequired?: boolean };
 let account: ReturnType<typeof privateKeyToAccount> | undefined;
 let walletAddress: Address | undefined;
 let state: WalletState = "none";
@@ -88,10 +88,10 @@ async function read(): Promise<StoredWallet | null> {
       "The stored wallet is invalid. Recover it from your backup.",
     );
   }
-  return { v: 1, pk, address, createdAt: value.createdAt };
+  return { v: 1, pk, address, createdAt: value.createdAt, backupRequired: value.backupRequired === true };
 }
 
-async function store(pk: Hex): Promise<Address> {
+async function store(pk: Hex, backupRequired = false): Promise<Address> {
   // Corrupt storage still counts as an existing wallet: never overwrite it.
   if ((await platform.secureStorage.get(STORAGE_KEY)) !== null) {
     throw new WalletError("WalletExists", "A wallet already exists on this device.");
@@ -106,7 +106,7 @@ async function store(pk: Hex): Promise<Address> {
   const address = privateKeyToAccount(pk).address;
   await platform.secureStorage.set(
     STORAGE_KEY,
-    JSON.stringify({ v: 1, pk, address, createdAt: new Date().toISOString() }),
+    JSON.stringify({ v: 1, pk, address, createdAt: new Date().toISOString(), backupRequired }),
   );
   account = undefined;
   walletAddress = address;
@@ -136,10 +136,19 @@ export const keyManager = {
   create: () =>
     run(async () => {
       const privateKey = generatePrivateKey();
-      const address = await store(privateKey);
+      const address = await store(privateKey, true);
       return { address, privateKey };
     }),
   importKey: (input: string) => run(async () => ({ address: await store(normalizeKey(input)) })),
+  backupRequired: () => run(async () => (await read())?.backupRequired === true),
+  completeBackup: (expectedAddress: Address, lastFour: string) =>
+    run(async () => {
+      const stored = await read();
+      if (!stored || stored.address !== expectedAddress ||
+          lastFour.trim().toLowerCase() !== stored.pk.slice(-4))
+        throw new WalletError("BackupIncomplete", "Check the last 4 characters of your private key.");
+      await platform.secureStorage.set(STORAGE_KEY, JSON.stringify({ ...stored, backupRequired: false }));
+    }),
   unlock: () => {
     const expectedEpoch = epoch;
     return run(async () => {
