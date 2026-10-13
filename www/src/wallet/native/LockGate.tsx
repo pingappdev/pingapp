@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { platform, PlatformError } from "@/platform";
 import { keyManager, WalletError } from "./keyManager";
 import { lockAccess, unlockWallet } from "./lockPolicy";
@@ -12,39 +12,49 @@ export default function LockGate({ children }: { children: ReactNode }) {
   const [error, setError] = useState("");
   const [blocked, setBlocked] = useState(false);
   const [onboarding, setOnboarding] = useState(false);
+  const mounted = useRef(false);
+  const attempt = useRef(0);
 
-  async function unlock() {
+  async function unlock(discover = !discovered) {
+    const generation = ++attempt.current;
+    const current = () => mounted.current && attempt.current === generation;
+    let discoveryPending = discover;
     setBusy(true);
     setError("");
     try {
-      await unlockWallet();
-      setBlocked(false);
+      if (discover) {
+        const exists = await keyManager.hasWallet();
+        if (!current()) return;
+        const ownAddress = exists ? await keyManager.address() : null;
+        if (!current()) return;
+        setAddress(ownAddress ?? "");
+        setOnboarding(!exists);
+        setDiscovered(true);
+        discoveryPending = false;
+        if (!exists) return;
+      }
+      await unlockWallet(current);
+      if (current()) setBlocked(false);
     } catch (reason) {
+      if (!current()) return;
       setBlocked(reason instanceof WalletError && reason.code === "DeviceLockRequired");
       setError(
-        reason instanceof WalletError || reason instanceof PlatformError
-          ? reason.message
-          : "Could not unlock your wallet. Try again.",
+        discoveryPending
+          ? "The device wallet could not be opened. Try again."
+          : reason instanceof WalletError || reason instanceof PlatformError
+            ? reason.message
+            : "Could not unlock your wallet. Try again.",
       );
     } finally {
-      setBusy(false);
+      if (current()) setBusy(false);
     }
   }
   useEffect(() => {
-    let active = true;
-    void (async () => {
-      const exists = await keyManager.hasWallet();
-      const ownAddress = exists ? await keyManager.address() : null;
-      if (!active) return;
-      setAddress(ownAddress ?? "");
-      setOnboarding(!exists);
-      setDiscovered(true);
-      if (exists && keyManager.getState() !== "unlocked") void unlock();
-    })().catch(() => {
-      if (active) setError("The device wallet could not be opened. Try again.");
-    });
+    mounted.current = true;
+    void unlock(true);
     return () => {
-      active = false;
+      mounted.current = false;
+      attempt.current++;
     };
   }, []);
   useEffect(() => {
@@ -96,7 +106,7 @@ export default function LockGate({ children }: { children: ReactNode }) {
         )}
         <button
           className="button accent"
-          disabled={busy || !discovered || access === "checking"}
+          disabled={busy || access === "checking"}
           onClick={() => void unlock()}
         >
           {busy ? "Unlocking…" : error ? "Retry" : "Unlock"}
