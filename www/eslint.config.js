@@ -11,6 +11,7 @@ export default tseslint.config(
     ignores: [
       "dist",
       "dist-ssr",
+      "dist-native",
       ".output",
       ".vinxi",
       ".vercel",

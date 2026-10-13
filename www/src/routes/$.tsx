@@ -2,6 +2,8 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import Marketing from "@/marketing";
 import { sitePageResponse } from "@/lib/site-pages.server";
 import { isStandaloneMarketingPath } from "@/lib/marketing-paths";
+import { config, isNativeBuild } from "@/env";
+import { platform } from "@/platform";
 
 const pages = [
   "what-we-do",
@@ -81,10 +83,21 @@ const pageFromParams = (splat: string | undefined) =>
 export const Route = createFileRoute("/$")({
   server: {
     handlers: {
-      GET: ({ request, next }) => sitePageResponse(new URL(request.url)) ?? next(),
+      GET: ({ request, next }) =>
+        isNativeBuild ? next() : (sitePageResponse(new URL(request.url)) ?? next()),
     },
   },
-  beforeLoad: ({ location }) => {
+  beforeLoad: async ({ location }) => {
+    if (isNativeBuild) {
+      if (
+        !import.meta.env.SSR &&
+        (isStandaloneMarketingPath(location.pathname) ||
+          pages.includes(pageFromParams(location.pathname)))
+      ) {
+        await platform.openExternal(`${config.appUrl.replace(/\/$/, "")}${location.href}`);
+      }
+      throw redirect({ to: "/dashboard" });
+    }
     if (!import.meta.env.SSR && isStandaloneMarketingPath(location.pathname)) {
       throw redirect({ href: location.href, reloadDocument: true });
     }

@@ -1,15 +1,20 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { sitePageResponse } from "@/lib/site-pages.server";
+import { isNativeBuild } from "@/env";
 
 export const Route = createFileRoute("/")({
   server: {
     handlers: {
-      GET: ({ request, next }) => sitePageResponse(new URL(request.url)) ?? next(),
+      GET: ({ request, next }) =>
+        isNativeBuild ? next() : (sitePageResponse(new URL(request.url)) ?? next()),
     },
   },
   beforeLoad: ({ location }) => {
+    if (isNativeBuild) throw redirect({ to: "/dashboard" });
     if (!import.meta.env.SSR) throw redirect({ href: location.href, reloadDocument: true });
   },
+  // A UI component allows the native GET handler to defer to Start's shell.
+  component: () => null,
   head: () => ({
     meta: [
       { title: "PingApp — Send Crypto Like a Text" },
