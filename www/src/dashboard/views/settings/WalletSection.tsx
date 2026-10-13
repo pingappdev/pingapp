@@ -4,6 +4,7 @@ import { keyManager, WalletError } from "@/wallet/native/keyManager";
 import { authenticateWallet } from "@/wallet/native/lockPolicy";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import AddressText from "../../components/AddressText";
+import NativeWalletLifecycleDialog from "./NativeWalletLifecycleDialog";
 
 export default function WalletSection({ address }: { address: string }) {
   const [kind, setKind] = useState("Device screen lock");
@@ -64,6 +65,11 @@ export default function WalletSection({ address }: { address: string }) {
       if (phase.current !== "approving") clear();
     };
     window.addEventListener("blur", blur);
+    const exportRequested = () => {
+      setError("");
+      setStep("warning");
+    };
+    window.addEventListener("pingapp:export-wallet", exportRequested);
     return () => {
       mounted.current = false;
       generation.current++;
@@ -71,6 +77,7 @@ export default function WalletSection({ address }: { address: string }) {
       off();
       void pause?.();
       window.removeEventListener("blur", blur);
+      window.removeEventListener("pingapp:export-wallet", exportRequested);
     };
   }, [clear, clearClipboard]);
 
@@ -150,6 +157,10 @@ export default function WalletSection({ address }: { address: string }) {
           Lock now
         </button>
       </div>
+      <NativeWalletLifecycleDialog action="remove" onExport={() => {
+        setError("");
+        setStep("warning");
+      }} />
       <Dialog
         open={step !== "closed"}
         onOpenChange={(open) => {
