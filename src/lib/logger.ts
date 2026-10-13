@@ -21,6 +21,7 @@ export const logger = pino({
       'phone', '*.phone', 'body.phone', 'req.body.phone',
       'code', '*.code', 'otp', 'to', '*.to',
       'headers.cookie', 'req.headers.cookie',
+      'headers.authorization', 'req.headers.authorization', 'token', '*.token',
       'signature', '*.signature', 'SEVEN_API_KEY',
     ],
     censor: '[redacted]',

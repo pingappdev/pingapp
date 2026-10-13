@@ -34,7 +34,7 @@ const routes: FastifyPluginAsync = async (app) => {
   }, async (request, reply) => {
     const { id } = request.params as z.infer<typeof sessionParamsSchema>;
     await revokeSession(request.user!.id, id, request.ipHash);
-    if (id === request.session!.id) clearSessionCookie(reply);
+    if (id === request.session!.id && request.sessionVia === 'cookie') clearSessionCookie(reply);
     return reply.code(204).send();
   });
 
@@ -45,7 +45,7 @@ const routes: FastifyPluginAsync = async (app) => {
 
   app.delete('/me', { preHandler: requireFreshAuth }, async (request, reply) => {
     await deleteAccount(request.user!.id, request.session!.id, request.ipHash);
-    clearSessionCookie(reply);
+    if (request.sessionVia === 'cookie') clearSessionCookie(reply);
     return reply.code(204).send();
   });
 };

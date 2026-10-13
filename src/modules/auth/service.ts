@@ -117,7 +117,7 @@ export async function verifySiwe(
   return parsed.address;
 }
 
-export async function login(address: Address, meta: { userAgent?: string; ipHash?: string }): Promise<{ token: string; user: { id: string; address: string }; sessionId: string }> {
+export async function login(address: Address, meta: { userAgent?: string; ipHash?: string; client?: 'native' }): Promise<{ token: string; user: { id: string; address: string }; sessionId: string }> {
   const now = new Date();
   const token = randomToken();
   const result = await db.transaction(async (tx) => {
@@ -138,7 +138,11 @@ export async function login(address: Address, meta: { userAgent?: string; ipHash
       userAgent: meta.userAgent?.slice(0, 500) ?? null,
       ipHash: meta.ipHash ?? null,
     }).returning({ id: sessions.id });
-    await audit('login', { userId: user.id, ipHash: meta.ipHash }, tx);
+    await audit('login', {
+      userId: user.id,
+      ipHash: meta.ipHash,
+      ...(meta.client === 'native' ? { data: { client: 'native' } } : {}),
+    }, tx);
     return { user, sessionId: session.id };
   });
   return { token, ...result };

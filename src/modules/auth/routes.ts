@@ -1,11 +1,13 @@
 import { and, eq } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import { canIssueNativeToken, config } from '../../config.js';
 import { db } from '../../db/client.js';
 import { audit } from '../../db/audit.js';
 import { sessions } from '../../db/schema.js';
 import { consume, limiter } from '../../lib/rateLimit.js';
-import { clearSessionCookie, requireAuth, setSessionCookie } from '../../plugins/auth.js';
+import { AppError } from '../../lib/errors.js';
+import { clearSessionCookie, readSessionToken, requireAuth, setSessionCookie } from '../../plugins/auth.js';
 import { serializeMe } from '../me/serialize.js';
 import { createNonce, LOGIN_STATEMENT, login, REAUTH_STATEMENT, refreshFreshAuth, verifySiwe } from './service.js';
 
@@ -14,6 +16,7 @@ const bodySchema = z.object({
   message: z.string().max(2000),
   signature: z.string().regex(/^0x[0-9a-fA-F]+$/).max(20_000),
 });
+const verifyBodySchema = bodySchema.extend({ client: z.enum(['web', 'native']).default('web') });
 
 const routes: FastifyPluginAsync = async (app) => {
   app.get('/auth/nonce', async (request) => {
@@ -21,14 +24,22 @@ const routes: FastifyPluginAsync = async (app) => {
     return { nonce: await createNonce() };
   });
 
-  app.post('/auth/verify', { schema: { body: bodySchema } }, async (request, reply) => {
-    const { message, signature } = request.body as z.infer<typeof bodySchema>;
+  app.post('/auth/verify', { schema: { body: verifyBodySchema } }, async (request, reply) => {
+    const { message, signature, client } = request.body as z.infer<typeof verifyBodySchema>;
+    if (client === 'native' && !canIssueNativeToken(request.headers.origin, config)) {
+      throw new AppError('NATIVE_ORIGIN_REQUIRED', 403, 'Native sign-in requires an allowed app origin.');
+    }
     const address = await verifySiwe(message, signature as `0x${string}`, { expectedStatement: LOGIN_STATEMENT });
     const { token, user, sessionId } = await login(address, {
       userAgent: request.headers['user-agent'],
       ipHash: request.ipHash,
+      ...(client === 'native' ? { client } : {}),
     });
     const me = await serializeMe(user.id, sessionId);
+    if (client === 'native') {
+      reply.header('cache-control', 'private, no-store');
+      return { me, token };
+    }
     setSessionCookie(reply, token);
     return { me };
   });
@@ -63,7 +74,7 @@ const routes: FastifyPluginAsync = async (app) => {
         }
       });
     }
-    clearSessionCookie(reply);
+    if (readSessionToken(request)?.via === 'cookie') clearSessionCookie(reply);
     return reply.code(204).send();
   });
 };
