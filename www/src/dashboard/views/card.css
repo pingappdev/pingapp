@@ -1,0 +1,1730 @@
+.premium-workspace .card-view .card-preview-note {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  color: var(--ping-text-2);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.premium-workspace .card-preview-note > span {
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--ping-accent-soft);
+  color: var(--ping-accent);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.premium-workspace .card-preview-note p {
+  margin: 0;
+}
+
+.card-dialog.ping-dialog {
+  width: min(460px, calc(100vw - 32px));
+  max-height: calc(100svh - 32px);
+  overflow-y: auto;
+}
+
+.card-full-width {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.premium-workspace .card-recovery {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.card-recovery h2 {
+  font-size: 22px;
+}
+
+.card-recovery p {
+  max-width: 560px;
+  line-height: 1.6;
+}
+
+.card-operations,
+.card-application,
+.card-invoice {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.card-operation > [role="status"] {
+  margin-bottom: 16px;
+}
+
+.card-topup-confirmation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ping-text-2);
+}
+
+.card-topup-confirmation strong {
+  color: var(--ping-text);
+  font-weight: 500;
+}
+
+.card-invoice-values {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.card-invoice-values > div {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  min-width: 0;
+}
+
+.card-invoice-values dt,
+.card-operation-footer small,
+.card-account-status {
+  color: var(--ping-text-2);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.card-invoice-values dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.card-invoice-address {
+  display: block;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--ping-surface-2);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.card-invoice-qr {
+  align-self: center;
+  background: white;
+  padding: 12px;
+  border-radius: 12px;
+}
+
+.card-invoice-qr svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.card-operation-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.card-operation-footer span,
+.card-recovery small,
+.card-info-row strong {
+  overflow-wrap: anywhere;
+}
+
+.card-sandbox {
+  background: var(--ping-accent-soft);
+  color: var(--ping-accent);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0 0 16px;
+}
+
+.card-error {
+  color: #f19c9c;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.card-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.card-field input,
+.card-field select,
+.card-dialog.ping-dialog .card-field input {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  margin: 0;
+  border: 1px solid #ffffff20;
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--ping-surface-2);
+  color: var(--ping-text);
+  font-size: 16px;
+  font-weight: 400;
+  color-scheme: dark;
+}
+
+.card-dialog.ping-dialog .card-application .card-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  color: var(--ping-text-2);
+  font-size: 13px;
+}
+
+.card-dialog.ping-dialog .card-sandbox,
+.card-dialog.ping-dialog .card-application .field-help,
+.card-dialog.ping-dialog .card-application .card-error {
+  margin: 0;
+}
+
+.card-dialog.ping-dialog .card-application .card-confirm {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ping-text-2);
+}
+
+.card-dialog.ping-dialog .card-confirm > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.card-dialog.ping-dialog .card-confirm input {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  padding: 0;
+  margin: 2px 0 0;
+  accent-color: var(--ping-accent);
+}
+
+.card-dialog.ping-dialog .card-application .card-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 12px 0;
+  border-block: 1px solid #ffffff15;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.card-dialog.ping-dialog .card-info-row > span {
+  color: var(--ping-text-2);
+}
+
+.card-dialog.ping-dialog .card-info-row > strong {
+  color: var(--ping-text);
+  font-weight: 600;
+}
+
+.card-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.card-form-actions > .button {
+  flex: 1;
+}
+
+.card-view button:disabled,
+.card-dialog button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.card-view :is(button, select):focus-visible,
+.card-dialog :is(input, select, button):focus-visible {
+  outline: 2px solid var(--ping-accent);
+  outline-offset: 3px;
+}
+
+.premium-workspace .card-view .card-tx-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) minmax(0, auto);
+}
+
+.premium-workspace .card-view .card-tx-row > div,
+.premium-workspace .card-view .card-tx-amount {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.premium-workspace .card-view .card-tx-row small {
+  white-space: normal;
+}
+
+.card-dialog.ping-dialog > * {
+  flex-shrink: 0;
+}
+
+.card-dialog.ping-dialog .card-action-icon.small {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--ping-accent-soft);
+  color: var(--ping-accent);
+}
+
+.card-dialog.ping-dialog .card-detail-row > div > span {
+  overflow-wrap: anywhere;
+}
+
+.card-dialog.ping-dialog .topup-amount-row > input:focus-visible {
+  outline: 2px solid var(--ping-accent);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+/* Card faces: one tint per product, shared by the card rail and the product picker. */
+.pc-face {
+  --face: linear-gradient(140deg, #d6caff 0%, #9c8af0 38%, #5b49c2 72%, #2e2470 100%);
+  --face-glow: #ab9ff259;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 100%;
+  aspect-ratio: 1.586;
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: var(--face);
+  color: #fff;
+  overflow: hidden;
+  isolation: isolate;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+  box-shadow:
+    0 18px 40px -18px var(--face-glow),
+    inset 0 1px 0 #ffffff40;
+}
+
+.pc-face::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(120% 80% at 0% 0%, #ffffff38, transparent 55%),
+    repeating-linear-gradient(115deg, #ffffff07 0 2px, transparent 2px 9px);
+}
+
+.pc-face[data-product="mastercard_standard"] {
+  --face: linear-gradient(140deg, #ffc0da 0%, #e2558f 36%, #9b2366 70%, #4a0f33 100%);
+  --face-glow: #e2558f59;
+}
+
+.pc-face[data-product="visa_us"] {
+  --face: linear-gradient(140deg, #c3cfff 0%, #6e83f0 36%, #3443b8 70%, #161c5c 100%);
+  --face-glow: #6e83f059;
+}
+
+.pc-face[data-product="mastercard"] {
+  --face:
+    radial-gradient(90% 120% at 100% 100%, #c2307a73, transparent 60%),
+    linear-gradient(140deg, #57506a 0%, #2a2533 45%, #141218 100%);
+  --face-glow: #c2307a40;
+}
+
+.pc-face[data-frozen] {
+  filter: grayscale(0.75) brightness(0.8);
+}
+
+.pc-face[data-pending] .pc-face-number {
+  opacity: 0.55;
+}
+
+.pc-face-top,
+.pc-face-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pc-face-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.pc-face-mark {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: conic-gradient(from 210deg, #ff5c9a, #b14cf4, #ff5c9a);
+  -webkit-mask: radial-gradient(circle, transparent 3.5px, #000 4px);
+  mask: radial-gradient(circle, transparent 3.5px, #000 4px);
+}
+
+.pc-face-network {
+  font-size: 15px;
+  font-weight: 700;
+  font-style: italic;
+  letter-spacing: -0.01em;
+  opacity: 0.92;
+}
+
+.pc-face-number {
+  display: flex;
+  gap: 14px;
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+.pc-face-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 500;
+  color: #ffffffd9;
+}
+
+.pc-face-chip {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #0000004d;
+  font-size: 11px;
+  font-weight: 600;
+  backdrop-filter: blur(6px);
+}
+
+.pc-face-mini {
+  padding: 11px 12px;
+  border-radius: 11px;
+}
+
+.pc-face-mini .pc-face-brand,
+.pc-face-mini .pc-face-network {
+  font-size: 11px;
+}
+
+.pc-face-mini .pc-face-mark {
+  width: 11px;
+  height: 11px;
+  -webkit-mask: radial-gradient(circle, transparent 2.5px, #000 3px);
+  mask: radial-gradient(circle, transparent 2.5px, #000 3px);
+}
+
+.pc-face-mini .pc-face-name {
+  font-size: 11px;
+}
+
+/* Cards page */
+.premium-workspace .card-view {
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+  min-width: 0;
+}
+
+.premium-workspace .card-view :is(h2, h3) {
+  font-family: inherit;
+}
+
+.pc-wallet {
+  min-width: 0;
+}
+
+.pc-wallet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.premium-workspace .pc-wallet-head h2 {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.pc-wallet-head h2 > span {
+  margin-left: 4px;
+  color: var(--ping-text-3);
+  font-size: 12px;
+  font-weight: 500;
+  vertical-align: 2px;
+}
+
+.premium-workspace .pc-wallet-head .button.small {
+  min-height: 38px;
+  padding: 8px 16px;
+  gap: 8px;
+}
+
+.pc-rail {
+  display: flex;
+  gap: 18px;
+  padding: 8px 6px 14px;
+  margin: -8px -6px -14px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 6px;
+  scrollbar-width: none;
+}
+
+.pc-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.pc-rail-item {
+  position: relative;
+  flex: 0 0 300px;
+  padding: 0;
+  border: 0;
+  border-radius: 18px;
+  background: none;
+  scroll-snap-align: start;
+  opacity: 0.5;
+  transform: scale(0.965);
+  transition:
+    opacity 0.2s var(--ping-ease),
+    transform 0.25s var(--ping-ease);
+}
+
+.pc-rail-item:hover {
+  opacity: 0.8;
+}
+
+.pc-rail-item[aria-checked="true"] {
+  opacity: 1;
+  transform: none;
+}
+
+.pc-rail-item[aria-checked="true"] .pc-face {
+  box-shadow:
+    0 22px 48px -18px var(--face-glow),
+    inset 0 1px 0 #ffffff40,
+    0 0 0 2px var(--ping-bg),
+    0 0 0 3.5px #ffffffd0;
+}
+
+.premium-workspace .pc-rail-item:focus-visible {
+  outline: 2px solid var(--ping-accent);
+  outline-offset: 5px;
+}
+
+.pc-detail {
+  display: grid;
+  gap: 28px;
+  min-width: 0;
+}
+
+.pc-summary,
+.pc-activity {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pc-activity {
+  gap: 18px;
+}
+
+.pc-summary-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.premium-workspace .pc-summary-head h2 {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ping-text-2);
+  letter-spacing: -0.01em;
+}
+
+.pc-status {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+  background: #45e39a1c;
+  color: var(--ping-success);
+}
+
+.pc-status[data-tone="muted"] {
+  background: var(--ping-surface-2);
+  color: var(--ping-text-2);
+}
+
+.pc-status[data-tone="error"] {
+  background: #ff6b571f;
+  color: #ff8e7d;
+}
+
+.pc-balance-label {
+  margin: 22px 0 4px;
+  font-size: 13px;
+  color: var(--ping-text-3);
+}
+
+.pc-balance {
+  font-size: clamp(44px, 5.2vw, 68px);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.pc-balance-meta {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--ping-text-3);
+}
+
+.pc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 26px 0 6px;
+}
+
+.premium-workspace .pc-actions > .button {
+  flex: 1 1 150px;
+  justify-content: center;
+  gap: 10px;
+}
+
+.premium-workspace .pc-summary .field-help {
+  margin: 10px 0 0;
+}
+
+.pc-info {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 24px;
+  margin: 26px 0 8px;
+}
+
+.pc-info > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 0;
+  border-top: 1px solid #ffffff12;
+  min-width: 0;
+}
+
+.pc-info dt {
+  font-size: 12px;
+  color: var(--ping-text-3);
+}
+
+.pc-info dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.pc-spending,
+.pc-transactions {
+  padding: 22px 24px;
+  border-radius: 20px;
+  background: var(--ping-surface);
+  min-width: 0;
+}
+
+.premium-workspace .pc-activity .panel-heading {
+  margin-bottom: 10px;
+}
+
+.premium-workspace .pc-activity .panel-heading h2 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.premium-workspace .pc-spending .panel-heading h2 {
+  font-weight: 500;
+  color: var(--ping-text-2);
+}
+
+.pc-spending-amount {
+  display: block;
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+}
+
+.premium-workspace .pc-transactions .card-tx-row {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) minmax(0, auto);
+}
+
+.premium-workspace .pc-transactions .card-tx-row > div,
+.premium-workspace .pc-transactions .card-tx-amount {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.premium-workspace .pc-transactions .card-tx-row small {
+  white-space: normal;
+  text-transform: none;
+}
+
+.premium-workspace .pc-transactions .card-tx-row strong::first-letter {
+  text-transform: uppercase;
+}
+
+.pc-empty {
+  display: grid;
+  gap: 28px;
+  align-items: center;
+  padding: 28px;
+  border-radius: 24px;
+  background: var(--ping-surface);
+}
+
+.pc-empty > .pc-face {
+  max-width: 340px;
+  justify-self: center;
+}
+
+.pc-empty > div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.premium-workspace .pc-empty h2 {
+  font-size: clamp(24px, 2.6vw, 34px);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+  max-width: 18ch;
+}
+
+.pc-empty p {
+  max-width: 52ch;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ping-text-2);
+}
+
+.premium-workspace .pc-empty .field-help {
+  margin: 0 0 6px;
+}
+
+@media (min-width: 768px) {
+  .pc-empty {
+    grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+    gap: 48px;
+    padding: 40px;
+  }
+}
+
+@media (min-width: 1100px) {
+  .pc-detail {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: 56px;
+    align-items: start;
+  }
+}
+
+@media (max-width: 767px) {
+  .pc-rail {
+    gap: 14px;
+    margin-inline: -20px;
+    padding-inline: 20px;
+    scroll-padding-inline: 20px;
+  }
+
+  .pc-rail-item {
+    flex-basis: min(84%, 320px);
+  }
+
+  .pc-face-number {
+    font-size: 17px;
+  }
+
+  .pc-spending,
+  .pc-transactions {
+    padding: 18px;
+  }
+
+  .pc-empty {
+    padding: 20px;
+    gap: 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pc-rail-item {
+    transition: none;
+  }
+}
+
+/* Application dialog: product and network pickers */
+.card-dialog.ping-dialog .pc-picker {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.card-dialog.ping-dialog .pc-picker legend {
+  margin-bottom: 10px;
+  padding: 0;
+  font-size: 13px;
+  color: var(--ping-text-2);
+}
+
+.pc-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.card-dialog.ping-dialog .pc-option {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 8px 8px 10px;
+  border-radius: 16px;
+  background: var(--ping-surface-2);
+  box-shadow: inset 0 0 0 1px #ffffff10;
+  color: var(--ping-text);
+  cursor: pointer;
+  transition:
+    box-shadow 0.15s var(--ping-ease),
+    background 0.15s var(--ping-ease);
+}
+
+.card-dialog.ping-dialog .pc-option:hover {
+  background: var(--ping-surface-3);
+}
+
+.card-dialog.ping-dialog .pc-option:has(input:checked) {
+  background: var(--ping-surface-3);
+  box-shadow: inset 0 0 0 2px var(--ping-accent);
+}
+
+.card-dialog.ping-dialog .pc-option:has(input:focus-visible),
+.card-dialog.ping-dialog .pc-chip-option:has(input:focus-visible) {
+  outline: 2px solid var(--ping-accent);
+  outline-offset: 3px;
+}
+
+.card-dialog.ping-dialog .pc-option[data-owned] {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.card-dialog.ping-dialog :is(.pc-option, .pc-chip-option) input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pc-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 4px;
+  min-width: 0;
+}
+
+.pc-option-text strong {
+  font-size: 13px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.pc-option-text small {
+  font-size: 12px;
+  color: var(--ping-text-2);
+}
+
+.pc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.card-dialog.ping-dialog .pc-chip-option {
+  position: relative;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: var(--ping-surface-2);
+  box-shadow: inset 0 0 0 1px #ffffff14;
+  color: var(--ping-text-2);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.card-dialog.ping-dialog .pc-chip-option:has(input:checked) {
+  background: var(--ping-accent-soft);
+  box-shadow: inset 0 0 0 1.5px var(--ping-accent);
+  color: var(--ping-text);
+}
+
+.card-dialog.ping-dialog .pc-picker:disabled :is(.pc-option, .pc-chip-option) {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Create card: wide two-column dialog with a live preview; one column on phones. */
+.card-dialog.ping-dialog.card-dialog-wide {
+  width: min(960px, calc(100vw - 48px));
+  max-width: none;
+  padding: 32px !important;
+}
+
+.cd-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+}
+
+.cd-preview {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  padding: 20px;
+  border-radius: 20px;
+  background: var(--ping-surface);
+  box-shadow: inset 0 0 0 1px #ffffff0d;
+}
+
+.cd-preview .pc-face {
+  transition: background 0.25s var(--ping-ease);
+}
+
+.cd-preview-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 4px;
+}
+
+.cd-preview-meta strong {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ping-text);
+}
+
+.cd-preview-meta span {
+  font-size: 13px;
+  color: var(--ping-text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.card-dialog.ping-dialog .cd-preview-text,
+.card-dialog.ping-dialog .cd-preview-note {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ping-text-2);
+}
+
+.card-dialog.ping-dialog .cd-preview-note {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--ping-accent-soft);
+  color: var(--ping-text);
+}
+
+.cd-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+/* Horizontal tiles: a small swatch beside the name and price. */
+.card-dialog-wide .pc-picker-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.card-dialog.ping-dialog.card-dialog-wide .pc-option {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+}
+
+.card-dialog-wide .pc-option .pc-face-mini {
+  flex: 0 0 64px;
+  width: 64px;
+  padding: 6px 7px;
+  border-radius: 8px;
+}
+
+.card-dialog-wide .pc-option .pc-face-mini > * {
+  display: none;
+}
+
+.cd-field-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.card-dialog.ping-dialog .cd-footer {
+  align-items: center;
+  margin-top: 4px;
+  padding-top: 20px;
+  border-top: 1px solid #ffffff12;
+}
+
+.card-dialog.ping-dialog .cd-footer > .button {
+  flex: 0 0 auto;
+  min-width: 132px;
+}
+
+.card-dialog.ping-dialog .cd-total {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 auto 0 0;
+  font-size: 13px;
+  color: var(--ping-text-2);
+}
+
+.card-dialog.ping-dialog .cd-total strong {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ping-text);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 879px) {
+  .card-dialog.ping-dialog.card-dialog-wide {
+    width: calc(100vw - 16px);
+    max-height: calc(100svh - 16px);
+    padding: 22px 18px 0 !important;
+  }
+
+  .cd-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+
+  .cd-preview {
+    position: static;
+    padding: 16px;
+  }
+
+  .cd-preview {
+    display: grid;
+    grid-template-columns: 112px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px 14px;
+  }
+
+  .cd-preview .pc-face {
+    grid-row: span 2;
+    padding: 9px 10px;
+    border-radius: 10px;
+  }
+
+  .cd-preview .pc-face :is(.pc-face-brand, .pc-face-network) {
+    font-size: 10px;
+  }
+
+  .cd-preview .pc-face .pc-face-mark {
+    width: 9px;
+    height: 9px;
+  }
+
+  .cd-preview .pc-face .pc-face-number {
+    gap: 6px;
+    font-size: 10px;
+  }
+
+  .cd-preview .pc-face .pc-face-name {
+    font-size: 9px;
+  }
+
+  .cd-preview-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    margin: 0;
+  }
+
+  .cd-preview > :is(.cd-preview-text, .cd-preview-note) {
+    grid-column: 1 / -1;
+  }
+
+  .cd-field-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Keep the price and the action in reach while the form scrolls. */
+  .card-dialog.ping-dialog.card-dialog-wide .cd-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    margin: 0 -18px;
+    padding: 14px 18px calc(14px + env(safe-area-inset-bottom));
+    background: #211b29;
+  }
+
+  .card-dialog.ping-dialog.card-dialog-wide .cd-footer {
+    flex-wrap: nowrap;
+  }
+
+  /* The header close button covers Cancel on phones. */
+  .card-dialog.ping-dialog.card-dialog-wide .cd-footer > .button.outline {
+    display: none;
+  }
+
+  .card-dialog.ping-dialog.card-dialog-wide .cd-footer > .button.accent {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .card-dialog.ping-dialog.card-dialog-wide .cd-total {
+    flex-direction: column;
+    gap: 0;
+    font-size: 11px;
+  }
+
+  .card-dialog.ping-dialog.card-dialog-wide .cd-total strong {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 420px) {
+  .card-dialog-wide .pc-picker-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cd-preview .pc-face {
+    transition: none;
+  }
+}
+
+/* Apple Pay activation */
+.card-dialog.ping-dialog.ap-dialog {
+  width: min(520px, calc(100vw - 16px));
+}
+
+.ap-steps {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: ap-step;
+}
+
+.ap-steps > li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 14px;
+  padding-bottom: 22px;
+  counter-increment: ap-step;
+}
+
+.ap-steps > li::before {
+  content: counter(ap-step);
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--ping-surface-2);
+  box-shadow: inset 0 0 0 1px #ffffff1a;
+  color: var(--ping-text-2);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Connector between step markers */
+.ap-steps > li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 34px;
+  bottom: 6px;
+  left: 13.5px;
+  width: 1px;
+  background: #ffffff14;
+}
+
+.ap-steps > li[data-state="current"]::before {
+  background: var(--ping-accent);
+  box-shadow: none;
+  color: #1b1530;
+}
+
+.ap-steps > li[data-state="done"]::before {
+  content: "✓";
+  background: var(--ping-accent-soft);
+  box-shadow: none;
+  color: var(--ping-accent);
+}
+
+.ap-steps > li > div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  padding-top: 4px;
+}
+
+.ap-steps strong {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ping-text);
+}
+
+.card-dialog.ping-dialog .ap-steps p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ping-text-2);
+}
+
+.ap-steps .button {
+  margin-top: 6px;
+}
+
+.ap-steps > li[data-state="todo"] strong {
+  color: var(--ping-text-2);
+}
+
+.ap-code {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 24px 16px;
+  border-radius: 18px;
+  background: var(--ping-surface);
+  box-shadow: inset 0 0 0 1px #ffffff12;
+  text-align: center;
+}
+
+.card-dialog.ping-dialog .ap-code > p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ping-text-2);
+}
+
+.ap-code-value {
+  font-size: clamp(36px, 11vw, 52px);
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  margin-right: -0.18em;
+  color: var(--ping-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.ap-code-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 16px;
+  font-size: 12px;
+  color: var(--ping-text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.pc-face-chip::first-letter {
+  text-transform: uppercase;
+}
+
+/* A card in the list that is waiting on the user (setup fee or top-up due). */
+.pc-rail-attention {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--ping-accent);
+  box-shadow: 0 0 0 3px var(--ping-bg);
+}
+
+/* Card setup: one guided view until the provider issues the card. */
+.cs-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-width: 0;
+  padding: 28px;
+  border-radius: 24px;
+  background: var(--ping-surface);
+  box-shadow: inset 0 0 0 1px #ffffff0d;
+}
+
+.cs-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: cs-step;
+}
+
+.cs-steps > li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding-top: 12px;
+  border-top: 3px solid #ffffff14;
+  color: var(--ping-text-3);
+  font-size: 13px;
+  font-weight: 500;
+  counter-increment: cs-step;
+}
+
+.cs-steps > li::before {
+  content: counter(cs-step);
+  display: grid;
+  place-items: center;
+  flex: 0 0 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--ping-surface-2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-steps > li[data-state="done"] {
+  border-color: var(--ping-accent);
+  color: var(--ping-text-2);
+}
+
+.cs-steps > li[data-state="done"]::before {
+  content: "✓";
+  background: var(--ping-accent-soft);
+  color: var(--ping-accent);
+}
+
+.cs-steps > li[data-state="current"] {
+  border-color: var(--ping-accent);
+  color: var(--ping-text);
+}
+
+.cs-steps > li[data-state="current"]::before {
+  background: var(--ping-accent);
+  color: #1b1530;
+}
+
+.cs-steps > li[data-state="error"] {
+  border-color: #ff6b57;
+  color: #ff8e7d;
+}
+
+.cs-steps > li[data-state="error"]::before {
+  content: "!";
+  background: #ff6b571f;
+  color: #ff8e7d;
+}
+
+.cs-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
+  gap: 40px;
+  align-items: start;
+}
+
+.cs-main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.premium-workspace .cs-main h2 {
+  font-size: clamp(24px, 2.4vw, 30px);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.cs-text {
+  max-width: 56ch;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ping-text-2);
+}
+
+.cs-pulse {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--ping-text-2);
+}
+
+.cs-pulse > span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--ping-accent);
+  animation: cs-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes cs-pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.cs-side {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+  padding-left: 28px;
+  border-left: 1px solid #ffffff10;
+}
+
+.cs-facts {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+}
+
+.cs-facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+}
+
+.cs-facts dt {
+  font-size: 13px;
+  color: var(--ping-text-3);
+}
+
+.cs-facts dd {
+  margin: 0;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.cs-facts .cs-ref {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--ping-text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.premium-workspace .cs-next h3 {
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ping-text);
+}
+
+.cs-next ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ping-text-2);
+}
+
+.premium-workspace .cs-side > .button {
+  justify-content: center;
+  gap: 8px;
+}
+
+/* Payment instructions shared by setup fees and top-ups */
+.pay-block {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 22px;
+  border-radius: 18px;
+  background: var(--ping-surface-2);
+}
+
+.pay-amount {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pay-amount > span,
+.pay-address > span {
+  font-size: 12px;
+  color: var(--ping-text-3);
+}
+
+.pay-amount > strong {
+  font-size: clamp(28px, 3vw, 38px);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.pay-amount > small {
+  font-size: 13px;
+  color: var(--ping-text-2);
+}
+
+.pay-target {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 20px;
+  align-items: center;
+}
+
+.pay-qr {
+  padding: 8px;
+  border-radius: 12px;
+  background: #fff;
+  line-height: 0;
+}
+
+.pay-qr svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.pay-address {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pay-address code {
+  display: block;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--ping-surface);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.pay-copy {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.premium-workspace .pay-copy > .button {
+  flex: 1 1 130px;
+  justify-content: center;
+  gap: 8px;
+}
+
+.pay-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  font-size: 13px;
+  color: var(--ping-text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.pay-meta .text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pay-warning {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ping-text-3);
+}
+
+/* A top-up in progress, shown inside its card's summary */
+.premium-workspace .pc-summary .card-operation {
+  margin-top: 18px;
+  padding: 20px;
+  border-radius: 18px;
+  background: var(--ping-surface);
+}
+
+.premium-workspace .pc-summary .card-operation .pay-block {
+  background: var(--ping-surface-2);
+}
+
+@media (max-width: 900px) {
+  .cs-body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .cs-side {
+    padding: 20px 0 0;
+    border-left: 0;
+    border-top: 1px solid #ffffff10;
+  }
+}
+
+@media (max-width: 560px) {
+  .cs-panel {
+    padding: 20px 16px;
+    gap: 22px;
+  }
+
+  .cs-steps > li {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 12px;
+  }
+
+  .pay-block {
+    padding: 16px;
+  }
+
+  .pay-target {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
+
+  .pay-address {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-pulse > span {
+    animation: none;
+  }
+}
+
+.premium-workspace .pay-copy > .button {
+  white-space: nowrap;
+}
+
+/* Card actions size to their labels and wrap as whole buttons, never mid-label. */
+.premium-workspace .pc-actions > .button {
+  flex: 1 1 auto;
+  white-space: nowrap;
+}
+
+/* Top-up dialog: wide enough for the four networks on one row. */
+.card-dialog.ping-dialog.card-dialog-topup {
+  width: min(580px, calc(100vw - 16px));
+  max-width: none;
+}
+
+.card-dialog.ping-dialog .pc-chip-option {
+  white-space: nowrap;
+}
+
+/* Phones: networks as an even 2×2 grid rather than a ragged wrap. */
+@media (max-width: 520px) {
+  .card-dialog.ping-dialog .pc-chips {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .card-dialog.ping-dialog .pc-chip-option {
+    text-align: center;
+  }
+}
+
+.card-dialog.ping-dialog.card-dialog-topup .cd-footer {
+  justify-content: flex-end;
+}
+
+.card-dialog.ping-dialog.card-dialog-topup .cd-footer > .button {
+  white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+  .card-dialog.ping-dialog.card-dialog-topup .cd-footer > .button.outline {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+
+  .card-dialog.ping-dialog.card-dialog-topup .cd-footer > .button.accent {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
