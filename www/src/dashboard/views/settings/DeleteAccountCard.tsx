@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { lazy, Suspense, useRef, useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,7 +14,16 @@ import { useDeleteAccount } from "../../../api/hooks";
 import { useAuth } from "../../../auth/useAuth";
 import { useDisconnect } from "wagmi";
 
+const NativeDeleteAccountCard = import.meta.env.VITE_TARGET === "native"
+  ? lazy(() => import("./NativeDeleteAccountCard")) : null;
+
 export default function DeleteAccountCard() {
+  return NativeDeleteAccountCard
+    ? <Suspense fallback={null}><NativeDeleteAccountCard /></Suspense>
+    : <WebDeleteAccountCard />;
+}
+
+function WebDeleteAccountCard() {
   const [open, setOpen] = useState(false);
   const [confirmation, setConfirmation] = useState("");
   const [deleting, setDeleting] = useState(false);

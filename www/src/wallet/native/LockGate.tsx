@@ -2,10 +2,14 @@ import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } fro
 import { platform, PlatformError } from "@/platform";
 import { keyManager, WalletError } from "./keyManager";
 import { lockAccess, unlockWallet } from "./lockPolicy";
+import { useQueryClient } from "@tanstack/react-query";
+import { walletCleanup } from "./walletCleanup";
 
 export default function LockGate({ children }: { children: ReactNode }) {
   const state = useSyncExternalStore(keyManager.subscribe, keyManager.getState);
   const access = useSyncExternalStore(lockAccess.subscribe, lockAccess.getSnapshot);
+  const cleanup = useSyncExternalStore(walletCleanup.subscribe, walletCleanup.getSnapshot);
+  const queryClient = useQueryClient();
   const [discovered, setDiscovered] = useState(false);
   const [address, setAddress] = useState("");
   const [busy, setBusy] = useState(false);
@@ -14,6 +18,7 @@ export default function LockGate({ children }: { children: ReactNode }) {
   const [onboarding, setOnboarding] = useState(false);
   const mounted = useRef(false);
   const attempt = useRef(0);
+  const cleanupWasActive = useRef(false);
 
   async function unlock(discover = !discovered) {
     const generation = ++attempt.current;
@@ -23,6 +28,8 @@ export default function LockGate({ children }: { children: ReactNode }) {
     setError("");
     try {
       if (discover) {
+        if (await walletCleanup.discover()) return;
+        if (!current()) return;
         const exists = await keyManager.hasWallet();
         if (!current()) return;
         const ownAddress = exists ? await keyManager.address() : null;
@@ -59,11 +66,31 @@ export default function LockGate({ children }: { children: ReactNode }) {
   }, []);
   useEffect(() => {
     if (state === "unlocked") setOnboarding(false);
-  }, [state]);
+    if (state === "none" && discovered) {
+      setOnboarding(true);
+      setAddress("");
+    }
+  }, [state, discovered]);
   useEffect(() => {
     if (access === "blocked") setBlocked(true);
   }, [access]);
+  useEffect(() => {
+    if (cleanup) cleanupWasActive.current = true;
+    else if (cleanupWasActive.current) {
+      cleanupWasActive.current = false;
+      void unlock(true);
+    }
+  }, [cleanup]);
 
+  if (cleanup) return <main className="contact-page section" role="dialog" aria-modal="true" aria-label="Finish wallet cleanup">
+    <span className="wordmark">PingApp</span>
+    <div className="card settings-card" style={{ maxWidth: 460, margin: "60px auto", display: "grid", gap: 18 }}>
+      <h1 style={{ fontSize: 30 }}>Finish device cleanup</h1>
+      <p>{cleanup.action === "delete" ? "Your PingApp account was deleted. Funds stay on-chain." : cleanup.action === "delete-pending" ? "Account deletion was interrupted and could not be confirmed. Your key is still on this device. Keeping it preserves access to on-chain funds. If deletion completed, signing in again creates an account for this wallet." : "Your PingApp account stays on the server. Funds stay on-chain."}</p>
+      {cleanup.error && <p role="alert">{cleanup.error}</p>}
+      <button className="button accent" disabled={cleanup.busy} onClick={() => void (cleanup.action === "delete-pending" ? walletCleanup.keepUnconfirmedWallet() : walletCleanup.retry(queryClient))}>{cleanup.busy ? "Removing wallet…" : cleanup.action === "delete-pending" ? "Keep wallet and continue" : "Retry device cleanup"}</button>
+    </div>
+  </main>;
   if (discovered && access === "ready" && (onboarding || state === "none" || state === "unlocked"))
     return <>{children}</>;
   return (
