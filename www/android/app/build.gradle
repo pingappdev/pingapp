@@ -1,5 +1,12 @@
 apply plugin: 'com.android.application'
 
+def packageMetadata = new groovy.json.JsonSlurper().parse(file('../../package.json'))
+def nativeVersionName = packageMetadata.version ?: '0.1.0'
+def nativeVersionCode = (System.getenv('PINGAPP_VERSION_CODE') ?: ['git', 'rev-list', '--count', 'HEAD'].execute(null, rootDir).text.trim()).toInteger()
+def releaseSigning = ['PINGAPP_KEYSTORE_PATH', 'PINGAPP_KEYSTORE_PASSWORD', 'PINGAPP_KEY_ALIAS', 'PINGAPP_KEY_PASSWORD'].collectEntries { [(it): System.getenv(it)] }
+def hasReleaseSigning = releaseSigning.values().every { it }
+
+
 android {
     namespace = "app.pingapp.android"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,16 +14,48 @@ android {
         applicationId "app.pingapp.android"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode nativeVersionCode
+        versionName nativeVersionName
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    buildFeatures { buildConfig = true }
+    flavorDimensions += 'environment'
+    productFlavors {
+        dev {
+            dimension 'environment'
+            applicationIdSuffix '.dev'
+            resValue 'string', 'app_name', 'PingApp Dev'
+            resValue 'string', 'title_activity_main', 'PingApp Dev'
+            manifestPlaceholders = [appLinksHost: '<production-domain>']
+        }
+        prod {
+            dimension 'environment'
+            resValue 'string', 'app_name', 'PingApp'
+            resValue 'string', 'title_activity_main', 'PingApp'
+            manifestPlaceholders = [appLinksHost: '<production-domain>']
+        }
+    }
+    signingConfigs {
+        debug {
+            storeFile = new File(gradle.gradleUserHomeDir, 'pingapp/debug.keystore')
+        }
+        if (hasReleaseSigning) {
+            release {
+                storeFile = file(releaseSigning.PINGAPP_KEYSTORE_PATH)
+                storePassword = releaseSigning.PINGAPP_KEYSTORE_PASSWORD
+                keyAlias = releaseSigning.PINGAPP_KEY_ALIAS
+                keyPassword = releaseSigning.PINGAPP_KEY_PASSWORD
+            }
+        }
+    }
     buildTypes {
         release {
+            if (hasReleaseSigning) signingConfig = signingConfigs.release
+            debuggable = false
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
