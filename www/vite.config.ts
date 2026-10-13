@@ -1,6 +1,6 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { copyFileSync, cpSync, mkdirSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { loadEnv, type Plugin } from "vite";
 
 const native = process.env.VITE_TARGET === "native";
@@ -8,6 +8,21 @@ const native = process.env.VITE_TARGET === "native";
 function nativeBundle(): Plugin {
   return {
     name: "pingapp-native-bundle",
+    enforce: "pre",
+    resolveId(source, importer) {
+      // Redirect every relative/shared appkit consumer before Rollup traverses
+      // the graph. Checking an imported runtime constant leaves orphan chunks.
+      const target =
+        source.startsWith(".") && importer
+          ? resolve(dirname(importer.split("?")[0]), source)
+          : source.startsWith("@/")
+            ? resolve("src", source.slice(2))
+            : source;
+      if ([resolve("src/wallet/appkit"), resolve("src/wallet/appkit.tsx")].includes(target)) {
+        return resolve("src/wallet/native/appkit.tsx");
+      }
+      return null;
+    },
     config(_, { mode }) {
       const env = loadEnv(mode, process.cwd(), "VITE_");
       if (env.VITE_RPC_URL !== undefined || env.VITE_REOWN_PROJECT_ID !== undefined) {
