@@ -16,6 +16,11 @@ function publish(next: Cleanup) {
   snapshot = next;
   for (const listener of listeners) listener();
 }
+async function removeCleanupIntent() {
+  await platform.secureStorage.remove(CLEANUP_KEY);
+  if ((await platform.secureStorage.get(CLEANUP_KEY)) !== null)
+    throw new Error("Device cleanup could not be completed.");
+}
 
 // Root-owned recovery survives the Settings unmount caused by locking/wiping.
 export const walletCleanup = {
@@ -28,6 +33,8 @@ export const walletCleanup = {
   getSnapshot: () => snapshot,
   async discover() {
     const stored = await platform.secureStorage.get(CLEANUP_KEY);
+    if (stored !== null && !["delete", "remove", "delete-pending"].includes(stored))
+      throw new Error("The interrupted wallet action could not be read.");
     if (stored === "delete" || stored === "remove" || stored === "delete-pending")
       publish({
         action: stored,
@@ -40,6 +47,8 @@ export const walletCleanup = {
     // Persist before the request, so process death cannot silently recreate the
     // old account. An unconfirmed request never authorizes a wallet wipe.
     await platform.secureStorage.set(CLEANUP_KEY, "delete-pending");
+    if ((await platform.secureStorage.get(CLEANUP_KEY)) !== "delete-pending")
+      throw new Error("Could not safely start account deletion.");
   },
   async deleteFailed(confirmedFailure: boolean) {
     if (!confirmedFailure) {
@@ -52,7 +61,7 @@ export const walletCleanup = {
       return;
     }
     try {
-      await platform.secureStorage.remove(CLEANUP_KEY);
+      await removeCleanupIntent();
     } catch {
       publish({
         action: "delete-pending",
@@ -65,7 +74,7 @@ export const walletCleanup = {
   async keepUnconfirmedWallet() {
     if (snapshot?.action !== "delete-pending" || running) return;
     try {
-      await platform.secureStorage.remove(CLEANUP_KEY);
+      await removeCleanupIntent();
       keyManager.lock();
       platformNavigateHome();
       publish(null);
@@ -78,7 +87,7 @@ export const walletCleanup = {
       });
     }
   },
-  start(action: Action, client: QueryClient) {
+  start(action: Exclude<Action, "delete-pending">, client: QueryClient) {
     revocationUnconfirmed = false;
     publish({ action, busy: true, error: "" });
     return this.retry(client);
@@ -92,6 +101,8 @@ export const walletCleanup = {
       try {
         // A cold start must finish cleanup rather than sign in with a deleted account.
         await platform.secureStorage.set(CLEANUP_KEY, action);
+        if ((await platform.secureStorage.get(CLEANUP_KEY)) !== action)
+          throw new Error("Device cleanup recovery could not be saved.");
         if (action === "remove" && !(await getToken())) revocationUnconfirmed = true;
         try {
           await signOutNative();
@@ -100,10 +111,14 @@ export const walletCleanup = {
         }
         // Retry local token removal separately: logout can fail offline or in storage.
         await clearToken();
+        if ((await platform.secureStorage.get("pingapp.session.v1")) !== null)
+          throw new Error("The device session could not be removed.");
         await keyManager.wipe();
+        if (await keyManager.hasWallet())
+          throw new Error("The device wallet could not be removed.");
         await client.cancelQueries();
         client.clear();
-        await platform.secureStorage.remove(CLEANUP_KEY);
+        await removeCleanupIntent();
         platformNavigateHome();
         publish(null);
         if (revocationUnconfirmed)

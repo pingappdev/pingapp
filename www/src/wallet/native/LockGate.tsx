@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import { platform, PlatformError } from "@/platform";
 import { keyManager, WalletError } from "./keyManager";
 import { lockAccess, unlockWallet } from "./lockPolicy";
@@ -19,8 +26,10 @@ export default function LockGate({ children }: { children: ReactNode }) {
   const mounted = useRef(false);
   const attempt = useRef(0);
   const cleanupWasActive = useRef(false);
+  const discovery = useRef(false);
+  discovery.current = discovered;
 
-  async function unlock(discover = !discovered) {
+  const unlock = useCallback(async (discover = !discovery.current) => {
     const generation = ++attempt.current;
     const current = () => mounted.current && attempt.current === generation;
     let discoveryPending = discover;
@@ -55,15 +64,16 @@ export default function LockGate({ children }: { children: ReactNode }) {
     } finally {
       if (current()) setBusy(false);
     }
-  }
+  }, []);
+  const unmount = useCallback(() => {
+    mounted.current = false;
+    attempt.current++;
+  }, []);
   useEffect(() => {
     mounted.current = true;
     void unlock(true);
-    return () => {
-      mounted.current = false;
-      attempt.current++;
-    };
-  }, []);
+    return unmount;
+  }, [unlock, unmount]);
   useEffect(() => {
     if (state === "unlocked") setOnboarding(false);
     if (state === "none" && discovered) {
@@ -80,7 +90,7 @@ export default function LockGate({ children }: { children: ReactNode }) {
       cleanupWasActive.current = false;
       void unlock(true);
     }
-  }, [cleanup]);
+  }, [cleanup, unlock]);
 
   if (cleanup)
     return (

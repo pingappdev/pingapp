@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError, endpoints } from "@/api/client";
 import { useBalances } from "@/api/hooks";
@@ -34,6 +34,7 @@ export default function NativeWalletLifecycleDialog({
   const operation = useRef(false);
   const generation = useRef(0);
   const balances = useBalances({ enabled: open, refresh: true });
+  const refetchBalances = balances.refetch;
   const client = useQueryClient();
   const { me, withReauth } = useAuth();
   const word = action === "delete" ? "DELETE" : "REMOVE";
@@ -54,25 +55,28 @@ export default function NativeWalletLifecycleDialog({
     (item) => /^\d+$/.test(item.balanceRaw) && BigInt(item.balanceRaw) > 0n,
   );
   const allowed = valid && (!funded.length || acknowledged) && confirmation === word;
+  const readiness = useRef(false);
+  readiness.current = allowed;
+  const unmount = useCallback(() => {
+    mounted.current = false;
+    generation.current++;
+  }, []);
 
   useEffect(() => {
     mounted.current = true;
-    return () => {
-      mounted.current = false;
-      generation.current++;
-    };
-  }, []);
+    return unmount;
+  }, [unmount]);
   useEffect(() => {
     if (!open) return;
     let current = true;
     setChecked(false);
-    void balances.refetch().then((result) => {
+    void refetchBalances().then((result) => {
       if (current) setChecked(result.isSuccess);
     });
     return () => {
       current = false;
     };
-  }, [open, balances.refetch]);
+  }, [open, refetchBalances]);
 
   function changeOpen(next: boolean) {
     if (operation.current) return;
@@ -98,6 +102,11 @@ export default function NativeWalletLifecycleDialog({
     try {
       await authenticateWallet(action === "delete" ? "Delete account" : "Remove wallet", active);
       if (!active()) return;
+      if (!readiness.current)
+        throw new WalletError(
+          "BalancesChanged",
+          "Wallet balances changed. Review them before continuing.",
+        );
       if (action === "delete") {
         // The shared mutation publishes signed-out before cleanup; use the endpoint
         // here so API failure keeps the key and the retry UI intact.
@@ -105,6 +114,11 @@ export default function NativeWalletLifecycleDialog({
         try {
           await withReauth(async () => {
             if (!active()) throw new WalletError("WalletLocked", "Unlock your wallet to continue.");
+            if (!readiness.current)
+              throw new WalletError(
+                "BalancesChanged",
+                "Wallet balances changed. Review them before continuing.",
+              );
             await endpoints.me.delete();
           });
         } catch (reason) {
