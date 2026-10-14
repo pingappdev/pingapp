@@ -1,4 +1,8 @@
-# PingApp backend
+# PingApp
+
+[Website](https://getping.tech) · [Open app](https://getping.tech/dashboard) ·
+[API health](https://api.getping.tech/health) · [X](https://x.com/pingapp_bank) ·
+[Telegram](https://t.me/pingapportal) · [GitHub](https://github.com/pingappdev/pingapp)
 
 API, workers and smart contracts for phone-based crypto payments on Robinhood
 Chain: mainnet `4663`, testnet `46630`. SIWE authenticates wallets; SMS verification
@@ -44,6 +48,16 @@ features are independently gated by `ROUTER_ENABLED` and `CARDS_ENABLED`.
 [PingRouter.sol](contracts/src/PingRouter.sol) holds escrowed ETH/ERC-20 assets.
 It has no owner or upgrade mechanism; signer, fee recipient and escrow fee are
 immutable constructor values.
+
+**Mainnet deployment** (Robinhood Chain, chain ID `4663`):
+
+| Contract | Address | Escrow fee |
+| --- | --- | --- |
+| PingRouter | `0xA132671d343D93F3e3cf6EdaC8a90B6965E2d3C2` | `0.0002 ETH` |
+
+Deployed at block `88536271`, transaction
+`0x1d64fa99c36bcf0c532d956564ee92dc1f24ed5ac54c7aa4209d92a7a5a0ee10`.
+Fees accrue to the deployer, `0x36a315a8132a5C658C2D53E6285B6fBB288ff0fB`.
 
 | Contract method | Purpose |
 | --- | --- |
