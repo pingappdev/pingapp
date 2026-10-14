@@ -66,6 +66,7 @@ export async function authenticateWallet(reason: string, allow: () => boolean = 
   const guard = () => {
     if (
       !foreground ||
+      access === "checking" ||
       lifecycle !== expectedLifecycle ||
       keyManager.getEpoch() !== expectedEpoch ||
       (reason !== "Unlock PingApp" && window.location.href !== expectedLocation) ||

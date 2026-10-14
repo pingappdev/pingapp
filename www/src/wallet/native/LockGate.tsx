@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   useSyncExternalStore,
@@ -28,6 +29,42 @@ export default function LockGate({ children }: { children: ReactNode }) {
   const cleanupWasActive = useRef(false);
   const discovery = useRef(false);
   discovery.current = discovered;
+  const contentWasMounted = useRef(false);
+  const ready =
+    discovered && access === "ready" && (onboarding || state === "none" || state === "unlocked");
+  // A brief external Activity must not discard an already unlocked form/picker
+  // continuation. Cold discovery, onboarding, real locks and cleanup still
+  // unmount it. Keep this separate from the permission to interact below.
+  const checking =
+    !cleanup &&
+    discovered &&
+    state === "unlocked" &&
+    access === "checking" &&
+    contentWasMounted.current;
+  const showContent = !cleanup && (ready || checking);
+  useLayoutEffect(() => {
+    contentWasMounted.current = showContent;
+  }, [showContent]);
+  useLayoutEffect(() => {
+    if (!checking) return;
+    // Radix portals escape the route tree into body. Hide/inert the WHOLE body
+    // before paint, including portals mounted while the OS check is pending.
+    // A private stylesheet avoids overwriting Radix's body styles/scroll lock.
+    const body = document.body;
+    const wasInert = body.inert;
+    const curtain = document.createElement("style");
+    curtain.textContent = `body { display: none !important; }
+      html::after { content: "Checking device security…"; position: fixed;
+        inset: 0; display: grid; place-items: center; background: #08080c;
+        color: #fff; font: 16px system-ui; }`;
+    document.head.append(curtain);
+    body.inert = true;
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    return () => {
+      curtain.remove();
+      body.inert = wasInert;
+    };
+  }, [checking]);
 
   const unlock = useCallback(async (discover = !discovery.current) => {
     const generation = ++attempt.current;
@@ -138,8 +175,7 @@ export default function LockGate({ children }: { children: ReactNode }) {
         </div>
       </main>
     );
-  if (discovered && access === "ready" && (onboarding || state === "none" || state === "unlocked"))
-    return <>{children}</>;
+  if (showContent) return <>{children}</>;
   return (
     <main
       className="contact-page section"

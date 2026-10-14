@@ -64,6 +64,9 @@ export default function PageTransitions({ children }: { children: React.ReactNod
       .catch(() => toast.error("Could not configure device display."));
     void platform
       .onBackButton(() => {
+        // The native security recheck temporarily inerts the entire document,
+        // including portal overlays. OS Back must obey the same input boundary.
+        if (document.body.inert) return;
         if (closeTopBackHandler()) return;
         if (routerRef.current.canGoBack()) routerRef.current.back();
         else if (location.pathname !== "/dashboard" && location.pathname.startsWith("/dashboard/"))
