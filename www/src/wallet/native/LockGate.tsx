@@ -45,6 +45,16 @@ export default function LockGate({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
     contentWasMounted.current = showContent;
   }, [showContent]);
+  const suppressSnapshots = !showContent || checking;
+  useLayoutEffect(() => {
+    if (!suppressSnapshots) return;
+    // PageTransitions lives outside this gate. Its old page bitmap must not
+    // overlay either the temporary curtain or a subsequent real lock screen.
+    const style = document.createElement("style");
+    style.textContent = "html::view-transition { display: none !important; }";
+    document.head.append(style);
+    return () => style.remove();
+  }, [suppressSnapshots]);
   useLayoutEffect(() => {
     if (!checking) return;
     // Radix portals escape the route tree into body. Hide/inert the WHOLE body
@@ -54,7 +64,6 @@ export default function LockGate({ children }: { children: ReactNode }) {
     const wasInert = body.inert;
     const curtain = document.createElement("style");
     curtain.textContent = `body { display: none !important; }
-      html::view-transition { display: none !important; }
       html::after { content: "Checking device security…"; position: fixed;
         inset: 0; display: grid; place-items: center; background: #08080c;
         color: #fff; font: 16px system-ui; }`;
