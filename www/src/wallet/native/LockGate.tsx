@@ -54,6 +54,7 @@ export default function LockGate({ children }: { children: ReactNode }) {
     const wasInert = body.inert;
     const curtain = document.createElement("style");
     curtain.textContent = `body { display: none !important; }
+      html::view-transition { display: none !important; }
       html::after { content: "Checking device security…"; position: fixed;
         inset: 0; display: grid; place-items: center; background: #08080c;
         color: #fff; font: 16px system-ui; }`;

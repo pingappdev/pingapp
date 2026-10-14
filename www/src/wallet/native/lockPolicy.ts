@@ -32,6 +32,8 @@ void platform
     // Every pending approval loses its key epoch, even for a short background.
     if (authenticating) keyManager.lock();
     else keyManager.cancelPendingOperations();
+    // Wake approvals waiting for a resume check so a new pause cancels them.
+    publish(access);
   })
   .catch(() => {});
 void platform
@@ -122,9 +124,48 @@ export function unlockWallet(allow: () => boolean = () => true): Promise<void> {
   return unlockFlight;
 }
 
+async function waitForReadyAccess() {
+  const expectedLifecycle = lifecycle;
+  const expectedEpoch = keyManager.getEpoch();
+  await new Promise<void>((resolve, reject) => {
+    const changed = () => {
+      if (
+        !foreground ||
+        lifecycle !== expectedLifecycle ||
+        keyManager.getEpoch() !== expectedEpoch ||
+        keyManager.getState() !== "unlocked" ||
+        access === "blocked"
+      )
+        finish(new WalletLocked());
+      else if (access === "ready") finish();
+    };
+    const unsubscribe = keyManager.subscribe(changed);
+    function finish(error?: WalletLocked) {
+      listeners.delete(changed);
+      unsubscribe();
+      if (error) reject(error);
+      else resolve();
+    }
+    listeners.add(changed);
+    changed();
+  });
+  // Recheck after the await: another lifecycle event must beat the continuation.
+  if (
+    !foreground ||
+    access !== "ready" ||
+    lifecycle !== expectedLifecycle ||
+    keyManager.getEpoch() !== expectedEpoch ||
+    keyManager.getState() !== "unlocked"
+  )
+    throw new WalletLocked();
+}
+
 setApprovalHandler(async (request) => {
-  if (consumeTrustedSiwe(request)) return;
   try {
+    // Even app-owned SIWE must wait for the resume security check. Waiting keeps
+    // a normal token renewal from interpreting a brief check as a failed login.
+    await waitForReadyAccess();
+    if (consumeTrustedSiwe(request)) return;
     await authenticateWallet(
       request.kind === "transaction" ? "Confirm sending" : "Confirm signature",
     );
