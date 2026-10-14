@@ -1140,12 +1140,19 @@ html.ping-native [data-slot="dialog-content"], html.ping-native [data-slot="aler
   width: calc(100% - 2rem);
   margin-left: auto;
   margin-right: auto;
-  translate: none;
+  /* Reset Tailwind's variables too: CSS lowering can remove an identity
+     translate declaration while leaving variable-based utility declarations. */
+  --tw-translate-x: 0px;
+  --tw-translate-y: 0px;
   transform: translateY(-50%);
   animation: none;
   max-height: calc(100vh - 2rem);
-  max-height: calc(100dvh - 2rem);
   overflow-y: auto;
+}
+@supports (height: 100dvh) {
+  html.ping-native [data-slot="dialog-content"], html.ping-native [data-slot="alert-dialog-content"] {
+    max-height: calc(100dvh - 2rem);
+  }
 }
 
 /* Wallet onboarding fields need a visible surface even before they are focused. */
