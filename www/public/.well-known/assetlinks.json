@@ -4,15 +4,7 @@
     "target": {
       "namespace": "android_app",
       "package_name": "app.pingapp.android",
-      "sha256_cert_fingerprints": ["<release-sha256-fingerprint>"]
-    }
-  },
-  {
-    "relation": ["delegate_permission/common.handle_all_urls"],
-    "target": {
-      "namespace": "android_app",
-      "package_name": "app.pingapp.android.dev",
-      "sha256_cert_fingerprints": ["<debug-sha256-fingerprint>"]
+      "sha256_cert_fingerprints": ["AE:21:51:81:3F:4A:06:18:98:70:DA:CD:73:7C:68:6A:98:E0:F6:3C:5D:DE:DF:D9:66:60:3A:59:94:AC:C9:65"]
     }
   }
 ]

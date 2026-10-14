@@ -224,7 +224,7 @@ export async function createNativePlatform(os: PlatformOS): Promise<Platform> {
       deviceAction(() =>
         os === "android"
           ? DeepLinks.configuration()
-          : Promise.resolve({ host: "<production-domain>", scheme: "pingapp" }),
+          : Promise.resolve({ host: "getping.tech", scheme: "pingapp" }),
       ),
     acknowledgeAppUrl: (url) =>
       deviceAction(() => (os === "android" ? DeepLinks.acknowledge({ url }) : Promise.resolve())),

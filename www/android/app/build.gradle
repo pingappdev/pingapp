@@ -38,7 +38,7 @@ android {
             dimension 'environment'
             resValue 'string', 'app_name', 'PingApp'
             resValue 'string', 'title_activity_main', 'PingApp'
-            manifestPlaceholders = [appLinksHost: '<production-domain>', appLinkScheme: 'pingapp']
+            manifestPlaceholders = [appLinksHost: 'getping.tech', appLinkScheme: 'pingapp']
             buildConfigField 'String', 'APP_LINKS_HOST', '"' + manifestPlaceholders.appLinksHost + '"'
             buildConfigField 'String', 'APP_LINK_SCHEME', '"' + manifestPlaceholders.appLinkScheme + '"'
         }
