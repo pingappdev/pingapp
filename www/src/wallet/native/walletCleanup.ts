@@ -38,7 +38,10 @@ export const walletCleanup = {
       publish({
         action: stored,
         busy: false,
-        error: "Finish removing this wallet from your device.",
+        error:
+          stored === "delete-pending"
+            ? "Account deletion could not be confirmed. Your wallet has been preserved."
+            : "Finish removing this wallet from your device.",
       });
     return snapshot !== null;
   },

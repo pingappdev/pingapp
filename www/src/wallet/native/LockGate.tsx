@@ -103,9 +103,9 @@ export default function LockGate({ children }: { children: ReactNode }) {
         <span className="wordmark">PingApp</span>
         <div
           className="card settings-card"
-          style={{ maxWidth: 460, margin: "60px auto", display: "grid", gap: 18 }}
+          style={{ maxWidth: 460, minWidth: 0, margin: "60px auto", display: "grid", gap: 18 }}
         >
-          <h1 style={{ fontSize: 30 }}>
+          <h1 style={{ fontSize: 30, minWidth: 0, whiteSpace: "normal", overflowWrap: "anywhere" }}>
             {cleanup.finished ? "Wallet removed" : "Finish device cleanup"}
           </h1>
           <p>
