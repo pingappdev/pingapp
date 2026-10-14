@@ -5,9 +5,12 @@ import { authenticateWallet } from "@/wallet/native/lockPolicy";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import AddressText from "../../components/AddressText";
 import NativeWalletLifecycleDialog from "./NativeWalletLifecycleDialog";
+import { requireScreenLock, walletSecurity } from "@/wallet/native/deviceSecurity";
 
 export default function WalletSection({ address }: { address: string }) {
-  const [kind, setKind] = useState("Device screen lock");
+  const [kind, setKind] = useState("");
+  const [optional, setOptional] = useState(false);
+  const [deviceSecure, setDeviceSecure] = useState<boolean | null>(null);
   const [step, setStep] = useState<"closed" | "warning" | "approving" | "reveal">("closed");
   const [privateKey, setPrivateKey] = useState("");
   const [visible, setVisible] = useState(false);
@@ -38,15 +41,27 @@ export default function WalletSection({ address }: { address: string }) {
   useEffect(() => {
     mounted.current = true;
     let pause: Unsubscribe | undefined;
-    void platform.biometric
-      .isAvailable()
-      .then((security) => {
-        if (mounted.current)
-          setKind(
-            security.available
-              ? `${security.kind[0].toUpperCase()}${security.kind.slice(1)} or device screen lock`
-              : "Device screen lock",
-          );
+    const checkSecurity = () =>
+      void walletSecurity()
+        .then((security) => {
+          if (mounted.current) {
+            setOptional(security.optional);
+            setDeviceSecure(security.deviceSecure);
+            setKind(
+              security.available
+                ? `${security.kind[0].toUpperCase()}${security.kind.slice(1)} or device screen lock`
+                : "Device screen lock",
+            );
+          }
+        })
+        .catch(() => {});
+    checkSecurity();
+    let resume: Unsubscribe | undefined;
+    void platform
+      .onResume(checkSecurity)
+      .then((off) => {
+        if (mounted.current) resume = off;
+        else void off();
       })
       .catch(() => {});
     void platform
@@ -76,6 +91,7 @@ export default function WalletSection({ address }: { address: string }) {
       clearClipboard();
       off();
       void pause?.();
+      void resume?.();
       window.removeEventListener("blur", blur);
       window.removeEventListener("pingapp:export-wallet", exportRequested);
     };
@@ -142,7 +158,26 @@ export default function WalletSection({ address }: { address: string }) {
       <div className="settings-address">
         <AddressText value={address} full />
       </div>
-      <p className="field-help">Protected with {kind.toLowerCase()}.</p>
+      <p className="field-help">
+        {deviceSecure === null
+          ? "Checking device security…"
+          : deviceSecure
+            ? `Protected with ${kind.toLowerCase()}.`
+            : "No screen lock. Actions require confirmation, but anyone using this device can approve them."}
+      </p>
+      {optional && (
+        <button
+          className="button outline"
+          onClick={() => {
+            void requireScreenLock()
+              .then(() => keyManager.lock())
+              .catch(() => setError("Could not save your choice. Try again."));
+          }}
+        >
+          Require a screen lock
+        </button>
+      )}
+      {error && step === "closed" && <p role="alert">{error}</p>}
       <div className="settings-buttons">
         <button
           className="button outline"

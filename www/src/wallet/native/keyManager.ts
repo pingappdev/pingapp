@@ -3,6 +3,7 @@
 import { getAddress, type Address, type Hex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { platform, platformInfo } from "@/platform";
+import { requireScreenLock, walletSecurity } from "./deviceSecurity";
 
 export type WalletState = "none" | "locked" | "unlocked";
 const STORAGE_KEY = "pingapp.wallet.v1";
@@ -108,11 +109,11 @@ async function store(pk: Hex, backupRequired = false): Promise<Address> {
   if ((await platform.secureStorage.get(STORAGE_KEY)) !== null) {
     throw new WalletError("WalletExists", "A wallet already exists on this device.");
   }
-  const security = await platform.biometric.isAvailable();
-  if (!security.deviceSecure) {
+  const security = await walletSecurity();
+  if (!security.permitted) {
     throw new WalletError(
       "DeviceLockRequired",
-      "Set a device screen lock before creating or importing a wallet.",
+      "Set a screen lock or choose to continue without one.",
     );
   }
   const address = privateKeyToAccount(pk).address;
@@ -209,6 +210,7 @@ export const keyManager = {
   wipe() {
     this.lock();
     return run(async () => {
+      await requireScreenLock();
       await platform.secureStorage.remove(STORAGE_KEY);
       walletAddress = undefined;
       publish("none");

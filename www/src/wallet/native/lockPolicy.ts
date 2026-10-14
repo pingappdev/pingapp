@@ -2,6 +2,8 @@ import { platform, PlatformError } from "@/platform";
 import { keyManager, WalletError, WalletLocked } from "./keyManager";
 import { ProviderError, setApprovalHandler } from "./provider";
 import { consumeTrustedSiwe } from "./siweApproval";
+import { walletSecurity } from "./deviceSecurity";
+import { localApproval } from "./localApproval";
 
 let foreground = true;
 let lifecycle = 0;
@@ -29,6 +31,7 @@ void platform
     foreground = false;
     lifecycle++;
     pausedAt = Date.now();
+    localApproval.cancel();
     // Every pending approval loses its key epoch, even for a short background.
     if (authenticating) keyManager.lock();
     else keyManager.cancelPendingOperations();
@@ -43,11 +46,10 @@ void platform
     pausedAt = 0;
     const expectedLifecycle = lifecycle;
     publish("checking");
-    void platform.biometric
-      .isAvailable()
+    void walletSecurity()
       .then((security) => {
         if (!foreground || lifecycle !== expectedLifecycle) return;
-        if (!security.deviceSecure) {
+        if (!security.permitted) {
           keyManager.lock();
           publish("blocked");
         } else publish("ready");
@@ -82,20 +84,28 @@ export async function authenticateWallet(reason: string, allow: () => boolean = 
     throw new PlatformError("cancelled", "Another device approval is already open.");
   authenticating = true;
   try {
-    const security = await platform.biometric.isAvailable();
+    const security = await walletSecurity();
     guard();
-    if (!security.deviceSecure) {
+    if (!security.permitted) {
       keyManager.lock();
       publish("blocked");
-      throw new WalletError("DeviceLockRequired", "Set a screen lock to use PingApp.");
+      throw new WalletError(
+        "DeviceLockRequired",
+        "Set a screen lock or choose to continue without one.",
+      );
     }
     publish("ready");
-    await platform.biometric.authenticate(reason);
+    if (security.deviceSecure) await platform.biometric.authenticate(reason);
+    else await localApproval.request(reason);
     guard();
   } finally {
     authenticating = false;
   }
 }
+
+keyManager.subscribe(() => {
+  if (keyManager.getState() !== "unlocked") localApproval.cancel();
+});
 
 export function unlockWallet(allow: () => boolean = () => true): Promise<void> {
   if (keyManager.getState() === "unlocked") {

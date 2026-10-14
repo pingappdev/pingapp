@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { keyManager, WalletError } from "../keyManager";
 import { unlockWallet } from "../lockPolicy";
+import { acceptOptionalScreenLock } from "../deviceSecurity";
+import NoScreenLockChoice from "../NoScreenLockChoice";
 
 type Step =
   "loading" | "welcome" | "device" | "import" | "backup" | "existing" | "signing" | "failed";
@@ -201,6 +203,24 @@ export default function Onboarding({ returnTo }: { returnTo?: string }) {
       if (active(generation)) setBusy(false);
     }
   }
+  async function continueWithoutLock() {
+    const generation = lifecycle.current;
+    const operation = {};
+    pendingOperations.current.add(operation);
+    setBusy(true);
+    setError("");
+    try {
+      await acceptOptionalScreenLock();
+      if (!active(generation)) return;
+      if (choice === "create") await createWallet();
+      else setStep("import");
+    } catch {
+      if (active(generation)) setError("Could not save your choice. Try again.");
+    } finally {
+      pendingOperations.current.delete(operation);
+      if (active(generation)) setBusy(false);
+    }
+  }
   async function showBackup() {
     const generation = lifecycle.current;
     const operation = {};
@@ -323,13 +343,11 @@ export default function Onboarding({ returnTo }: { returnTo?: string }) {
         )}
         {step === "device" && (
           <>
-            <h1 style={{ fontSize: 30 }}>
-              {deviceSecure === false ? "Set a screen lock first" : "Protect your wallet"}
-            </h1>
+            <h1 style={{ fontSize: 30 }}>Protect your wallet</h1>
             <p>
               {deviceSecure === false
                 ? "Open your phone’s Settings and set a PIN, password or screen lock. Then return here."
-                : "A device screen lock is required to keep your wallet safe."}
+                : "A screen lock helps protect access to your wallet."}
             </p>
             {deviceSecure === null && <p role="status">Checking your device…</p>}
             {deviceSecure === true && <p role="status">Your device has a screen lock.</p>}
@@ -356,6 +374,9 @@ export default function Onboarding({ returnTo }: { returnTo?: string }) {
             >
               Check again
             </button>
+            {deviceSecure === false && (
+              <NoScreenLockChoice busy={busy} onContinue={() => void continueWithoutLock()} />
+            )}
             <button
               className="button accent"
               disabled={busy || deviceSecure !== true}

@@ -13,8 +13,20 @@ import { lockAccess, unlockWallet } from "./lockPolicy";
 import { useQueryClient } from "@tanstack/react-query";
 import { walletCleanup } from "./walletCleanup";
 import { Keyboard } from "@capacitor/keyboard";
+import { acceptOptionalScreenLock } from "./deviceSecurity";
+import NoScreenLockChoice from "./NoScreenLockChoice";
+import LocalApprovalDialog from "./LocalApprovalDialog";
 
 export default function LockGate({ children }: { children: ReactNode }) {
+  return (
+    <>
+      <WalletGate>{children}</WalletGate>
+      <LocalApprovalDialog />
+    </>
+  );
+}
+
+function WalletGate({ children }: { children: ReactNode }) {
   const state = useSyncExternalStore(keyManager.subscribe, keyManager.getState);
   const access = useSyncExternalStore(lockAccess.subscribe, lockAccess.getSnapshot);
   const cleanup = useSyncExternalStore(walletCleanup.subscribe, walletCleanup.getSnapshot);
@@ -203,7 +215,7 @@ export default function LockGate({ children }: { children: ReactNode }) {
         style={{ maxWidth: 460, margin: "60px auto", display: "grid", gap: 18 }}
       >
         <h1 style={{ fontSize: 30 }}>
-          {blocked ? "Set a screen lock to use PingApp" : "Your wallet is locked"}
+          {blocked ? "Protect your wallet" : "Your wallet is locked"}
         </h1>
         {address && (
           <p>
@@ -227,6 +239,25 @@ export default function LockGate({ children }: { children: ReactNode }) {
           >
             Open settings
           </button>
+        )}
+        {blocked && (
+          <NoScreenLockChoice
+            busy={busy || access === "checking"}
+            onContinue={() => {
+              setBusy(true);
+              setError("");
+              void acceptOptionalScreenLock()
+                .then(() => {
+                  return mounted.current ? unlock() : undefined;
+                })
+                .catch(() => {
+                  if (mounted.current) setError("Could not save your choice. Try again.");
+                })
+                .finally(() => {
+                  if (mounted.current) setBusy(false);
+                });
+            }}
+          />
         )}
         <button
           className="button accent"
