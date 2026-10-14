@@ -1129,6 +1129,36 @@ html.ping-native body {
   background: #08080C;
 }
 html.ping-native [data-slot="dialog-content"], html.ping-native [data-slot="alert-dialog-content"] {
+  /* Older Android WebViews ignore Tailwind's individual translate property.
+     Center horizontally with fixed insets/auto margins so controls stay visible.
+     Use a legacy transform only for vertical centering; zoom animations must
+     not replace that transform during opening or closing. */
+  position: fixed;
+  top: 50%;
+  left: 0;
+  right: 0;
+  width: calc(100% - 2rem);
+  margin-left: auto;
+  margin-right: auto;
+  translate: none;
+  transform: translateY(-50%);
+  animation: none;
+  max-height: calc(100vh - 2rem);
   max-height: calc(100dvh - 2rem);
   overflow-y: auto;
+}
+
+/* Wallet onboarding fields need a visible surface even before they are focused. */
+.native-wallet-input {
+  min-height: 48px;
+  border-color: #8d819e;
+  background: #11151d;
+  color: #f9f7fa;
+  font-size: 16px;
+}
+.native-wallet-input::placeholder { color: #aaa0b6; opacity: 1; }
+.native-wallet-input:focus {
+  border-color: #c5a5ff;
+  outline: 2px solid #c5a5ff;
+  outline-offset: 2px;
 }

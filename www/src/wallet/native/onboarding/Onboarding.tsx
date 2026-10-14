@@ -396,7 +396,8 @@ export default function Onboarding({ returnTo }: { returnTo?: string }) {
             <label>
               Private key
               <input
-                className="input"
+                className="auth-input native-wallet-input"
+                placeholder="Enter your private key"
                 type={show ? "text" : "password"}
                 autoComplete="off"
                 spellCheck={false}
@@ -496,8 +497,10 @@ export default function Onboarding({ returnTo }: { returnTo?: string }) {
             <label>
               Type the last 4 characters of your key
               <input
-                className="input"
+                className="auth-input native-wallet-input"
+                placeholder="Last 4 characters"
                 autoComplete="off"
+                autoCapitalize="none"
                 maxLength={4}
                 spellCheck={false}
                 value={lastFour}
