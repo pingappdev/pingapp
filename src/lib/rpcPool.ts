@@ -156,8 +156,12 @@ export function createRpcPool({ alchemyUrls, publicUrl }: RpcPoolConfig) {
     const attempted = new Set<Endpoint>();
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
-      let endpoint = pickAlchemy(attempted);
-      if (!endpoint && !options?.alchemyOnly && publicEndpoint && !attempted.has(publicEndpoint) && publicEndpoint.coolUntil <= Date.now()) {
+      const publicAvailable = !options?.alchemyOnly && publicEndpoint &&
+        !attempted.has(publicEndpoint) && publicEndpoint.coolUntil <= Date.now();
+      // Robinhood's public RPC supports the indexer's log ranges. Free Alchemy
+      // keys are limited to ten blocks, even when multiple keys are rotated.
+      let endpoint = method === 'eth_getLogs' && publicAvailable ? publicEndpoint : pickAlchemy(attempted);
+      if (!endpoint && publicAvailable) {
         endpoint = publicEndpoint;
       }
       if (!endpoint) break;

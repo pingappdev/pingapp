@@ -66,9 +66,9 @@ describe('RPC pool', () => {
         ? jsonResponse({ error: { code: -32600, message: 'Under the Free tier plan, you can make eth_getLogs requests with up to a 10 block range.' } }, status)
         : jsonResponse({ result: [] });
     }));
-    const pool = createRpcPool({ alchemyUrls: ['https://alchemy.invalid/key'], publicUrl: 'https://rpc.invalid' });
-    await expect(pool.rpc('eth_getLogs', params)).resolves.toEqual([]);
-    expect(seen).toEqual(['https://alchemy.invalid/key', 'https://rpc.invalid']);
+    const pool = createRpcPool({ alchemyUrls: ['https://alchemy-a.invalid/key', 'https://alchemy-b.invalid/key'], publicUrl: 'https://rpc.invalid' });
+    await expect(pool.rpc('eth_getLogs', params, { alchemyOnly: true })).resolves.toEqual([]);
+    expect(seen).toEqual(['https://alchemy-a.invalid/key', 'https://alchemy-b.invalid/key']);
     expect(pool.poolStatus()[0]).toMatchObject({ failures: 1 });
   });
 
@@ -76,9 +76,34 @@ describe('RPC pool', () => {
     const fetchMock = vi.fn(async () => jsonResponse({ error: { code: -32602, message: 'block range extends beyond current head block' } }, status));
     vi.stubGlobal('fetch', fetchMock);
     const pool = createRpcPool({ alchemyUrls: ['https://alchemy.invalid/key'], publicUrl: 'https://rpc.invalid' });
-    await expect(pool.rpc('eth_getLogs', [{ fromBlock: '0x100', toBlock: '0x1ff' }])).rejects.toBeInstanceOf(RpcError);
+    await expect(pool.rpc('eth_getLogs', [{ fromBlock: '0x100', toBlock: '0x1ff' }], { alchemyOnly: true })).rejects.toBeInstanceOf(RpcError);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(pool.poolStatus().every(s => s.failures === 0)).toBe(true);
+  });
+
+  it('prefers the public RPC for logs while retaining Alchemy rotation for other calls', async () => {
+    const seen: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      seen.push(String(input));
+      return jsonResponse({ result: [] });
+    }));
+    const pool = createRpcPool({ alchemyUrls: ['https://alchemy-a.invalid/key', 'https://alchemy-b.invalid/key'], publicUrl: 'https://rpc.invalid' });
+    await pool.rpc('eth_getLogs', [{}]);
+    await pool.rpc('eth_blockNumber', []);
+    await pool.rpc('eth_getLogs', [{}]);
+    await pool.rpc('eth_blockNumber', []);
+    expect(seen).toEqual(['https://rpc.invalid', 'https://alchemy-a.invalid/key', 'https://rpc.invalid', 'https://alchemy-b.invalid/key']);
+  });
+
+  it('falls back to Alchemy when the public log endpoint is unavailable', async () => {
+    const seen: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      seen.push(String(input));
+      return seen.length === 1 ? jsonResponse({}, 503) : jsonResponse({ result: [] });
+    }));
+    const pool = createRpcPool({ alchemyUrls: ['https://alchemy.invalid/key'], publicUrl: 'https://rpc.invalid' });
+    await expect(pool.rpc('eth_getLogs', [{}])).resolves.toEqual([]);
+    expect(seen).toEqual(['https://rpc.invalid', 'https://alchemy.invalid/key']);
   });
 
   it('throws a reverted execution error immediately without cooling the endpoint', async () => {
