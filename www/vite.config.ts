@@ -78,7 +78,14 @@ export default defineConfig({
   plugins: native ? [nativeBundle()] : [],
   vite: {
     ...(native
-      ? { publicDir: false, environments: { client: { build: { outDir: "dist-native" } } } }
+      ? {
+          publicDir: false,
+          // Keep min/max-width media queries in APKs. Modern minification can
+          // otherwise turn every phone breakpoint into range syntax that older
+          // Android WebViews ignore, leaving desktop columns and navigation.
+          build: { cssTarget: "chrome99" },
+          environments: { client: { build: { outDir: "dist-native" } } },
+        }
       : {}),
     server: {
       host: true,
