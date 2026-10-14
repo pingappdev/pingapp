@@ -1162,3 +1162,56 @@ html.ping-native [data-slot="dialog-content"], html.ping-native [data-slot="aler
   outline: 2px solid #c5a5ff;
   outline-offset: 2px;
 }
+
+/* A short, labelled native tab bar leaves comfortable touch targets on phones.
+   The full section list lives in More instead of seven crowded icon-only tabs. */
+@media (max-width: 767px) {
+  html.ping-native .native-mobile-tabbar { border-radius: 22px; }
+  html.ping-native .native-mobile-tabbar > a,
+  html.ping-native .native-mobile-tabbar > button {
+    flex: 1;
+    min-width: 0;
+    min-height: 52px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 7px 4px;
+    border: 0;
+    border-radius: 16px;
+    background: transparent;
+    color: var(--ping-text-2, #9d97ad);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.2;
+    cursor: pointer;
+  }
+  html.ping-native .native-mobile-tabbar > [data-active=true] {
+    background: var(--ping-accent, #ab9ff2);
+    color: #1a1430;
+  }
+  html.ping-native .native-mobile-tabbar > a > span { display: block; }
+  /* Only the current section belongs in the phone header. Controls use a
+     separate row; long titles may wrap instead of squeezing the account. */
+  html.ping-native .dashboard-header > div:first-child strong {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+.native-navigation-list { display: flex; flex-direction: column; gap: 6px; }
+.native-navigation-list > a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 12px;
+  border-radius: 12px;
+  color: #f5f2fa;
+  text-decoration: none;
+}
+.native-navigation-list > a > span { flex: 1; }
+.native-navigation-list > a[aria-current=page],
+.native-navigation-list > a:hover { background: #ab9ff224; }
+.native-navigation-list > a:focus-visible { outline: 2px solid #ab9ff2; }

@@ -1,7 +1,14 @@
 import { platform } from "@/platform";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
-import { ArrowLeft, ChevronRight, Download, Plus, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ChevronRight, Download, Menu, Plus, ShieldCheck } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   SidebarProvider,
   Sidebar,
@@ -173,27 +180,31 @@ function DashboardLayout() {
           )}
         </SidebarFooter>
       </Sidebar>
-      <nav className="ping-mobile-tabbar" aria-label="Dashboard sections">
-        {nav.map((item) => (
-          <a
-            key={item.id}
-            href={"/dashboard" + (item.id === "overview" ? "" : "/" + item.id)}
-            data-active={view === item.id}
-            aria-label={item.name}
-            aria-current={view === item.id ? "page" : undefined}
-            title={item.name}
-          >
-            <item.icon size={18} />
-            <span>
-              {item.name === "Send crypto"
-                ? "Send"
-                : item.name === "Pending sends"
-                  ? "Pending"
-                  : item.name}
-            </span>
-          </a>
-        ))}
-      </nav>
+      {platform.isNative ? (
+        <NativeMobileNavigation />
+      ) : (
+        <nav className="ping-mobile-tabbar" aria-label="Dashboard sections">
+          {nav.map((item) => (
+            <a
+              key={item.id}
+              href={"/dashboard" + (item.id === "overview" ? "" : "/" + item.id)}
+              data-active={view === item.id}
+              aria-label={item.name}
+              aria-current={view === item.id ? "page" : undefined}
+              title={item.name}
+            >
+              <item.icon size={18} />
+              <span>
+                {item.name === "Send crypto"
+                  ? "Send"
+                  : item.name === "Pending sends"
+                    ? "Pending"
+                    : item.name}
+              </span>
+            </a>
+          ))}
+        </nav>
+      )}
       <div className="dashboard-shell">
         <header className="dashboard-header">
           <div>
@@ -307,4 +318,70 @@ function DashboardNavigation() {
     return () => window.removeEventListener("pingapp:navigation-start", close);
   }, [setOpenMobile]);
   return null;
+}
+
+function NativeMobileNavigation() {
+  const { view } = useDashboard();
+  const [open, setOpen] = useState(false);
+  const primary = ["overview", "send", "activity"];
+  useEffect(() => {
+    const close = () => setOpen(false);
+    window.addEventListener("pingapp:navigation-start", close);
+    return () => window.removeEventListener("pingapp:navigation-start", close);
+  }, []);
+  return (
+    <>
+      <nav className="ping-mobile-tabbar native-mobile-tabbar" aria-label="Dashboard sections">
+        {nav
+          .filter((item) => primary.includes(item.id))
+          .map((item) => (
+            <a
+              key={item.id}
+              href={"/dashboard" + (item.id === "overview" ? "" : "/" + item.id)}
+              data-active={view === item.id}
+              aria-label={item.name}
+              aria-current={view === item.id ? "page" : undefined}
+            >
+              <item.icon size={20} />
+              <span>
+                {item.id === "overview" ? "Home" : item.id === "send" ? "Send" : "Activity"}
+              </span>
+            </a>
+          ))}
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          data-active={!primary.includes(view)}
+          aria-label="More sections"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+        >
+          <Menu size={20} />
+          <span>More</span>
+        </button>
+      </nav>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="ping-dialog native-navigation-dialog">
+          <DialogHeader>
+            <DialogTitle>Go to</DialogTitle>
+            <DialogDescription>Choose a section of your wallet.</DialogDescription>
+          </DialogHeader>
+          <nav aria-label="All dashboard sections" className="native-navigation-list">
+            {nav.map((item) => (
+              <a
+                key={item.id}
+                href={"/dashboard" + (item.id === "overview" ? "" : "/" + item.id)}
+                aria-current={view === item.id ? "page" : undefined}
+                onClick={() => setOpen(false)}
+              >
+                <item.icon size={20} />
+                <span>{item.name}</span>
+                <ChevronRight size={16} />
+              </a>
+            ))}
+          </nav>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 }
