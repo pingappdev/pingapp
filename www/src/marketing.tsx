@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
 import { ArrowUpRight, Menu, X, Send } from "lucide-react";
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 const slides = [
   {
     label: "We Are PingApp",
@@ -37,8 +36,7 @@ export default function Marketing({ page = "home" }: { page?: string }) {
   const [feature, setFeature] = useState(0);
   const [slide, setSlide] = useState(0),
     [menu, setMenu] = useState(false),
-    [mobile, setMobile] = useState(false),
-    [social, setSocial] = useState("");
+    [mobile, setMobile] = useState(false);
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const t = setTimeout(() => setSlide((s) => (s + 1) % 3), 6500);
@@ -339,19 +337,34 @@ export default function Marketing({ page = "home" }: { page?: string }) {
             <p className="eyebrow">CONNECT</p>
             <a href="/contact">Contact Us</a>
             <div className="socials">
-              <button aria-label="X" onClick={() => setSocial("X")}>
+              <a
+                aria-label="X"
+                href="https://x.com/pingapp_bank"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M18.9 2H22l-6.8 7.8L23.2 22h-6.3L12 14.6 5.5 22H2.4l7.8-9L.8 2h6.5l5.3 7.1L18.9 2Zm-1.1 18h1.7L6.4 3.9H4.6L17.8 20Z" />
                 </svg>
-              </button>
-              <button aria-label="GitHub" onClick={() => setSocial("GitHub")}>
+              </a>
+              <a
+                aria-label="GitHub"
+                href="https://github.com/pingappdev/pingapp"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 .8a11.2 11.2 0 0 0-3.54 21.83c.56.1.77-.24.77-.54v-2.1c-3.14.68-3.8-1.33-3.8-1.33-.52-1.3-1.27-1.65-1.27-1.65-1.02-.7.08-.69.08-.69 1.13.08 1.72 1.16 1.72 1.16 1 1.71 2.62 1.22 3.26.93.1-.73.39-1.22.71-1.5-2.5-.29-5.13-1.25-5.13-5.56 0-1.23.44-2.23 1.16-3.02-.12-.29-.5-1.43.11-2.98 0 0 .95-.3 3.08 1.15a10.7 10.7 0 0 1 5.6 0c2.14-1.45 3.08-1.15 3.08-1.15.61 1.55.23 2.69.12 2.98.72.79 1.15 1.79 1.15 3.02 0 4.32-2.64 5.27-5.15 5.55.4.35.76 1.03.76 2.08v3.1c0 .3.2.65.78.54A11.2 11.2 0 0 0 12 .8Z" />
                 </svg>
-              </button>
-              <button aria-label="Telegram" onClick={() => setSocial("Telegram")}>
+              </a>
+              <a
+                aria-label="Telegram"
+                href="https://t.me/pingapportal"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <Send size={19} />
-              </button>
+              </a>
             </div>
           </div>
           <div>
@@ -370,14 +383,6 @@ export default function Marketing({ page = "home" }: { page?: string }) {
           <small>© {new Date().getFullYear()} PingApp</small>
         </div>
       </footer>
-      <Dialog open={!!social} onOpenChange={() => setSocial("")}>
-        <DialogContent>
-          <DialogTitle>Coming soon</DialogTitle>
-          <DialogDescription>
-            PingApp on {social}. Our next connection is on its way.
-          </DialogDescription>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

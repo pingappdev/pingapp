@@ -1,4 +1,5 @@
 (() => {
+  const socialLinks = { x: 'https://x.com/pingapp_bank', telegram: 'https://t.me/pingapportal', github: 'https://github.com/pingappdev/pingapp' };
   const dialog = document.createElement('dialog');
   dialog.className = 'ping-modal'; dialog.setAttribute('aria-labelledby', 'ping-modal-title'); document.body.append(dialog);
   let lastFocus;
@@ -68,7 +69,7 @@
       else if (href.startsWith('./')) { let target = href.slice(2); if (/^(private-payments|receive-your-way|card-in-control|private-payroll)$/.test(target)) target = 'use-cases/' + target; if (/^(phone-to-wallet|wallet-ownership|phone-identity|evm-balances)$/.test(target)) target = 'guides/' + target; a.setAttribute('href', '/' + target); }
       const match = href.match(/coming-soon-(telegram|x|github)/);
       if (match && !a.dataset.pingSocial) {
-        const platform = match[1]; a.dataset.pingSocial = platform; a.removeAttribute('target'); a.classList.add('ping-social'); a.setAttribute('aria-label', ({telegram:'Telegram',x:'X',github:'GitHub'})[platform]);
+        const platform = match[1]; a.dataset.pingSocial = platform; a.href = socialLinks[platform]; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.classList.add('ping-social'); a.setAttribute('aria-label', ({telegram:'Telegram',x:'X',github:'GitHub'})[platform]);
         const svg = '<img class="ping-social-icon" src="/assets/icons/'+platform+'.svg" alt="" aria-hidden="true">', icon = a.querySelector('.framer-1not2r4');
         if (icon) { icon.className = 'framer-1not2r4 ping-native-social-icon'; icon.innerHTML = svg; } else a.insertAdjacentHTML('afterbegin', svg);
       }
