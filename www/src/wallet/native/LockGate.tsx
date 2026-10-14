@@ -12,6 +12,7 @@ import { keyManager, WalletError } from "./keyManager";
 import { lockAccess, unlockWallet } from "./lockPolicy";
 import { useQueryClient } from "@tanstack/react-query";
 import { walletCleanup } from "./walletCleanup";
+import { Keyboard } from "@capacitor/keyboard";
 
 export default function LockGate({ children }: { children: ReactNode }) {
   const state = useSyncExternalStore(keyManager.subscribe, keyManager.getState);
@@ -53,6 +54,9 @@ export default function LockGate({ children }: { children: ReactNode }) {
     const style = document.createElement("style");
     style.textContent = "html::view-transition { display: none !important; }";
     document.head.append(style);
+    // WebView blur does not reliably dismiss Android's separate IME window.
+    // Hide it for every gated state as well as the temporary resume curtain.
+    void Keyboard.hide().catch(() => {});
     return () => style.remove();
   }, [suppressSnapshots]);
   useLayoutEffect(() => {
