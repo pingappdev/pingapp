@@ -56,6 +56,31 @@ describe('RPC pool', () => {
     await expect(failure).rejects.toBeInstanceOf(AppError);
   });
 
+  it.each([400, 200])('falls back for an Alchemy log range cap returned with HTTP %s', async (status) => {
+    const params = [{ address: '0xa132671d343d93f3e3cf6edac8a90b6965e2d3c2', fromBlock: '0x100', toBlock: '0x1ff' }];
+    const seen: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      seen.push(String(input));
+      expect(JSON.parse(String(init?.body))).toMatchObject({ method: 'eth_getLogs', params });
+      return seen.length === 1
+        ? jsonResponse({ error: { code: -32600, message: 'Under the Free tier plan, you can make eth_getLogs requests with up to a 10 block range.' } }, status)
+        : jsonResponse({ result: [] });
+    }));
+    const pool = createRpcPool({ alchemyUrls: ['https://alchemy.invalid/key'], publicUrl: 'https://rpc.invalid' });
+    await expect(pool.rpc('eth_getLogs', params)).resolves.toEqual([]);
+    expect(seen).toEqual(['https://alchemy.invalid/key', 'https://rpc.invalid']);
+    expect(pool.poolStatus()[0]).toMatchObject({ failures: 1 });
+  });
+
+  it.each([400, 200])('does not retry an invalid log filter returned with HTTP %s', async (status) => {
+    const fetchMock = vi.fn(async () => jsonResponse({ error: { code: -32602, message: 'block range extends beyond current head block' } }, status));
+    vi.stubGlobal('fetch', fetchMock);
+    const pool = createRpcPool({ alchemyUrls: ['https://alchemy.invalid/key'], publicUrl: 'https://rpc.invalid' });
+    await expect(pool.rpc('eth_getLogs', [{ fromBlock: '0x100', toBlock: '0x1ff' }])).rejects.toBeInstanceOf(RpcError);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(pool.poolStatus().every(s => s.failures === 0)).toBe(true);
+  });
+
   it('throws a reverted execution error immediately without cooling the endpoint', async () => {
     const fetchMock = vi.fn(async () => jsonResponse({
       jsonrpc: '2.0',

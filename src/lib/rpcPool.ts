@@ -46,6 +46,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+function isLogRangeLimit(endpoint: Endpoint, method: string, error: unknown): boolean {
+  if (endpoint.kind !== 'alchemy' || method !== 'eth_getLogs' || !isRecord(error)) return false;
+  if (error.code !== -32600 && error.code !== -32602) return false;
+  return typeof error.message === 'string' && /block range/i.test(error.message) &&
+    /free tier|tier plan|up to a?\s*\d+|range limit/i.test(error.message);
+}
+
 function retryAfterMs(failures: number): number {
   return Math.min(60_000, (2 ** failures) * 2_000);
 }
@@ -105,6 +112,14 @@ export function createRpcPool({ alchemyUrls, publicUrl }: RpcPoolConfig) {
       if (!response.ok) {
         if (response.status === 429) throw new RetryableFailure('http_429');
         if (response.status >= 500) throw new RetryableFailure('http_5xx');
+        // Alchemy's free-tier log range cap is an endpoint limitation, not an
+        // invalid filter. Let another provider serve the unchanged read request.
+        if (response.status === 400 && endpoint.kind === 'alchemy' && method === 'eth_getLogs') {
+          const body: unknown = await response.json().catch(() => null);
+          if (isRecord(body) && isLogRangeLimit(endpoint, method, body.error)) {
+            throw new RetryableFailure('rpc_log_range_limit');
+          }
+        }
         throw new RpcError(response.status, `RPC endpoint returned HTTP ${response.status}.`);
       }
 
@@ -122,6 +137,7 @@ export function createRpcPool({ alchemyUrls, publicUrl }: RpcPoolConfig) {
           throw new RetryableFailure('invalid_response');
         }
         const lowerMessage = rpcError.message.toLowerCase();
+        if (isLogRangeLimit(endpoint, method, rpcError)) throw new RetryableFailure('rpc_log_range_limit');
         if (rpcError.code === -32005 || (rpcError.code === -32603 && lowerMessage.includes('rate')) || lowerMessage.includes('429')) {
           throw new RetryableFailure('rpc_rate_limit');
         }
