@@ -593,7 +593,7 @@ function InnerPage({ page }: { page: string }) {
               ],
               [
                 "Minimum transfer",
-                "PingApp only supports sends worth at least $2 (the configured minimum), to prevent spam. Smaller amounts can still be sent directly from your wallet, outside PingApp. When ETH pricing is unavailable, the app shows the configured ETH minimum instead.",
+                "PingApp supports sends worth at least $10 to prevent spam. When price data is unavailable, ETH and WETH sends require at least 0.005 ETH or 0.005 WETH. Fees and network gas are additional. Smaller amounts can still be sent directly from your wallet, outside PingApp.",
               ],
               [
                 "Supported network",
