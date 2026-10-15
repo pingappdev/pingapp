@@ -139,3 +139,19 @@ nav .ping-open-app{display:inline-flex;align-items:center;justify-content:center
 nav .ping-open-app:hover{background:#ffffff30}
 nav .ping-open-app:focus-visible{outline:2px solid #fff;outline-offset:4px}
 @media(max-width:809px){nav [data-framer-name="Menu Wrapper"]{gap:12px!important}nav .ping-open-app{padding:8px 12px;font-size:13px}}
+a[href="/use-cases/receive-your-way"]{display:none!important}
+.framer-xw6mdo{position:static!important}
+.framer-pax2nw{position:absolute!important;left:15px!important;top:310px!important;place-self:auto!important;z-index:3;transform:scale(0.8);transform-origin:top left}
+.framer-xw6mdo .framer-1aum5bp{margin-top:0!important}
+.framer-co5o3z,.framer-ltoug8{display:none!important}
+.framer-chv4gb{display:none!important}
+.framer-ub043m,.framer-ub043m .framer-text{white-space:nowrap!important;width:auto!important;max-width:none!important;font-size:16px!important}
+.framer-l3i8ii,.framer-l3i8ii .framer-text{white-space:nowrap!important;width:auto!important;max-width:none!important}
+.framer-h0wow7,.framer-mzjrcs{display:none!important}
+.framer-hubsyq{display:none!important}
+.framer-iw79px-container,.framer-1gmrlpo-container,.framer-1lz5qlr-container,.framer-1f6qg6i-container,.framer-l3vkaw-container{display:none!important}
+a[href="/about"],a[href^="/about/"],a[href="/use-cases"],a[href^="/use-cases/"]{display:none!important}
+.framer-16uzb05,.framer-1rcg40o-container{display:none!important}
+.framer-rovhuc{display:none!important}
+nav p.framer-text.framer-styles-preset-1qocsph{display:none!important}
+section[data-framer-name="Features"] [data-framer-name="Content"]{gap:28px!important}

@@ -132,3 +132,29 @@
   new MutationObserver(() => { if (!scheduled) { scheduled = true; queueMicrotask(() => { scheduled = false; cleanup(); }); } }).observe(document.getElementById('main'), { childList:true, subtree:true });
   window.addEventListener('resize', cleanup, {passive:true}); document.addEventListener('framer:pageview', cleanup); cleanup();
 })();
+
+// Nav sidebar still ships /guides href after Framer bundle text swap; redirect to /features.
+(() => {
+  const fix = () => {
+    document.querySelectorAll('a[href="/guides"]').forEach(a => a.setAttribute('href', '/features'));
+  };
+  fix();
+  new MutationObserver(fix).observe(document.documentElement, {subtree: true, childList: true});
+})();
+
+// Hide all leftover numeric badges "(01)" / "01" style across the site.
+(() => {
+  const pattern = /^\(?\d{1,2}\)?$/;
+  const hide = () => {
+    document.querySelectorAll('p.framer-text').forEach(p => {
+      const t = p.textContent?.trim();
+      if (t && pattern.test(t) && p.style.display !== 'none') {
+        p.style.setProperty('display', 'none', 'important');
+        const parent = p.parentElement;
+        if (parent && parent.children.length === 1) parent.style.setProperty('display', 'none', 'important');
+      }
+    });
+  };
+  hide();
+  new MutationObserver(hide).observe(document.documentElement, {subtree: true, childList: true});
+})();
