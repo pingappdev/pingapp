@@ -10,18 +10,33 @@ export const Route = createFileRoute("/download")({
           "Install PingApp on Android. Send crypto by phone number, manage private balances, and keep your wallet under your control.",
       },
       { property: "og:title", content: "Download PingApp" },
-      { property: "og:description", content: "Install PingApp on Android to send crypto by phone number." },
+      {
+        property: "og:description",
+        content: "Install PingApp on Android to send crypto by phone number.",
+      },
     ],
   }),
   component: Download,
 });
 
 const features = [
-  { label: "Phone-first payments", text: "Send and receive by phone number instead of long wallet addresses." },
+  {
+    label: "Phone-first payments",
+    text: "Send and receive by phone number instead of long wallet addresses.",
+  },
   { label: "Private balances", text: "Shielded USDC and ETH balances, non-custodial by design." },
-  { label: "Wallet control", text: "Your keys stay with you — approve every transfer from the app." },
-  { label: "Requests & splits", text: "Create invoices, payment links, and group splits with QR sharing." },
-  { label: "Card & controls", text: "Spend from a private balance with the card program of your choice." },
+  {
+    label: "Wallet control",
+    text: "Your keys stay with you — approve every transfer from the app.",
+  },
+  {
+    label: "Requests & splits",
+    text: "Create invoices, payment links, and group splits with QR sharing.",
+  },
+  {
+    label: "Card & controls",
+    text: "Spend from a private balance with the card program of your choice.",
+  },
   { label: "Recurring & payroll", text: "Schedule regular sends and bounded agent payments." },
 ];
 
@@ -55,9 +70,12 @@ function Download() {
             Download .apk
           </a>
           <p className="download-note">
-            iOS build arrives after the first public release. Prefer the web dashboard in the meantime?
-            {" "}
-            <Link to="/dashboard" className="download-link">Open app</Link>.
+            iOS build arrives after the first public release. Prefer the web dashboard in the
+            meantime?{" "}
+            <Link to="/dashboard" className="download-link">
+              Open app
+            </Link>
+            .
           </p>
         </div>
       </section>
