@@ -44,11 +44,14 @@ function Download() {
               <span>APK · Latest build</span>
             </div>
           </div>
-          <div className="download-apk-slot" aria-label="APK download placeholder">
-            <span>APK will appear here</span>
-            <small>The install file is attached in the next release.</small>
+          <div className="download-apk-slot" aria-label="Android APK download">
+            <span>pingapp.apk</span>
+            <small>Download the latest Android release from GitHub.</small>
           </div>
-          <a className="download-cta is-disabled" aria-disabled="true" href="#">
+          <a
+            className="download-cta"
+            href="https://github.com/pingappdev/pingapp/releases/latest/download/pingapp.apk"
+          >
             Download .apk
           </a>
           <p className="download-note">

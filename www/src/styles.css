@@ -1281,7 +1281,7 @@ html.ping-native [data-slot="dialog-content"], html.ping-native [data-slot="aler
   background: linear-gradient(100deg, #853df5, #d62ea2 60%, #ff2744);
   color: #fff; font-weight: 600; font-size: 15px; text-decoration: none;
 }
-.download-cta.is-disabled { opacity: 0.4; pointer-events: none; cursor: not-allowed; }
+.download-cta:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
 .download-note { margin: 20px 0 0; font-size: 14px; opacity: 0.7; }
 .download-link { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
 .download-features ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
