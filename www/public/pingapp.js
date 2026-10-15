@@ -56,6 +56,12 @@
       link.textContent = 'Open app';
       link.dataset.nativeNavigation = 'true';
       wrapper.prepend(link);
+      const dl = document.createElement('a');
+      dl.className = 'ping-download-app';
+      dl.href = '/download';
+      dl.textContent = 'Download app';
+      dl.dataset.nativeNavigation = 'true';
+      link.insertAdjacentElement('afterend', dl);
     });
     for(const [text] of textMeasurements)if(!text.isConnected){textResize.unobserve(text);textMeasurements.delete(text);}
     document.querySelectorAll('.framer-1xt7p1o,.framer-1wn17cx,.framer-jleosx').forEach(wrapper=>{

@@ -147,7 +147,7 @@ a[href="/use-cases/receive-your-way"]{display:none!important}
 .framer-chv4gb{display:none!important}
 .framer-ub043m,.framer-ub043m .framer-text{white-space:nowrap!important;width:auto!important;max-width:none!important;font-size:16px!important}
 .framer-l3i8ii,.framer-l3i8ii .framer-text{white-space:nowrap!important;width:auto!important;max-width:none!important}
-.framer-h0wow7,.framer-mzjrcs{display:none!important}
+.framer-h0wow7{display:none!important}
 .framer-hubsyq{display:none!important}
 .framer-iw79px-container,.framer-1gmrlpo-container,.framer-1lz5qlr-container,.framer-1f6qg6i-container,.framer-l3vkaw-container{display:none!important}
 a[href="/about"],a[href^="/about/"],a[href="/use-cases"],a[href^="/use-cases/"]{display:none!important}
@@ -155,3 +155,16 @@ a[href="/about"],a[href^="/about/"],a[href="/use-cases"],a[href^="/use-cases/"]{
 .framer-rovhuc{display:none!important}
 nav p.framer-text.framer-styles-preset-1qocsph{display:none!important}
 section[data-framer-name="Features"] [data-framer-name="Content"]{gap:28px!important}
+nav .ping-download-app{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:10px 16px;border:1px solid #ffffff70;border-radius:6px;background:#ffffff16;color:#fff;font:600 14px/1.2 Inter,Arial,sans-serif;white-space:nowrap;text-decoration:none;margin-left:8px}
+nav .ping-download-app:hover{background:#ffffff30}
+nav .ping-download-app:focus-visible{outline:2px solid #fff;outline-offset:4px}
+@media(max-width:809px){nav .ping-download-app{padding:8px 12px;font-size:13px}}
+.framer-1i7qccc{justify-content:flex-start!important;gap:40px!important;grid-column:2/span 1!important}
+nav .framer-1dx7wx7{padding-left:20px!important;padding-right:20px!important}
+nav .framer-1u193f{max-width:none!important;width:100%!important;grid-template-columns:auto 1fr auto!important;gap:40px!important}
+nav .framer-yvd112{grid-column:1!important}
+nav .framer-1i7qccc{grid-column:2!important;justify-self:start!important}
+nav .framer-44lp3r{grid-column:3!important;justify-self:end!important;margin-right:0!important;gap:12px!important}
+nav .framer-11mrcg8-container{margin-right:0!important}
+nav .framer-1l8l86h{grid-column:3!important;grid-row:1!important}
+.framer-1qzwmzm{opacity:0!important;visibility:hidden!important;pointer-events:none!important;transition:none!important;animation:none!important}

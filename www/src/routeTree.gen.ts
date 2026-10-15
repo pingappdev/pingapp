@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SplatRouteImport } from './routes/$'
+import { Route as DownloadRouteImport } from './routes/download'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LogoutRouteImport } from './routes/logout'
 import { Route as ClaimCodeRouteImport } from './routes/claim.$code'
@@ -25,6 +26,11 @@ const IndexRoute = IndexRouteImport.update({
 const SplatRoute = SplatRouteImport.update({
   id: '/$',
   path: '/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DownloadRoute = DownloadRouteImport.update({
+  id: '/download',
+  path: '/download',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -56,6 +62,7 @@ const DashboardViewRoute = DashboardViewRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/download': typeof DownloadRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
   '/claim/$code': typeof ClaimCodeRoute
@@ -65,6 +72,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/download': typeof DownloadRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
   '/claim/$code': typeof ClaimCodeRoute
@@ -75,6 +83,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/download': typeof DownloadRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
   '/claim/$code': typeof ClaimCodeRoute
@@ -86,6 +95,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/$'
+    | '/download'
     | '/login'
     | '/logout'
     | '/claim/$code'
@@ -95,6 +105,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/$'
+    | '/download'
     | '/login'
     | '/logout'
     | '/claim/$code'
@@ -104,6 +115,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/$'
+    | '/download'
     | '/login'
     | '/logout'
     | '/claim/$code'
@@ -114,6 +126,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
+  DownloadRoute: typeof DownloadRoute
   LoginRoute: typeof LoginRoute
   LogoutRoute: typeof LogoutRoute
   ClaimCodeRoute: typeof ClaimCodeRoute
@@ -135,6 +148,13 @@ declare module '@tanstack/react-router' {
       path: '/$'
       fullPath: '/$'
       preLoaderRoute: typeof SplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/download': {
+      id: '/download'
+      path: '/download'
+      fullPath: '/download'
+      preLoaderRoute: typeof DownloadRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -178,6 +198,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
+  DownloadRoute: DownloadRoute,
   LoginRoute: LoginRoute,
   LogoutRoute: LogoutRoute,
   ClaimCodeRoute: ClaimCodeRoute,
