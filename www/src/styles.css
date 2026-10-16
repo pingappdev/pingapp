@@ -1243,11 +1243,14 @@ html.ping-native [data-slot="dialog-content"], html.ping-native [data-slot="aler
 .download-eyebrow {
   font-size: 12px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.6; margin: 0 0 20px;
 }
+.download-page h1, .download-page h2, .download-page h3 {
+  font-family: Inter, "Inter Placeholder", system-ui, sans-serif;
+}
 .download-page h1 {
   font-size: clamp(44px, 7vw, 88px); font-weight: 600; letter-spacing: -2px; line-height: 1.02; margin: 0 0 24px;
 }
 .download-page h2 {
-  font-size: clamp(28px, 4vw, 48px); font-weight: 600; letter-spacing: -1px; margin: 0 0 24px;
+  font-size: clamp(28px, 4vw, 48px); font-weight: 600; letter-spacing: -1px; line-height: 1.03; margin: 0 0 24px;
 }
 .download-lede { font-size: 18px; line-height: 1.55; opacity: 0.78; max-width: 640px; margin: 0 0 48px; }
 .download-card {

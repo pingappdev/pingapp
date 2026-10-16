@@ -53,15 +53,32 @@
       const link = document.createElement('a');
       link.className = 'ping-open-app';
       link.href = '/dashboard';
-      link.textContent = 'Open app';
+      link.textContent = 'App';
       link.dataset.nativeNavigation = 'true';
       wrapper.prepend(link);
       const dl = document.createElement('a');
       dl.className = 'ping-download-app';
       dl.href = '/download';
-      dl.textContent = 'Download app';
+      dl.textContent = 'Download';
       dl.dataset.nativeNavigation = 'true';
       link.insertAdjacentElement('afterend', dl);
+      const socials = [
+        {href: 'https://t.me/pingapportal', label: 'Telegram', svg: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9.78 15.3l-.4 5.6c.57 0 .81-.24 1.1-.53l2.64-2.52 5.47 4c1 .55 1.72.26 1.99-.93l3.6-16.9c.37-1.5-.55-2.09-1.52-1.73L.53 9.57c-1.46.57-1.44 1.4-.25 1.78l5.56 1.73L18.33 5.5c.6-.4 1.16-.18.7.22"/></svg>'},
+        {href: 'https://x.com/pingapp_bank', label: 'X', svg: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24h-6.657l-5.214-6.817-5.966 6.817H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231 5.45-6.231Zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77Z"/></svg>'},
+        {href: 'https://github.com/pingappdev/pingapp', label: 'GitHub', svg: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.42c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.32-1.27-1.67-1.27-1.67-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.68 1.24 3.33.95.1-.74.4-1.24.73-1.52-2.56-.29-5.25-1.28-5.25-5.72 0-1.26.45-2.3 1.18-3.11-.12-.3-.52-1.48.11-3.09 0 0 .97-.31 3.18 1.19a11.1 11.1 0 0 1 5.78 0c2.2-1.5 3.18-1.19 3.18-1.19.63 1.6.23 2.78.11 3.08.74.82 1.18 1.86 1.18 3.12 0 4.46-2.7 5.43-5.26 5.72.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg>'},
+      ];
+      let anchor = dl;
+      for (const s of socials) {
+        const el = document.createElement('a');
+        el.className = 'ping-social-chip';
+        el.href = s.href;
+        el.target = '_blank';
+        el.rel = 'noopener noreferrer';
+        el.setAttribute('aria-label', s.label);
+        el.innerHTML = s.svg;
+        anchor.insertAdjacentElement('afterend', el);
+        anchor = el;
+      }
     });
     for(const [text] of textMeasurements)if(!text.isConnected){textResize.unobserve(text);textMeasurements.delete(text);}
     document.querySelectorAll('.framer-1xt7p1o,.framer-1wn17cx,.framer-jleosx').forEach(wrapper=>{
@@ -152,7 +169,7 @@
 (() => {
   const pattern = /^\(?\d{1,2}\)?$/;
   const hide = () => {
-    document.querySelectorAll('p.framer-text').forEach(p => {
+    document.querySelectorAll('p.framer-text, div.framer-text').forEach(p => {
       const t = p.textContent?.trim();
       if (t && pattern.test(t) && p.style.display !== 'none') {
         p.style.setProperty('display', 'none', 'important');

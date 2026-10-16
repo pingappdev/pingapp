@@ -155,16 +155,36 @@ a[href="/about"],a[href^="/about/"],a[href="/use-cases"],a[href^="/use-cases/"]{
 .framer-rovhuc{display:none!important}
 nav p.framer-text.framer-styles-preset-1qocsph{display:none!important}
 section[data-framer-name="Features"] [data-framer-name="Content"]{gap:28px!important}
-nav .ping-download-app{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:10px 16px;border:1px solid #ffffff70;border-radius:6px;background:#ffffff16;color:#fff;font:600 14px/1.2 Inter,Arial,sans-serif;white-space:nowrap;text-decoration:none;margin-left:8px}
+nav .ping-download-app{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:10px 16px;border:1px solid #ffffff70;border-radius:6px;background:#ffffff16;color:#fff;font:600 14px/1.2 Inter,Arial,sans-serif;white-space:nowrap;text-decoration:none;margin-left:0}
 nav .ping-download-app:hover{background:#ffffff30}
 nav .ping-download-app:focus-visible{outline:2px solid #fff;outline-offset:4px}
 @media(max-width:809px){nav .ping-download-app{padding:8px 12px;font-size:13px}}
 .framer-1i7qccc{justify-content:flex-start!important;gap:40px!important;grid-column:2/span 1!important}
 nav .framer-1dx7wx7{padding-left:20px!important;padding-right:20px!important}
-nav .framer-1u193f{max-width:none!important;width:100%!important;grid-template-columns:auto 1fr auto!important;gap:40px!important}
-nav .framer-yvd112{grid-column:1!important}
-nav .framer-1i7qccc{grid-column:2!important;justify-self:start!important}
-nav .framer-44lp3r{grid-column:3!important;justify-self:end!important;margin-right:0!important;gap:12px!important}
+nav .framer-1u193f{max-width:none!important;width:100%!important;grid-template-columns:auto auto 1fr auto!important;gap:10px!important}
+nav .framer-yvd112{grid-column:1!important;display:none!important}
+nav .framer-1i7qccc{grid-column:1!important;justify-self:start!important;gap:10px!important}
+nav .framer-44lp3r{grid-column:2!important;justify-self:start!important;margin-right:0!important;gap:10px!important}
+nav .framer-1l8l86h{grid-column:4!important;justify-self:end!important}
 nav .framer-11mrcg8-container{margin-right:0!important}
 nav .framer-1l8l86h{grid-column:3!important;grid-row:1!important}
 .framer-1qzwmzm{opacity:0!important;visibility:hidden!important;pointer-events:none!important;transition:none!important;animation:none!important}
+.framer-pax2nw{display:none!important}
+.framer-1nu1so1-container{display:none!important}
+.framer-n5dzcu{display:none!important}
+nav .framer-yvd112{display:none!important}
+nav .framer-1i7qccc a.framer-THzRM{display:inline-flex!important;box-sizing:border-box!important;align-items:center!important;justify-content:center!important;height:34px!important;min-height:34px!important;width:120px!important;min-width:120px!important;padding:0 12px!important;border:1px solid #ffffff70!important;border-radius:6px!important;background:#ffffff16!important;color:#fff!important;font:600 13px/1.2 Inter,Arial,sans-serif!important;white-space:nowrap!important;text-decoration:none!important}
+nav .ping-open-app,nav .ping-download-app{display:inline-flex!important;box-sizing:border-box!important;align-items:center!important;justify-content:center!important;height:34px!important;min-height:34px!important;width:120px!important;min-width:120px!important;padding:0 12px!important;font-size:13px!important}
+nav .framer-1i7qccc a.framer-THzRM:hover{background:#ffffff30!important}
+nav .framer-1i7qccc a.framer-THzRM:focus-visible{outline:2px solid #fff;outline-offset:4px}
+img[alt="Plus Icon"]{display:none!important}
+nav .framer-1dx7wx7{position:relative!important}
+nav .framer-11mrcg8-container{position:absolute!important;right:20px!important;top:50%!important;transform:translateY(-50%)!important}
+nav .framer-44lp3r{padding-right:0!important}
+nav .framer-44lp3r{position:static!important}
+nav .framer-1i7qccc a.framer-THzRM span{font-size:13px!important;letter-spacing:0!important}
+nav .ping-social-chip{display:inline-flex!important;box-sizing:border-box!important;align-items:center!important;justify-content:center!important;height:34px!important;min-height:34px!important;width:40px!important;min-width:40px!important;padding:0!important;border:1px solid #ffffff70!important;border-radius:6px!important;background:#ffffff16!important;color:#fff!important;text-decoration:none!important}
+nav .ping-social-chip:hover{background:#ffffff30!important}
+nav .ping-social-chip:focus-visible{outline:2px solid #fff;outline-offset:4px}
+nav .ping-social-chip svg{width:16px;height:16px;display:block}
+nav .framer-11mrcg8-container{display:none!important}

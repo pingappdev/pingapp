@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/download")({
   head: () => ({
@@ -69,14 +69,6 @@ function Download() {
           >
             Download .apk
           </a>
-          <p className="download-note">
-            iOS build arrives after the first public release. Prefer the web dashboard in the
-            meantime?{" "}
-            <Link to="/dashboard" className="download-link">
-              Open app
-            </Link>
-            .
-          </p>
         </div>
       </section>
 
@@ -132,7 +124,7 @@ function Download() {
 
       <section className="download-features">
         <p className="download-eyebrow">What's inside</p>
-        <h2>Everything the dashboard does</h2>
+        <h2>Everything the app does</h2>
         <ul>
           {features.map((f) => (
             <li key={f.label}>
