@@ -116,7 +116,7 @@ fi
 "${docker_cmd[@]}" run --rm --cpus=2 --memory=3g --network host --user "${uid}:${gid}" \
   --env HOME=/tmp --env PATH=/ci-runtime/bin:/usr/local/bin:/usr/bin:/bin \
   --env NODE_ENV=test --env LOG_LEVEL=silent --env PORT=7410 --env CI_PREFIX="$prefix" \
-  --env PG_PORT="$postgres_port" --env REDIS_PORT="$redis_port" \
+  --env PG_PORT="$postgres_port" --env REDIS_PORT="$redis_port" --env ANVIL_PORT="$anvil_port" \
   --env MONITOR_DATABASE_URL="postgres://pingapp:ci-only-not-secret@127.0.0.1:${postgres_port}/${monitor_database_name}" \
   --env DATABASE_URL="postgres://pingapp:ci-only-not-secret@127.0.0.1:${postgres_port}/${database_name}" \
   --env POSTGRES_PASSWORD=ci-only-not-secret \
@@ -146,6 +146,7 @@ fi
     npm run migrate
     test -f test/f1-discovery.integration.test.ts || { echo "Required F1 integration test is missing." >&2; exit 1; }
     test -f test/sms-budget.integration.test.ts || { echo "Required F2 integration test is missing." >&2; exit 1; }
+    test -f test/indexer-recovery.integration.test.ts || { echo "Required full indexer recovery integration test is missing." >&2; exit 1; }
     test -f test/monitor.integration.test.ts || { echo "Required AUD-05 monitor integration test is missing." >&2; exit 1; }
     test -f test/worker-shutdown.integration.test.ts || { echo "Required worker shutdown integration test is missing." >&2; exit 1; }
     test -f test/token-eligibility.integration.test.ts || { echo "Required AUD-09 token eligibility integration test is missing." >&2; exit 1; }
@@ -159,6 +160,7 @@ fi
       --exclude test/monitor.integration.test.ts --exclude test/deployment-proof.test.ts \
       --exclude test/worker-shutdown.integration.test.ts \
       --exclude test/token-eligibility.integration.test.ts --exclude test/aud09.integration.test.ts \
+      --exclude test/indexer-recovery.integration.test.ts \
       --reporter=json --outputFile=/evidence/vitest-general.json; then :; else
       test_status=$?
       node scripts/ci/print-vitest-failures.mjs /evidence/vitest-general.json
@@ -180,6 +182,19 @@ fi
       --expect-file=test/sms-budget.integration.test.ts --expect-file=test/otp.test.ts \
       --expect-suite-count=test/sms-budget.integration.test.ts=14 \
       --expect-suite-count=test/otp.test.ts=3
+    PINGAPP_INDEXER_TEST_RESOURCE_PREFIX="$CI_PREFIX" \
+      PINGAPP_INDEXER_TEST_POSTGRES_PORT="$PG_PORT" \
+      PINGAPP_INDEXER_TEST_REDIS_PORT="$REDIS_PORT" \
+      PINGAPP_INDEXER_TEST_ANVIL_PORT="$ANVIL_PORT" \
+      PUBLIC_RPC_URL="http://127.0.0.1:${ANVIL_PORT}" ANVIL_RPC_URL="http://127.0.0.1:${ANVIL_PORT}" \
+      ALCHEMY_API_KEYS= SMS_DRIVER=seven SEVEN_API_KEY=fake-indexer-gateway-key \
+      SMS_ENABLED=true SMS_DAILY_CAP=12 SMS_FUNDED_INVITE_DAILY_BUDGET=4 \
+      SMS_CLAIM_OTP_DAILY_BUDGET=4 SMS_ONBOARDING_DAILY_BUDGET=3 SMS_ADMIN_DAILY_BUDGET=1 \
+      npm test -- test/indexer-recovery.integration.test.ts \
+        --reporter=json --outputFile=/evidence/vitest-indexer-recovery.json
+    node scripts/ci/assert-vitest-results.mjs /evidence/vitest-indexer-recovery.json \
+      --no-anvil \
+      --expect-file=test/indexer-recovery.integration.test.ts --expect-suite-count=test/indexer-recovery.integration.test.ts=2
     npm test -- test/deployment-proof.test.ts --reporter=json \
       --outputFile=/evidence/vitest-deployment-proof.json
     node scripts/ci/assert-vitest-results.mjs /evidence/vitest-deployment-proof.json --no-anvil \

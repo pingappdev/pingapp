@@ -60,7 +60,12 @@ export async function confirmEscrow(id: string, attempt: number): Promise<void> 
   for (const deposited of ids) await afterDeposit(deposited);
 }
 
-export async function indexEscrows(): Promise<void> {
+export type IndexEscrowsOptions = {
+  /** Runs after the indexed logs and cursor commit, before post-commit dispatch. */
+  afterPersistedBlock?: (depositedIds: readonly string[]) => Promise<void>;
+};
+
+export async function indexEscrows(options: IndexEscrowsOptions = {}): Promise<void> {
   if (!config.ROUTER_ADDRESS) return;
   const address = normAddress(config.ROUTER_ADDRESS);
   const scope = `${viemChain.id}:${address}`;
@@ -89,6 +94,7 @@ export async function indexEscrows(): Promise<void> {
       await kvSet('router:scope', scope, tx);
       return ids;
     });
+    await options.afterPersistedBlock?.(deposited);
     for (const id of deposited) await afterDeposit(id);
     from = to + 1n;
   }
@@ -225,7 +231,7 @@ export default async function registerJobs(ctx: WorkerCtx): Promise<void> {
     if (typeof data.escrowId !== 'string' || typeof data.attempt !== 'number' || !Number.isSafeInteger(data.attempt) || data.attempt < 0) return;
     await confirmEscrow(data.escrowId, data.attempt);
   });
-  ctx.process('escrows', 'index', indexEscrows);
+  ctx.process('escrows', 'index', async () => indexEscrows());
   ctx.process('escrows', 'relay', async (job) => relayClaim(job.data as ClaimJob));
   ctx.process('escrows', 'sweep', async () => {
     await db.update(escrows).set({ status: 'void' }).where(and(eq(escrows.status, 'authorized'),
