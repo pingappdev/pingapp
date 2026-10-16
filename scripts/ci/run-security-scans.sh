@@ -116,7 +116,7 @@ EOF
     --env HOME=/tmp --env SEMGREP_SEND_METRICS=off \
     --volume "$repo_root:/repo:ro" \
     --volume "$repo_root/scripts/ci/semgrep-rules.yml:/ci/semgrep-rules.yml:ro" \
-    --volume "$fixture:/fixture:ro" --entrypoint sh "$semgrep_image" -euc '
+    --volume "$fixture:/fixture" --entrypoint sh "$semgrep_image" -euc '
       set +e
       semgrep scan --config /ci/semgrep-rules.yml --metrics=off --disable-version-check \
         --strict --error --json --quiet /fixture > /tmp/semgrep-self-test.json
@@ -128,6 +128,50 @@ EOF
       fi
       python3 /repo/scripts/ci/assert-semgrep-report.py --expect-rule=ci.pingapp.security.direct-eval \
         /tmp/semgrep-self-test.json
+      mkdir -p /fixture/waiver
+      printf "%s\\n%s\\n" "const supplied = input;" "eval(supplied);" > /fixture/waiver/source.js
+      python3 - <<"PY"
+import hashlib, json
+from pathlib import Path
+source = Path("/fixture/waiver/source.js")
+line_hash = hashlib.sha256(source.read_bytes().splitlines(keepends=True)[1]).hexdigest()
+allowlist = {"schema": 1, "waivers": [{
+    "ruleId": "ci.pingapp.security.direct-eval",
+    "path": "source.js",
+    "line": 2,
+    "sourceLineSha256": line_hash,
+    "reason": "Synthetic self-test waiver.",
+}]}
+report = {
+    "errors": [],
+    "paths": {"scanned": ["/fixture/waiver/source.js"]},
+    "results": [{
+        "check_id": "ci.pingapp.security.direct-eval",
+        "path": "/fixture/waiver/source.js",
+        "start": {"line": 2},
+        "end": {"line": 2},
+        "extra": {"severity": "ERROR"},
+    }],
+}
+Path("/fixture/waiver/allowlist.json").write_text(json.dumps(allowlist), encoding="utf-8")
+Path("/fixture/waiver/report.json").write_text(json.dumps(report), encoding="utf-8")
+PY
+      python3 /repo/scripts/ci/assert-semgrep-report.py --minimum-scanned-files=1 \
+        --allowlist /fixture/waiver/allowlist.json --source-root /fixture/waiver \
+        --sanitized-output /fixture/waiver/safe-report.json /fixture/waiver/report.json
+      printf "%s\\n%s\\n" "const supplied = input;" "eval(changed);" > /fixture/waiver/source.js
+      set +e
+      python3 /repo/scripts/ci/assert-semgrep-report.py --minimum-scanned-files=1 \
+        --allowlist /fixture/waiver/allowlist.json --source-root /fixture/waiver \
+        --sanitized-output /fixture/waiver/stale-report.json /fixture/waiver/report.json \
+        > /tmp/semgrep-stale.stdout 2> /tmp/semgrep-stale.stderr
+      stale_status=$?
+      set -e
+      if [ "$stale_status" -ne 2 ] || ! grep -q "matched 0 times" /tmp/semgrep-stale.stderr; then
+        echo "The Semgrep stale-waiver self-test did not fail closed." >&2
+        exit 1
+      fi
+      echo "Semgrep source-anchored waiver acceptance and stale-anchor failure controls passed."
     '; then
     :
   else
@@ -158,6 +202,7 @@ echo 'Scanning first-party source with pinned Semgrep rules.'
   --volume "$evidence_dir:/evidence" \
   --volume "$repo_root/scripts/ci/semgrep-rules.yml:/ci/semgrep-rules.yml:ro" \
   --volume "$repo_root/scripts/ci/assert-semgrep-report.py:/ci/assert-semgrep-report.py:ro" \
+  --volume "$repo_root/scripts/ci/semgrep-allowlist.json:/ci/semgrep-allowlist.json:ro" \
   --workdir /scan --entrypoint sh "$semgrep_image" -euc '
     rules_dir=/tmp/semgrep-rules
     rules_commit=17e31e11ebac99fb7dfe1cd288f7a32151b6f3f9
@@ -190,12 +235,17 @@ echo 'Scanning first-party source with pinned Semgrep rules.'
       --exclude node_modules --exclude contracts/lib --exclude contracts/out \
       --exclude contracts/cache --exclude dist --exclude coverage --exclude .playwright-cli \
       --exclude www/public/runtime \
-      /scan > /evidence/semgrep-report.json
+      /scan > /tmp/semgrep-report.raw.json
     status=$?
     set -e
+    set +e
     python3 /ci/assert-semgrep-report.py --minimum-scanned-files=1 \
-      /evidence/semgrep-report.json
-    exit "$status"
+      --allowlist /ci/semgrep-allowlist.json --source-root /scan \
+      --sanitized-output /evidence/semgrep-report.json /tmp/semgrep-report.raw.json
+    validation_status=$?
+    set -e
+    if [ "$validation_status" -ne 0 ]; then exit "$validation_status"; fi
+    if [ "$status" -gt 1 ]; then exit "$status"; fi
   '
 
 echo 'Gitleaks and Semgrep gates passed.'

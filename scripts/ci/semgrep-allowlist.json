@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "waivers": [
+    {
+      "ruleId": "tmp.semgrep-rules.javascript.lang.security.insecure-object-assign",
+      "path": "contracts/script/deploy-fork.mjs",
+      "line": 45,
+      "sourceLineSha256": "a39f7872fd3d6dd6fe402520b5a4b744c465c58e5b41aa0bc9a5512e4872bc1e",
+      "reason": "Object.assign receives only fixed literal keys; no attacker-controlled property names are used."
+    },
+    {
+      "ruleId": "tmp.semgrep-rules.javascript.lang.security.html-in-template-string",
+      "path": "src/cli/admin.ts",
+      "line": 635,
+      "sourceLineSha256": "197bfa40ce3f20798370f2cbb48998de99d88c2525ea0fafe734c04a1037e4b9",
+      "reason": "This template is CLI prompt text and is not rendered as HTML."
+    },
+    {
+      "ruleId": "tmp.semgrep-rules.typescript.react.security.audit.react-unsanitized-method",
+      "path": "www/public/pingapp.js",
+      "line": 80,
+      "sourceLineSha256": "367951a3870829cd5f4a1ccc573cb8ab8ad1c7b50123b0559ff96d13828327f6",
+      "reason": "The platform value is constrained to the closed telegram, x, or github regex alternatives."
+    },
+    {
+      "ruleId": "tmp.semgrep-rules.javascript.lang.security.html-in-template-string",
+      "path": "www/src/lib/site-pages.server.ts",
+      "line": 25,
+      "sourceLineSha256": "4cb0f9d7bab44eb930735fc796cb041772adfe23fed25c9e70afae3897136bbb",
+      "reason": "HTML values are drawn only from committed photo-slots raw data, not user input."
+    }
+  ]
+}
