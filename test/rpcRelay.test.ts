@@ -4,12 +4,15 @@ import { AppError } from '../src/lib/errors.js';
 import { checkBatch, checkRequest } from '../src/modules/rpc/policy.js';
 
 const mocks = vi.hoisted(() => ({
-  rpc: vi.fn(), consume: vi.fn(), settings: {
+  rpc: vi.fn(), clientRpc: vi.fn(), consume: vi.fn(), settings: {
     RPC_RELAY_ENABLED: true, RPC_RELAY_MAX_BATCH: 20, RPC_RELAY_MAX_BODY_BYTES: 65536,
-    ALCHEMY_API_KEYS: ['provider-secret'], IP_HASH_SALT: 'test-ip-salt',
+    ALCHEMY_API_KEYS: ['provider-secret'], IP_HASH_SALT: 'test-ip-salt', TRUSTED_PROXY_IPS: ['127.0.0.1'],
+  },
+  rpcSettings: {
+    clientUrls: [] as string[], isolationRequired: false, userAttemptsPerMinute: 600, globalAttemptsPerMinute: 12000,
   },
 }));
-vi.mock('../src/config.js', () => ({ config: mocks.settings, allowedOrigins: ['http://localhost:7400'] }));
+vi.mock('../src/config.js', () => ({ config: mocks.settings, rpcSettings: mocks.rpcSettings, allowedOrigins: ['http://localhost:7400'] }));
 vi.mock('../src/plugins/auth.js', () => ({ readSessionToken: () => null }));
 vi.mock('../src/lib/rateLimit.js', () => ({
   limiter: (name: string, points: number, duration: number) => ({ name, points, duration }),
@@ -18,6 +21,8 @@ vi.mock('../src/lib/rateLimit.js', () => ({
 }));
 vi.mock('../src/lib/rpcPool.js', () => ({
   rpc: mocks.rpc,
+  clientRpc: mocks.clientRpc,
+  hasClientRpcEndpoints: () => mocks.rpcSettings.clientUrls.length > 0,
   RpcError: class extends Error {
     constructor(public code: number, message: string, public data?: unknown) { super(message); }
   },
@@ -91,14 +96,20 @@ describe('RPC relay policy', () => {
 
 beforeEach(() => {
   mocks.rpc.mockReset().mockResolvedValue('0x1237');
+  mocks.clientRpc.mockReset().mockResolvedValue('0x1237');
   mocks.consume.mockReset().mockResolvedValue(undefined);
   mocks.settings.RPC_RELAY_ENABLED = true;
+  mocks.rpcSettings.clientUrls = [];
+  mocks.rpcSettings.isolationRequired = false;
 });
 
 async function withApp(run: (app: ReturnType<typeof Fastify>) => Promise<void>, sessionId?: string) {
   const app = Fastify();
+  app.decorateRequest('user', null);
+  app.decorateRequest('session', null);
   app.addHook('onRequest', async (request) => {
     request.ipHash = 'hashed-ip';
+    request.user = sessionId ? { id: `user-${sessionId}`, address: '0x0000000000000000000000000000000000000001' } : null;
     request.session = sessionId ? { id: sessionId, freshUntil: null } : null;
   });
   app.setErrorHandler((error, _request, reply) => {
@@ -124,10 +135,69 @@ describe('RPC relay forwarding (mocked pool and limiter)', () => {
     expect(mocks.consume).toHaveBeenCalledWith(expect.objectContaining({ name: 'rpc_ip', points: 300 }), 'ip:hashed-ip', 3);
   }));
 
-  it('keys authenticated budgets by verified session id', async () => withApp(async (app) => {
+  it('keys authenticated budgets by stable user ID across sessions', async () => withApp(async (app) => {
     await app.inject({ method: 'POST', url: '/v1/rpc', payload: entry('eth_chainId') });
-    expect(mocks.consume).toHaveBeenCalledWith(expect.objectContaining({ name: 'rpc_session', points: 600 }), 'session:s1', 1);
+    expect(mocks.consume).toHaveBeenCalledWith(expect.objectContaining({ name: 'rpc_session', points: 600 }), 'user:user-s1', 1);
   }, 's1'));
+
+  it('uses an explicitly configured client pool even when strict isolation is not required', async () => withApp(async (app) => {
+    mocks.rpcSettings.clientUrls = ['https://rpc-client.example/project'];
+    const response = await app.inject({ method: 'POST', url: '/v1/rpc', payload: entry('eth_chainId') });
+    expect(response.statusCode).toBe(200);
+    expect(mocks.clientRpc).toHaveBeenCalledOnce();
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  }));
+
+  it('fails closed in strict isolation mode when the dedicated pool is empty', async () => withApp(async (app) => {
+    mocks.rpcSettings.isolationRequired = true;
+    const response = await app.inject({ method: 'POST', url: '/v1/rpc', payload: entry('eth_chainId') });
+    expect(response.statusCode).toBe(503);
+    expect(response.json().error.code).toBe('RPC_RELAY_ISOLATION_UNAVAILABLE');
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.clientRpc).not.toHaveBeenCalled();
+  }));
+
+  it('passes attempt-budget charging to the actual pool request and charges retries through the same hook', async () => withApp(async (app) => {
+    mocks.rpc.mockImplementation(async (_method: string, _params: unknown[], options: { beforeAttempt: () => Promise<void> }) => {
+      await options.beforeAttempt();
+      await options.beforeAttempt();
+      return '0x1237';
+    });
+    const response = await app.inject({ method: 'POST', url: '/v1/rpc', payload: entry('eth_chainId') });
+    expect(response.statusCode).toBe(200);
+    const attemptCalls = mocks.consume.mock.calls.filter(([limit]) =>
+      ['rpc_relay_user_attempt', 'rpc_relay_global_attempt'].includes((limit as { name: string }).name));
+    expect(attemptCalls).toHaveLength(4);
+    expect(attemptCalls.map(([limit, key]) => [(limit as { name: string }).name, key])).toEqual([
+      ['rpc_relay_user_attempt', 'ip:hashed-ip'], ['rpc_relay_global_attempt', 'all'],
+      ['rpc_relay_user_attempt', 'ip:hashed-ip'], ['rpc_relay_global_attempt', 'all'],
+    ]);
+  }));
+
+  it('keeps an admitted raw transaction hash visible when a concurrent sibling exhausts attempt budget', async () => withApp(async (app) => {
+    let globalAttempts = 0;
+    let providerAttempts = 0;
+    mocks.consume.mockImplementation(async (limit: { name: string }) => {
+      if (limit.name === 'rpc_relay_global_attempt') {
+        globalAttempts += 1;
+        if (globalAttempts > 1) throw new AppError('RATE_LIMITED', 429, 'rate limited');
+      }
+    });
+    mocks.rpc.mockImplementation(async (_method: string, params: unknown[], options: { beforeAttempt: () => Promise<void> }) => {
+      await options.beforeAttempt();
+      providerAttempts += 1;
+      return '0xtransaction-hash';
+    });
+    const response = await app.inject({ method: 'POST', url: '/v1/rpc', payload: [
+      entry('eth_sendRawTransaction', ['0x01']), entry('eth_sendRawTransaction', ['0x02']),
+    ] });
+    expect(response.statusCode).toBe(200);
+    const results = response.json();
+    expect(results).toHaveLength(2);
+    expect(results.filter((item: { result?: string }) => item.result === '0xtransaction-hash')).toHaveLength(1);
+    expect(results.filter((item: { error?: { code: number } }) => item.error?.code === -32005)).toHaveLength(1);
+    expect(providerAttempts).toBe(1);
+  }));
 
   it('does not forward a batch above the cap', async () => withApp(async (app) => {
     const response = await app.inject({ method: 'POST', url: '/v1/rpc', payload: Array(21).fill(entry('eth_chainId')) });
@@ -161,6 +231,48 @@ describe('RPC relay forwarding (mocked pool and limiter)', () => {
       nested: [{ data: '0x08c379a0', inner: { reason: 'known revert' } }] });
     expect(response.body).not.toContain('provider-secret');
     expect(response.body).not.toContain('node.invalid');
+  }));
+
+  it('redacts client RPC path and query credentials from text and nested map keys', async () => withApp(async (app) => {
+    const token = 'client-project-secret-123';
+    mocks.rpcSettings.clientUrls = [`https://client.example/v2/${token}?api_key=query-secret-987`];
+    mocks.clientRpc.mockRejectedValue(new RpcError(3,
+      `execution reverted ${token} query-secret-987 ${encodeURIComponent(token)}`,
+      { nested: { [token]: `query-secret-987 ${encodeURIComponent(token)}` }, data: '0x08c379a0' }));
+    const response = await app.inject({ method: 'POST', url: '/v1/rpc', payload: entry('eth_call', [{ data: '0x' }]) });
+    expect(response.json().error).toEqual({
+      code: 3,
+      message: 'execution reverted [redacted] [redacted] [redacted]',
+      data: { nested: {}, data: '0x08c379a0' },
+    });
+    expect(response.body).not.toContain(token);
+    expect(response.body).not.toContain('query-secret-987');
+  }));
+
+  it('redacts short and percent-encoded client credentials while preserving exact revert bytes', async () => withApp(async (app) => {
+    mocks.rpcSettings.clientUrls = ['https://client.example/a%2Fb?key=x%252Fy'];
+    mocks.clientRpc.mockRejectedValue(new RpcError(3,
+      'execution reverted a/b x%2Fy',
+      { nested: { 'a/b': 'x/y', 'x%2Fy': 'private' }, data: '0xaabbccdd' }));
+    const response = await app.inject({ method: 'POST', url: '/v1/rpc', payload: entry('eth_call', [{ data: '0x' }]) });
+    expect(response.json().error).toEqual({
+      code: 3,
+      message: 'execution reverted [redacted] [redacted]',
+      data: { nested: {}, data: '0xaabbccdd' },
+    });
+    expect(response.body).not.toContain('a/b');
+    expect(response.body).not.toContain('x%2Fy');
+  }));
+
+  it('preserves a revert payload containing a short hex path fragment but redacts exact credential equality', async () => withApp(async (app) => {
+    mocks.rpcSettings.clientUrls = ['https://client.example/deadbeef'];
+    mocks.clientRpc.mockRejectedValue(new RpcError(3, 'execution reverted deadbeef', '0xdeadbeef'));
+    const response = await app.inject({ method: 'POST', url: '/v1/rpc', payload: entry('eth_call', [{ data: '0x' }]) });
+    expect(response.json().error).toEqual({ code: 3, message: 'execution reverted [redacted]', data: '0xdeadbeef' });
+
+    mocks.rpcSettings.clientUrls = ['https://client.example/0xdeadbeef'];
+    const exact = await app.inject({ method: 'POST', url: '/v1/rpc', payload: entry('eth_call', [{ data: '0x' }]) });
+    expect(exact.json().error.data).toBe('[redacted]');
   }));
 
   it('enforces raw transaction budget before forwarding any entry', async () => withApp(async (app) => {
@@ -204,6 +316,8 @@ describe('RPC relay forwarding (mocked pool and limiter)', () => {
 describe('RPC early security guard', () => {
   async function withSecurity(run: (app: ReturnType<typeof Fastify>, authCalls: () => number) => Promise<void>) {
     const app = Fastify();
+    app.decorateRequest('user', null);
+    app.decorateRequest('session', null);
     let authenticated = 0;
     app.setErrorHandler((error, _request, reply) => {
       if (error instanceof AppError) return reply.code(error.status).send({ error: { code: error.code } });
@@ -213,6 +327,7 @@ describe('RPC early security guard', () => {
     await app.register(security);
     app.addHook('onRequest', async (request) => {
       authenticated++;
+      request.user = { id: 'verified-user', address: '0x0000000000000000000000000000000000000001' };
       request.session = { id: 'verified-session', freshUntil: null };
     });
     await app.register(routes, { prefix: '/v1' });
@@ -262,7 +377,7 @@ describe('RPC early security guard', () => {
       { name: 'rpc_request_ip', points: 600, duration: 60 }, expect.stringMatching(/^[a-f0-9]{64}$/),
     ]);
     expect(mocks.consume.mock.calls[1]).toEqual([
-      { name: 'rpc_session', points: 600, duration: 60 }, 'session:verified-session', 3,
+      { name: 'rpc_session', points: 600, duration: 60 }, 'user:verified-user', 3,
     ]);
   }));
 });

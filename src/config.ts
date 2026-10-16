@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { normalizeIpAddress } from './lib/ipAddress.js';
+import { rpcEndpointIdentity, rpcEndpointOrigin } from './lib/rpcEndpoint.js';
 
 const csv = z.string().default('').transform((value) => value.split(',').map((part) => part.trim()).filter(Boolean));
 export const nativeAppOriginsSchema = csv.pipe(z.array(z.string().regex(/^[a-z][a-z0-9+.-]*:\/\/localhost$/)));
@@ -11,6 +13,16 @@ const positiveInt = (defaultValue: number) => z.coerce.number().int().positive()
 const nonnegativeInt = (defaultValue: number) => z.coerce.number().int().nonnegative().default(defaultValue);
 const decimal = (defaultValue: string) => z.string().regex(/^\d+(\.\d+)?$/).default(defaultValue);
 const hexKey = z.string().regex(/^[0-9a-f]{64}$/i);
+const proxyIpList = csv.pipe(z.array(z.string()).superRefine((addresses, context) => {
+  addresses.forEach((address, index) => {
+    if (!normalizeIpAddress(address)) context.addIssue({ code: 'custom', path: [index], message: 'must be an IP address literal' });
+  });
+}).transform((addresses) => [...new Set(addresses.map((address) => normalizeIpAddress(address)!))]));
+const rpcUrlList = csv.pipe(z.array(z.string()).superRefine((urls, context) => {
+  urls.forEach((url, index) => {
+    if (!rpcEndpointOrigin(url)) context.addIssue({ code: 'custom', path: [index], message: 'must be an HTTP(S) RPC URL without credentials or fragments' });
+  });
+}));
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -23,11 +35,16 @@ const envSchema = z.object({
   ALCHEMY_API_KEYS: csv,
   PUBLIC_RPC_URL: z.string().default(''),
   RPC_RELAY_ENABLED: boolean(true),
+  RPC_RELAY_ISOLATION_REQUIRED: boolean(false),
+  CLIENT_RPC_URLS: rpcUrlList,
+  RPC_RELAY_USER_ATTEMPTS_PER_MINUTE: positiveInt(600),
+  RPC_RELAY_GLOBAL_ATTEMPTS_PER_MINUTE: positiveInt(12000),
   RPC_RELAY_MAX_BATCH: positiveInt(20),
   RPC_RELAY_MAX_BODY_BYTES: positiveInt(65536),
   PHONE_HMAC_SECRET: hexKey,
   PHONE_ENC_KEY: hexKey,
   IP_HASH_SALT: z.string().min(1),
+  TRUSTED_PROXY_IPS: proxyIpList,
   CORS_ORIGINS: csv,
   NATIVE_APP_ORIGINS: nativeAppOriginsSchema,
   SIWE_ALLOWED_DOMAINS: csv,
@@ -98,6 +115,25 @@ const envSchema = z.object({
   if (value.SMS_DRIVER === 'seven' && !value.SEVEN_API_KEY) {
     context.addIssue({ code: 'custom', path: ['SEVEN_API_KEY'], message: 'required when SMS_DRIVER=seven' });
   }
+  if (value.RPC_RELAY_ISOLATION_REQUIRED) {
+    if (value.RPC_RELAY_ENABLED && !value.CLIENT_RPC_URLS.length) {
+      context.addIssue({ code: 'custom', path: ['CLIENT_RPC_URLS'], message: 'required when RPC_RELAY_ISOLATION_REQUIRED=true' });
+    }
+    const publicUrl = value.PUBLIC_RPC_URL || (value.CHAIN === 'robinhood'
+      ? 'https://rpc.mainnet.chain.robinhood.com'
+      : 'https://rpc.testnet.chain.robinhood.com');
+    const workerEndpoints = new Set([
+      publicUrl,
+      ...value.ALCHEMY_API_KEYS.map((key) => `https://robinhood${value.CHAIN === 'robinhood-testnet' ? '-testnet' : '-mainnet'}.g.alchemy.com/v2/${key}`),
+    ].map(rpcEndpointIdentity).filter((endpoint): endpoint is string => endpoint !== null));
+    const clientEndpoints = value.CLIENT_RPC_URLS.map(rpcEndpointIdentity).filter((endpoint): endpoint is string => endpoint !== null);
+    if (clientEndpoints.some((endpoint) => workerEndpoints.has(endpoint))) {
+      context.addIssue({ code: 'custom', path: ['CLIENT_RPC_URLS'], message: 'must not reuse an endpoint configured for worker traffic' });
+    }
+    if (new Set(clientEndpoints).size !== clientEndpoints.length) {
+      context.addIssue({ code: 'custom', path: ['CLIENT_RPC_URLS'], message: 'must not contain duplicate RPC endpoints' });
+    }
+  }
   const smsLaneBudget = value.SMS_FUNDED_INVITE_DAILY_BUDGET + value.SMS_CLAIM_OTP_DAILY_BUDGET +
     value.SMS_ONBOARDING_DAILY_BUDGET + value.SMS_ADMIN_DAILY_BUDGET;
   if (smsLaneBudget > value.SMS_DAILY_CAP) {
@@ -113,12 +149,24 @@ if (!result.success) {
 }
 
 const parsed = result.data;
-const { ROUTER_SIGNER_KEY: _routerSignerKey, RELAYER_PRIVATE_KEY: _relayerPrivateKey, ...publicConfig } = parsed;
+const {
+  ROUTER_SIGNER_KEY: _routerSignerKey,
+  RELAYER_PRIVATE_KEY: _relayerPrivateKey,
+  CLIENT_RPC_URLS: _clientRpcUrls,
+  ...publicConfig
+} = parsed;
 export const config = Object.freeze({
   ...publicConfig,
   PUBLIC_RPC_URL: parsed.PUBLIC_RPC_URL || (parsed.CHAIN === 'robinhood'
     ? 'https://rpc.mainnet.chain.robinhood.com'
     : 'https://rpc.testnet.chain.robinhood.com'),
+});
+
+export const rpcSettings = Object.freeze({
+  clientUrls: parsed.CLIENT_RPC_URLS,
+  isolationRequired: parsed.RPC_RELAY_ISOLATION_REQUIRED,
+  userAttemptsPerMinute: parsed.RPC_RELAY_USER_ATTEMPTS_PER_MINUTE,
+  globalAttemptsPerMinute: parsed.RPC_RELAY_GLOBAL_ATTEMPTS_PER_MINUTE,
 });
 
 // Keep the web origins first: SIWE and the dev-login command use their own web allowlist.

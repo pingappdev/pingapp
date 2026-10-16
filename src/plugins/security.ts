@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto';
 import fp from 'fastify-plugin';
 import type { FastifyPluginAsync } from 'fastify';
 import { allowedOrigins, config } from '../config.js';
 import { errors } from '../lib/errors.js';
 import { consume, limiter, limits } from '../lib/rateLimit.js';
+import { clientIpForRequest, hashClientIp } from '../lib/requestIdentity.js';
 
 // Security runs before auth and parsing. This request budget also counts bad
 // JSON/oversize bodies; verified-session and batch-entry budgets run in relay.
@@ -20,10 +20,9 @@ const security: FastifyPluginAsync = async (app) => {
   app.decorateRequest('clientIp', '');
   app.decorateRequest('ipHash', '');
   app.addHook('onRequest', async (request) => {
-    const cloudflareIp = request.headers['cf-connecting-ip'];
-    const ip = typeof cloudflareIp === 'string' ? cloudflareIp : request.ip;
+    const ip = clientIpForRequest(request);
     request.clientIp = ip;
-    request.ipHash = createHash('sha256').update(config.IP_HASH_SALT + ip).digest('hex');
+    request.ipHash = hashClientIp(ip);
 
     const path = request.url.split('?', 1)[0];
     if (request.method === 'POST' && path === '/v1/rpc') {

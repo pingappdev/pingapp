@@ -1,9 +1,9 @@
-import { config } from '../config.js';
+import { config, rpcSettings } from '../config.js';
 import { AppError } from './errors.js';
 import { logger } from './logger.js';
 import { chain } from './chain.js';
 
-type EndpointKind = 'alchemy' | 'public';
+type EndpointKind = 'alchemy' | 'public' | 'client';
 type Endpoint = {
   id: string;
   url: string;
@@ -12,8 +12,8 @@ type Endpoint = {
   failures: number;
 };
 
-type RpcOptions = { alchemyOnly?: boolean; timeoutMs?: number };
-type RpcPoolConfig = { alchemyUrls: string[]; publicUrl: string };
+type RpcOptions = { alchemyOnly?: boolean; timeoutMs?: number; beforeAttempt?: () => Promise<void> };
+type RpcPoolConfig = { alchemyUrls: string[]; publicUrl: string; clientUrls?: string[] };
 type EndpointStatus = { id: string; kind: EndpointKind; coolingForMs: number; failures: number };
 export type RpcEndpointDiagnostic = { id: string; ok: boolean; latencyMs: number | null };
 type EndpointCheck = {
@@ -62,24 +62,26 @@ function timeoutFrom(options: RpcOptions | undefined): number {
   return Number.isFinite(requested) ? Math.max(1, requested) : DEFAULT_TIMEOUT_MS;
 }
 
-export function createRpcPool({ alchemyUrls, publicUrl }: RpcPoolConfig) {
+export function createRpcPool({ alchemyUrls, publicUrl, clientUrls = [] }: RpcPoolConfig) {
   const endpoints: Endpoint[] = alchemyUrls
     .filter((url) => url.trim().length > 0)
     .map((url, index) => ({ id: `alchemy#${index + 1}`, url, kind: 'alchemy', coolUntil: 0, failures: 0 }));
+  endpoints.push(...clientUrls.filter((url) => url.trim().length > 0)
+    .map((url, index) => ({ id: `client#${index + 1}`, url, kind: 'client' as const, coolUntil: 0, failures: 0 })));
   if (publicUrl.trim()) endpoints.push({ id: 'public', url: publicUrl, kind: 'public', coolUntil: 0, failures: 0 });
 
-  const alchemyEndpoints = endpoints.filter((endpoint) => endpoint.kind === 'alchemy');
+  const primaryEndpoints = endpoints.filter((endpoint) => endpoint.kind !== 'public');
   const publicEndpoint = endpoints.find((endpoint) => endpoint.kind === 'public');
-  let alchemyCursor = 0;
+  let primaryCursor = 0;
   let requestId = 0;
 
-  function pickAlchemy(attempted: Set<Endpoint>): Endpoint | undefined {
+  function pickPrimary(attempted: Set<Endpoint>): Endpoint | undefined {
     const now = Date.now();
-    for (let offset = 0; offset < alchemyEndpoints.length; offset += 1) {
-      const index = (alchemyCursor + offset) % alchemyEndpoints.length;
-      const endpoint = alchemyEndpoints[index];
+    for (let offset = 0; offset < primaryEndpoints.length; offset += 1) {
+      const index = (primaryCursor + offset) % primaryEndpoints.length;
+      const endpoint = primaryEndpoints[index];
       if (!attempted.has(endpoint) && endpoint.coolUntil <= now) {
-        alchemyCursor = (index + 1) % alchemyEndpoints.length;
+        primaryCursor = (index + 1) % primaryEndpoints.length;
         return endpoint;
       }
     }
@@ -160,7 +162,7 @@ export function createRpcPool({ alchemyUrls, publicUrl }: RpcPoolConfig) {
         !attempted.has(publicEndpoint) && publicEndpoint.coolUntil <= Date.now();
       // Robinhood's public RPC supports the indexer's log ranges. Free Alchemy
       // keys are limited to ten blocks, even when multiple keys are rotated.
-      let endpoint = method === 'eth_getLogs' && publicAvailable ? publicEndpoint : pickAlchemy(attempted);
+      let endpoint = method === 'eth_getLogs' && publicAvailable ? publicEndpoint : pickPrimary(attempted);
       if (!endpoint && publicAvailable) {
         endpoint = publicEndpoint;
       }
@@ -168,6 +170,7 @@ export function createRpcPool({ alchemyUrls, publicUrl }: RpcPoolConfig) {
       attempted.add(endpoint);
 
       try {
+        await options?.beforeAttempt?.();
         const result = await requestEndpoint<T>(endpoint, method, params, timeoutMs);
         endpoint.failures = 0;
         endpoint.coolUntil = 0;
@@ -259,8 +262,13 @@ const defaultPool = createRpcPool({
   alchemyUrls: config.ALCHEMY_API_KEYS.map((key) => chain.alchemyUrl(key)),
   publicUrl: chain.publicRpcUrl,
 });
+const clientPool = createRpcPool({ alchemyUrls: [], publicUrl: '', clientUrls: rpcSettings.clientUrls });
 
 export const rpc = defaultPool.rpc;
+export const clientRpc = clientPool.rpc;
+export function hasClientRpcEndpoints(): boolean {
+  return rpcSettings.clientUrls.length > 0;
+}
 export const poolStatus = defaultPool.poolStatus;
 export const checkRpcEndpoints = defaultPool.checkEndpoints;
 export const diagnoseRpcEndpoints = defaultPool.diagnoseEndpoints;

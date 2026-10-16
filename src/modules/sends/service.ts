@@ -23,6 +23,7 @@ import { lockPhoneMutation } from '../phone/lock.js';
 import { recipientRef } from '../resolve/recipientRef.js';
 import { isPhoneDiscoveryGrantCurrent, requirePhoneDiscoveryGrant } from '../resolve/service.js';
 import { assertMinAmount } from '../tokens/minimum.js';
+import { assertNewEscrowTokenEligible, normalizeMultiplier } from '../tokens/eligibility.js';
 import { getToken } from '../tokens/registry.js';
 
 export type AuthorizeSendInput = {
@@ -69,6 +70,12 @@ export async function authorizeSend(user: AuthUser, input: AuthorizeSendInput, i
   return db.transaction(async (tx) => {
     // The same first lock as phone linking, readiness and account deletion.
     await lockPhoneMutation(tx);
+    const currentToken = await assertNewEscrowTokenEligible(tx, token.address);
+    if (currentToken.decimals !== token.decimals || currentToken.kind !== token.kind ||
+      currentToken.multiplierKnown !== token.multiplierKnown ||
+      normalizeMultiplier(currentToken.multiplier) !== normalizeMultiplier(token.multiplier)) {
+      throw errors.conflict('Token details changed. Refresh the token list and review this send again.');
+    }
     const [sender] = await tx.select().from(users).where(and(
       eq(users.id, user.id), eq(users.address, normAddress(user.address)),
     )).limit(1).for('update');

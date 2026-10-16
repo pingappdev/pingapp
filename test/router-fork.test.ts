@@ -23,7 +23,9 @@ const fixture = await vi.hoisted(async () => {
   };
   return { key, relayerKey, config };
 });
-vi.mock('../src/config.js', () => ({ config: fixture.config }));
+vi.mock('../src/config.js', () => ({ config: fixture.config, rpcSettings: {
+  clientUrls: [], isolationRequired: false, userAttemptsPerMinute: 600, globalAttemptsPerMinute: 12000,
+} }));
 import { viemChain, NATIVE_TOKEN } from '../src/lib/chain.js';
 import { pingRouterAbi } from '../src/lib/pingRouterAbi.js';
 

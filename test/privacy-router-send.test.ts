@@ -96,8 +96,14 @@ vi.mock('../src/modules/resolve/service.js', () => ({
 }));
 vi.mock('../src/modules/tokens/minimum.js', () => ({ assertMinAmount: vi.fn(async () => undefined) }));
 vi.mock('../src/modules/tokens/registry.js', () => ({ getToken: vi.fn(async () => ({
-  address: '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', decimals: 6, symbol: 'USDG',
+  address: '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', decimals: 6, symbol: 'USDG', kind: 'stable',
+  multiplier: '1', multiplierKnown: false,
 })) }));
+vi.mock('../src/modules/tokens/eligibility.js', () => ({
+  assertNewEscrowTokenEligible: vi.fn(async () => ({ address: '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+    decimals: 6, kind: 'stable', multiplier: '1', multiplierKnown: false })),
+  normalizeMultiplier: (value: unknown) => typeof value === 'string' ? value.replace(/\.0+$/, '') : null,
+}));
 
 import { db } from '../src/db/client.js';
 import { phoneHmac } from '../src/lib/crypto.js';

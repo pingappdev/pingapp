@@ -19,6 +19,8 @@
     "test": "vitest run",
     "admin": "tsx src/cli/admin.ts",
     "admin:prod": "node dist/cli/admin.js",
+    "token-eligibility": "tsx src/cli/token-eligibility.ts",
+    "token-eligibility:prod": "node dist/cli/token-eligibility.js",
     "format": "prettier --write src test"
   },
   "dependencies": {

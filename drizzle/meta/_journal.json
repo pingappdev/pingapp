@@ -64,6 +64,13 @@
       "when": 1792155138584,
       "tag": "0008_claim_authorization_monitoring",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792161248547,
+      "tag": "0009_fresh_la_nuit",
+      "breakpoints": true
     }
   ]
 }

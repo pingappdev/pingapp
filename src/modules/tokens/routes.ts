@@ -13,6 +13,7 @@ import { getBalances } from './balances.js';
 import { getMinAmountRaw } from './minimum.js';
 import { getPrices } from './prices.js';
 import { ensureTokensSeeded, getActiveTokens } from './registry.js';
+import { tokenAuthorizationStatuses } from './eligibility.js';
 
 type TokenKind = 'native' | 'stable' | 'wrapped' | 'stock';
 export type TokenDto = {
@@ -48,10 +49,19 @@ const routes: FastifyPluginAsync = async (app) => {
     reply.header('cache-control', 'public, max-age=30');
     const rows = await getActiveTokens();
     const prices = await getPrices();
+    const authorizationStatuses = await tokenAuthorizationStatuses(rows.map((row) => row.address));
     const items = await Promise.all(rows.map(async (row) => {
       const price = prices.get(row.address.toLowerCase()) ?? null;
       const minRaw = await getMinAmountRaw(row, price);
-      return toTokenDto(row, price, minRaw);
+      const authorization = authorizationStatuses.get(row.address.toLowerCase()) ?? {
+        status: 'not_operator_reviewed' as const, reviewRevision: null,
+      };
+      return {
+        ...toTokenDto(row, price, minRaw),
+        newAuthorizationAllowed: authorization.status === 'not_operator_reviewed',
+        authorizationStatus: authorization.status,
+        authorizationReviewRevision: authorization.reviewRevision,
+      };
     }));
     return { items };
   });

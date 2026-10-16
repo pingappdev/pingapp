@@ -13,7 +13,7 @@ import auth from './plugins/auth.js';
 import security from './plugins/security.js';
 
 export async function buildApp() {
-  const app = Fastify({ loggerInstance: logger as FastifyBaseLogger, trustProxy: true, bodyLimit: 64 * 1024, genReqId: () => randomUUID() });
+  const app = Fastify({ loggerInstance: logger as FastifyBaseLogger, trustProxy: false, bodyLimit: 64 * 1024, genReqId: () => randomUUID() });
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
   app.setErrorHandler((error: FastifyError | Error, request, reply) => {

@@ -41,6 +41,35 @@ describe('RPC pool', () => {
     expect(status.find((endpoint) => endpoint.id === 'alchemy#1')?.coolingForMs).toBeGreaterThan(0);
   });
 
+  it('charges each isolated client provider attempt, including retry, and never uses the worker URL', async () => {
+    const seen: string[] = [];
+    const beforeAttempt = vi.fn(async () => undefined);
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      seen.push(String(input));
+      return seen.length === 1 ? jsonResponse({}, 429) : jsonResponse({ result: '0x1234' });
+    }));
+    const pool = createRpcPool({ alchemyUrls: [], publicUrl: '',
+      clientUrls: ['https://client-a.example/project-a', 'https://client-b.example/project-b'] });
+
+    await expect(pool.rpc('eth_chainId', [], { beforeAttempt })).resolves.toBe('0x1234');
+    expect(seen).toEqual(['https://client-a.example/project-a', 'https://client-b.example/project-b']);
+    expect(beforeAttempt).toHaveBeenCalledTimes(2);
+    expect(pool.poolStatus().map((endpoint) => endpoint.id)).toEqual(['client#1', 'client#2']);
+  });
+
+  it('does not fall back from an isolated client pool to a configured worker endpoint', async () => {
+    const seen: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      seen.push(String(input));
+      return String(input).includes('client') ? jsonResponse({}, 503) : jsonResponse({ result: 'worker-fallback' });
+    }));
+    const isolatedPool = createRpcPool({ alchemyUrls: [], publicUrl: '',
+      clientUrls: ['https://client.example/project'] });
+
+    await expect(isolatedPool.rpc('eth_chainId', [])).rejects.toMatchObject({ code: 'UPSTREAM_UNAVAILABLE' });
+    expect(seen).toEqual(['https://client.example/project']);
+  });
+
   it('throws UPSTREAM_UNAVAILABLE after all available endpoints fail', async () => {
     const fetchMock = vi.fn(async () => jsonResponse({}, 503));
     vi.stubGlobal('fetch', fetchMock);

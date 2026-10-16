@@ -95,11 +95,42 @@ export const tokens = pgTable('tokens', {
   multiplier: numeric('multiplier', { precision: 38, scale: 18, mode: 'string' }).notNull().default('1'),
   rhAssetId: text('rh_asset_id'),
   active: boolean('active').notNull().default(true),
+  multiplierKnown: boolean('multiplier_known').notNull().default(false),
   sort: integer('sort').notNull().default(1000),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   check('tokens_address_format_check', sql`${table.address} ~ '^0x[0-9a-f]{40}$'`),
   check('tokens_kind_check', sql`${table.kind} in ('native', 'stable', 'wrapped', 'stock')`),
+]);
+
+export const tokenEligibilityBlocks = pgTable('token_eligibility_blocks', {
+  tokenAddress: text('token_address').primaryKey().references(() => tokens.address, { onDelete: 'cascade' }),
+  chainId: integer('chain_id').notNull(),
+  source: text('source').notNull(),
+  reason: text('reason').notNull(),
+  observedMultiplier: text('observed_multiplier'),
+  reviewRevision: uuid('review_revision').notNull().defaultRandom(),
+  createdAt: createdAt(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  check('token_eligibility_blocks_source_check', sql`${table.source} in ('operator', 'issuer_multiplier_change')`),
+  check('token_eligibility_blocks_reason_check', sql`char_length(${table.reason}) between 1 and 500`),
+  check('token_eligibility_blocks_multiplier_check', sql`${table.observedMultiplier} is null or ${table.observedMultiplier} ~ '^\\d+(\\.\\d{1,18})?$'`),
+  index('token_eligibility_blocks_chain_idx').on(table.chainId),
+]);
+
+/** Durable evidence of issuer unit-conversion metadata changes; this is not proof of a rebase. */
+export const tokenMultiplierChanges = pgTable('token_multiplier_changes', {
+  id: id(),
+  tokenAddress: text('token_address').notNull().references(() => tokens.address, { onDelete: 'cascade' }),
+  chainId: integer('chain_id').notNull(),
+  previousMultiplier: text('previous_multiplier').notNull(),
+  currentMultiplier: text('current_multiplier').notNull(),
+  observedAt: createdAt(),
+}, (table) => [
+  check('token_multiplier_changes_previous_check', sql`${table.previousMultiplier} ~ '^\\d+(\\.\\d{1,18})?$'`),
+  check('token_multiplier_changes_current_check', sql`${table.currentMultiplier} ~ '^\\d+(\\.\\d{1,18})?$'`),
+  index('token_multiplier_changes_token_time_idx').on(table.tokenAddress, table.observedAt.desc()),
 ]);
 
 // Preserve router financial records when an app account is deleted.

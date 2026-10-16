@@ -1,12 +1,14 @@
+import { randomUUID } from 'node:crypto';
 import { and, asc, eq, inArray, notInArray, sql } from 'drizzle-orm';
 import { db } from '../../db/client.js';
 import { kvSet } from '../../db/kv.js';
-import { tokens, type NewToken, type Token } from '../../db/schema.js';
+import { tokenEligibilityBlocks, tokenMultiplierChanges, tokens, type NewToken, type Token } from '../../db/schema.js';
 import { cached, invalidate } from '../../lib/cache.js';
 import { chain, NATIVE_TOKEN, normAddress } from '../../lib/chain.js';
 import { fetchJson } from '../../lib/http.js';
 import { logger } from '../../lib/logger.js';
 import { publicClient } from '../../lib/viem.js';
+import { normalizeMultiplier } from './eligibility.js';
 
 const erc20DecimalsAbi = [{
   type: 'function',
@@ -29,12 +31,6 @@ type RhAsset = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function decimalString(value: unknown, fallback = '1'): string {
-  const text = typeof value === 'string' || typeof value === 'number' ? String(value) : fallback;
-  if (!/^\d+(?:\.\d{1,18})?$/.test(text)) return fallback;
-  return text;
 }
 
 function validDecimals(value: unknown): number | null {
@@ -68,6 +64,7 @@ export async function syncWellKnown(): Promise<void> {
       kind: 'native',
       logoUrl: '/assets/brands/ethereum.svg',
       multiplier: '1',
+      multiplierKnown: true,
       rhAssetId: null,
       active: true,
       sort: 0,
@@ -81,6 +78,7 @@ export async function syncWellKnown(): Promise<void> {
       kind: token.kind,
       logoUrl: token.logoUrl ?? (token.symbol === 'WETH' ? '/assets/brands/ethereum.svg' : null),
       multiplier: '1',
+      multiplierKnown: true,
       rhAssetId: null,
       active: true,
       sort: token.sort,
@@ -97,6 +95,7 @@ export async function syncWellKnown(): Promise<void> {
       kind: sql`excluded.kind`,
       logoUrl: sql`excluded.logo_url`,
       multiplier: sql`excluded.multiplier`,
+      multiplierKnown: sql`excluded.multiplier_known`,
       rhAssetId: sql`excluded.rh_asset_id`,
       active: sql`excluded.active`,
       sort: sql`excluded.sort`,
@@ -155,7 +154,7 @@ export async function syncStockTokens(): Promise<void> {
     }
   }
 
-  const rows: NewToken[] = selected.map(({ asset, address }) => {
+  const rows: StockRegistryItem[] = selected.map(({ asset, address }) => {
     const tokenDecimals = validDecimals(asset.tokenDecimals) ?? decimalsByAddress.get(address) ?? 18;
     const rhAssetId = typeof asset.id === 'string' || typeof asset.id === 'number' ? String(asset.id) : null;
     const logoUrl = typeof asset.logoUrl === 'string' && asset.logoUrl.length > 0 ? asset.logoUrl : null;
@@ -167,14 +166,44 @@ export async function syncStockTokens(): Promise<void> {
       decimals: tokenDecimals,
       kind: 'stock',
       logoUrl,
-      multiplier: decimalString(asset.currentMultiplier),
       rhAssetId,
       active: asset.status === 'ASSET_STATUS_ACTIVE',
       sort: 1000,
+      issuerMultiplier: normalizeMultiplier(asset.currentMultiplier),
     };
   });
 
+  await persistStockRegistrySnapshot(rows);
+  await invalidateTokenList();
+  logger.info({ count: rows.length, chainId: chain.id }, 'stock token registry synced');
+}
+
+export type StockRegistryItem = Omit<NewToken, 'multiplier' | 'multiplierKnown'> & { issuerMultiplier: string | null };
+
+export async function persistStockRegistrySnapshot(items: StockRegistryItem[]): Promise<void> {
+  const normalizedItems = items.map((item) => ({ ...item, issuerMultiplier: normalizeMultiplier(item.issuerMultiplier) }));
+  const seen = new Set(normalizedItems.map((row) => row.address));
   await db.transaction(async (tx) => {
+    const existing = seen.size
+      ? await tx.select().from(tokens).where(inArray(tokens.address, [...seen])).for('update')
+      : [];
+    const existingByAddress = new Map(existing.map((row) => [row.address, row]));
+    const multiplierChanges: Array<{ tokenAddress: string; chainId: number; previousMultiplier: string; currentMultiplier: string }> = [];
+    const rows: NewToken[] = normalizedItems.map((item) => {
+      const previous = existingByAddress.get(item.address);
+      const observed = item.issuerMultiplier;
+      const previousMultiplier = previous ? normalizeMultiplier(previous.multiplier) : null;
+      const multiplierKnown = observed !== null || previous?.multiplierKnown === true;
+      const multiplier = observed ?? previous?.multiplier ?? '1';
+      if (previous?.kind === 'stock' && previous.multiplierKnown && observed !== null &&
+        previousMultiplier !== null && previousMultiplier !== observed) {
+        multiplierChanges.push({ tokenAddress: item.address, chainId: item.chainId,
+          previousMultiplier, currentMultiplier: observed });
+      }
+      const { issuerMultiplier: _issuerMultiplier, ...token } = item;
+      return { ...token, multiplier, multiplierKnown };
+    });
+
     if (rows.length > 0) {
       await tx.insert(tokens).values(rows).onConflictDoUpdate({
         target: tokens.address,
@@ -186,12 +215,62 @@ export async function syncStockTokens(): Promise<void> {
           kind: sql`excluded.kind`,
           logoUrl: sql`excluded.logo_url`,
           multiplier: sql`excluded.multiplier`,
+          multiplierKnown: sql`excluded.multiplier_known`,
           rhAssetId: sql`excluded.rh_asset_id`,
           active: sql`excluded.active`,
           sort: sql`excluded.sort`,
           updatedAt: sql`now()`,
         },
       });
+    }
+
+    if (multiplierChanges.length) {
+      const recordedChanges = await tx.insert(tokenMultiplierChanges).values(multiplierChanges)
+        .returning({ id: tokenMultiplierChanges.id, tokenAddress: tokenMultiplierChanges.tokenAddress });
+      const changeIds = new Map(recordedChanges.map((change) => [change.tokenAddress, change.id]));
+      const changedAddresses = multiplierChanges.map((change) => change.tokenAddress);
+      const existingBlocks = await tx.select().from(tokenEligibilityBlocks)
+        .where(inArray(tokenEligibilityBlocks.tokenAddress, changedAddresses)).for('update');
+      const blocksByAddress = new Map(existingBlocks.map((block) => [block.tokenAddress, block]));
+      for (const change of multiplierChanges) {
+        const reviewRevision = changeIds.get(change.tokenAddress);
+        if (!reviewRevision) throw new Error('Issuer metadata change was not persisted.');
+        const previousBlock = blocksByAddress.get(change.tokenAddress);
+        if (!previousBlock) {
+          await tx.insert(tokenEligibilityBlocks).values({ tokenAddress: change.tokenAddress, chainId: change.chainId,
+            source: 'issuer_multiplier_change',
+            reason: 'Issuer unit-conversion metadata changed; compatibility review is required.',
+            observedMultiplier: change.currentMultiplier, reviewRevision });
+        } else {
+          await tx.update(tokenEligibilityBlocks).set({ observedMultiplier: change.currentMultiplier, updatedAt: new Date(),
+            reviewRevision,
+            ...(previousBlock.source === 'issuer_multiplier_change' ? {
+              reason: 'Issuer unit-conversion metadata changed; compatibility review is required.',
+            } : {}) })
+            .where(eq(tokenEligibilityBlocks.tokenAddress, change.tokenAddress));
+        }
+      }
+    }
+
+    const changedAddresses = new Set(multiplierChanges.map((change) => change.tokenAddress));
+    const baselineAddresses = normalizedItems.filter((item) => item.issuerMultiplier !== null && !changedAddresses.has(item.address))
+      .map((item) => item.address);
+    if (baselineAddresses.length) {
+      const existingBlocks = await tx.select({
+        tokenAddress: tokenEligibilityBlocks.tokenAddress,
+        observedMultiplier: tokenEligibilityBlocks.observedMultiplier,
+        reviewRevision: tokenEligibilityBlocks.reviewRevision,
+      })
+        .from(tokenEligibilityBlocks).where(inArray(tokenEligibilityBlocks.tokenAddress, baselineAddresses)).for('update');
+      for (const block of existingBlocks) {
+        const token = existingByAddress.get(block.tokenAddress);
+        const item = normalizedItems.find((candidate) => candidate.address === block.tokenAddress);
+        const current = item?.issuerMultiplier ?? normalizeMultiplier(token?.multiplier);
+        if (current !== null && current !== undefined && current !== block.observedMultiplier) {
+          await tx.update(tokenEligibilityBlocks).set({ observedMultiplier: current, reviewRevision: randomUUID(), updatedAt: new Date() })
+            .where(eq(tokenEligibilityBlocks.tokenAddress, block.tokenAddress));
+        }
+      }
     }
 
     const stale = await tx.select({ address: tokens.address }).from(tokens).where(and(
@@ -205,9 +284,7 @@ export async function syncStockTokens(): Promise<void> {
     }
     await kvSet('tokens:lastSync', { at: new Date().toISOString(), count: rows.length }, tx);
   });
-
   await invalidateTokenList();
-  logger.info({ count: rows.length, chainId: chain.id }, 'stock token registry synced');
 }
 
 export async function getActiveTokens(): Promise<Token[]> {

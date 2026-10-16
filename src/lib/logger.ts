@@ -1,18 +1,16 @@
-import { createHash } from 'node:crypto';
 import type { FastifyRequest } from 'fastify';
 import pino from 'pino';
 import { config } from '../config.js';
+import { clientIpForRequest, hashClientIp } from './requestIdentity.js';
 
 export const logger = pino({
   level: config.LOG_LEVEL,
   serializers: {
     req(request: FastifyRequest) {
-      const cloudflareIp = request.headers['cf-connecting-ip'];
-      const ip = typeof cloudflareIp === 'string' ? cloudflareIp : request.ip;
       return {
         method: request.method,
         route: request.routeOptions?.url,
-        ipHash: createHash('sha256').update(config.IP_HASH_SALT + ip).digest('hex'),
+        ipHash: hashClientIp(clientIpForRequest(request)),
       };
     },
   },

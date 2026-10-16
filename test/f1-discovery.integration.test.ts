@@ -34,7 +34,7 @@ integrationDescribe('AUD-01 Redis/Postgres integration', () => {
     userId = randomUUID();
     userAddress = `0x${randomBytes(20).toString('hex')}`;
     await db.insert(users).values({ id: userId, address: userAddress, displayName: 'Audit F1 test' });
-    app = Fastify({ trustProxy: true, logger: false });
+    app = Fastify({ trustProxy: false, logger: false });
     await app.register(cookie);
     await app.register((await import('../src/plugins/security.js')).default);
     await app.register((await import('../src/plugins/auth.js')).default);
