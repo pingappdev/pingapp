@@ -127,6 +127,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Check out source
+        id: checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
@@ -137,6 +138,7 @@ jobs:
         env:
           CI_EVIDENCE_DIR: ${{ runner.temp }}/pingapp-audit-ci-evidence
       - name: Rebuild and read back the deployed router
+        if: always() && steps.checkout.outcome == 'success'
         run: |
           set -o pipefail
           bash scripts/ci/run-deployment-readback.sh 2>&1 | tee "$RUNNER_TEMP/deployment-readback.log"
