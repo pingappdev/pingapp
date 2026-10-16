@@ -191,6 +191,7 @@ nav .framer-11mrcg8-container{display:none!important}
 nav .ping-mobile-pages{display:none}
 @media(max-width:809px){
   nav.framer-hQjsc{height:auto!important}
+  section.framer-1rpwanw[data-framer-name="Hero"]{height:calc(40vh + 20px)!important}
   section[data-framer-name="Hero"] .framer-xn59sx{padding-top:98px!important}
   nav .framer-1u193f{display:flex!important}
   nav .framer-44lp3r{width:100%!important;flex-wrap:wrap!important;gap:8px!important}
