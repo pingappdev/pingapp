@@ -1,0 +1,16 @@
+rules:
+  - id: pingapp.security.direct-eval
+    languages:
+      - javascript
+      - typescript
+    message: Avoid direct eval because it executes strings in the current process context.
+    severity: ERROR
+    metadata:
+      category: security
+      confidence: HIGH
+      subcategory:
+        - vuln
+      technology:
+        - javascript
+        - typescript
+    pattern: eval($ARG)

@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "findings": [
+    {
+      "id": "f4c8fe5abd5bffb77064d3b589a4256f061c78a0736e5f155911e9b4def97337",
+      "check": "arbitrary-send-eth",
+      "impact": "High",
+      "file": "src/PingRouter.sol",
+      "function": "_payEth",
+      "reason": "All call sites constrain the destination: typed-data signed send/claim recipients and relayers, the stored escrow sender, the immutable fee recipient, or the caller's own owed balance after effects. The withdrawal path is nonReentrant.",
+      "evidence": [
+        { "path": "contracts/src/PingRouter.sol", "contains": "function _payEth(" },
+        { "path": "contracts/src/PingRouter.sol", "contains": "function withdrawOwed(" },
+        { "path": "contracts/test/PingRouter.t.sol", "contains": "function testAttackerCannotRetargetVictimClaimOrTakeTip(" },
+        { "path": "contracts/test/PingRouter.t.sol", "contains": "function testRefundRejectingNativeSenderCreditsOwedEth(" },
+        { "path": "contracts/test/PingRouter.t.sol", "contains": "function testWithdrawOwedOnlyByCreditedSenderToChosenAddress(" },
+        { "path": "contracts/test/PingRouter.t.sol", "contains": "function testClaimRejectingRecipientAndRelayerRollBack(" }
+      ]
+    },
+    {
+      "id": "6e93bd52f774dbf765cde312a16a1f853fb37120952061b55698ed205229116f",
+      "check": "incorrect-equality",
+      "impact": "Medium",
+      "file": "src/PingRouter.sol",
+      "function": "escrow",
+      "reason": "The strict zero check applies to the balance delta from this deposit and rejects tokens that transfer nothing; it does not assume a fixed total token balance.",
+      "evidence": [
+        { "path": "contracts/src/PingRouter.sol", "contains": "if (received == 0) revert NothingReceived();" },
+        { "path": "contracts/test/PingRouter.t.sol", "contains": "function testEscrowNothingReceivedReverts(" },
+        { "path": "contracts/test/PingRouter.t.sol", "contains": "function testEscrowFeeOnTransferStoresReceived(" }
+      ]
+    },
+    {
+      "id": "d72cdf37b4b67913f25e84e45bd9fbb1a910683d603966fe71fc966599b30ddc",
+      "check": "unused-return",
+      "impact": "Medium",
+      "file": "src/PingRouter.sol",
+      "function": "_verify",
+      "reason": "OpenZeppelin ECDSA.tryRecover returns address(0) on malformed/high-s errors. The constructor rejects a zero signer, so comparing the recovered address is sufficient to reject every error while preserving the existing BadSignature error surface.",
+      "evidence": [
+        { "path": "contracts/src/PingRouter.sol", "contains": "function _verify(" },
+        { "path": "contracts/lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol", "contains": "function tryRecover(" },
+        { "path": "contracts/test/PingRouter.t.sol", "contains": "function testHighSMalleabilityRejected(" },
+        { "path": "contracts/test/PingRouter.t.sol", "contains": "function testMalformedSignatureRejected(" },
+        { "path": "contracts/test/PingRouter.t.sol", "contains": "function testFuzzWrongSignerNeverPasses(" }
+      ]
+    }
+  ]
+}

@@ -19,19 +19,31 @@ concurrency:
 
 jobs:
   backend:
-    name: Backend and local-chain integration
+    name: Backend and disposable local-chain integration
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - name: Run backend checks with disposable services
-        run: bash scripts/ci/test-backend.sh
+      - name: Run backend checks and gated integration suites
+        run: |
+          set -o pipefail
+          bash scripts/ci/test-backend.sh 2>&1 | tee "$RUNNER_TEMP/backend-ci.log"
         env:
           CI_PREFIX: pingapp-audit-ci
-          REQUIRE_AUDIT_INTEGRATION_TESTS: '1'
+          CI_EVIDENCE_DIR: ${{ runner.temp }}/pingapp-audit-ci-evidence
+      - name: Save backend gate evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: backend-ci-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/backend-ci.log
+            ${{ runner.temp }}/pingapp-audit-ci-evidence/*.json
+          if-no-files-found: warn
+          retention-days: 90
 
   contracts:
     name: Contracts, fuzz, invariant, and coverage
@@ -42,7 +54,108 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - name: Run offline contract checks
-        run: bash scripts/ci/test-contracts.sh
+      - name: Run offline contract campaign
+        run: |
+          set -o pipefail
+          bash scripts/ci/test-contracts.sh 2>&1 | tee "$RUNNER_TEMP/contracts-ci.log"
+      - name: Save contract gate evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: contracts-ci-${{ github.run_id }}
+          path: ${{ runner.temp }}/contracts-ci.log
+          if-no-files-found: warn
+          retention-days: 90
+
+  security:
+    name: Public-tree/history secret scan and Semgrep
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Run pinned secret and source scanners
+        run: |
+          set -o pipefail
+          bash scripts/ci/run-security-scans.sh 2>&1 | tee "$RUNNER_TEMP/security-scans.log"
         env:
-          REQUIRE_CI_PROFILE: '1'
+          CI_EVIDENCE_DIR: ${{ runner.temp }}/pingapp-audit-ci-evidence
+      - name: Save scanner gate evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: security-scans-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/security-scans.log
+            ${{ runner.temp }}/pingapp-audit-ci-evidence/semgrep-report.json
+          if-no-files-found: warn
+          retention-days: 90
+
+  slither:
+    name: Slither contract analysis
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Run pinned Slither analysis
+        run: |
+          set -o pipefail
+          bash scripts/ci/run-slither.sh 2>&1 | tee "$RUNNER_TEMP/slither.log"
+        env:
+          CI_EVIDENCE_DIR: ${{ runner.temp }}/pingapp-audit-ci-evidence
+      - name: Save Slither gate evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: slither-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/slither.log
+            ${{ runner.temp }}/pingapp-audit-ci-evidence/slither.json
+          if-no-files-found: warn
+          retention-days: 90
+
+  scheduled-fork-and-deployment-readback:
+    name: Scheduled fork and read-only deployment proof
+    if: github.event_name == 'schedule' || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Run pinned-block public-network fork tests
+        run: |
+          set -o pipefail
+          bash scripts/ci/test-fork.sh 2>&1 | tee "$RUNNER_TEMP/fork-tests.log"
+        env:
+          CI_EVIDENCE_DIR: ${{ runner.temp }}/pingapp-audit-ci-evidence
+      - name: Rebuild and read back the deployed router
+        run: |
+          set -o pipefail
+          bash scripts/ci/run-deployment-readback.sh 2>&1 | tee "$RUNNER_TEMP/deployment-readback.log"
+        env:
+          CI_EVIDENCE_DIR: ${{ runner.temp }}/pingapp-audit-ci-evidence
+      - name: Save scheduled live-check evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: scheduled-live-checks-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/fork-tests.log
+            ${{ runner.temp }}/deployment-readback.log
+            ${{ runner.temp }}/pingapp-audit-ci-evidence/fork-test.json
+            ${{ runner.temp }}/pingapp-audit-ci-evidence/fork-test.log
+            ${{ runner.temp }}/pingapp-audit-ci-evidence/deployment-rebuild-proof.json
+            ${{ runner.temp }}/pingapp-audit-ci-evidence/deployment-rebuild-proof.stderr
+            ${{ runner.temp }}/pingapp-audit-ci-evidence/deployment-readback.json
+            ${{ runner.temp }}/pingapp-audit-ci-evidence/deployment-readback.stderr
+            ${{ runner.temp }}/pingapp-audit-ci-evidence/deployment-readback-manifest.json
+          if-no-files-found: warn
+          retention-days: 90
