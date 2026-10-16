@@ -240,14 +240,6 @@ export async function resolvePhone(user: AuthUser, rawPhone: string, ipHash: str
   if (recipient) {
     if (!recipient.phoneLinkedAt) throw errors.internal();
 
-    const grant: PhoneDiscoveryGrant = {
-      version: 1,
-      status: 'registered',
-      recipientUserId: recipient.id,
-      phoneLinkedAt: recipient.phoneLinkedAt.toISOString(),
-    };
-    await writeGrant(user.id, hash, grant);
-
     const [claim] = await db.select({ id: phoneClaims.id })
       .from(phoneClaims)
       .where(and(
@@ -278,11 +270,16 @@ export async function resolvePhone(user: AuthUser, rawPhone: string, ipHash: str
       },
     };
 
+    await writeGrant(user.id, hash, {
+      version: 1,
+      status: 'registered',
+      recipientUserId: recipient.id,
+      phoneLinkedAt: recipient.phoneLinkedAt.toISOString(),
+    });
     logger.info({ userId: user.id, registered: true }, 'phone resolved');
     return registered;
   }
 
-  await writeGrant(user.id, hash, { version: 1, status: 'not_registered' });
   const [activeIntents] = await db.select({ total: count() })
     .from(intents)
     .where(and(
@@ -295,6 +292,7 @@ export async function resolvePhone(user: AuthUser, rawPhone: string, ipHash: str
     canCreateIntent: activeIntents.total < 20,
   };
 
+  await writeGrant(user.id, hash, { version: 1, status: 'not_registered' });
   logger.info({ userId: user.id, registered: false }, 'phone resolved');
   return notRegistered;
 }
