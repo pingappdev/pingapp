@@ -20,9 +20,9 @@
     {
       "ruleId": "tmp.semgrep-rules.typescript.react.security.audit.react-unsanitized-method",
       "path": "www/public/pingapp.js",
-      "line": 80,
+      "line": 107,
       "sourceLineSha256": "367951a3870829cd5f4a1ccc573cb8ab8ad1c7b50123b0559ff96d13828327f6",
-      "sourceFileSha256": "7de7a554f04aab590b52ed4ba5c597f858aa3fc76a70b3a8db3b546e3b5b303e",
+      "sourceFileSha256": "26d18235292405f541dab0519a0ee8bb473fa707588bcec35e37c27bc80fcf5e",
       "reason": "The platform value is constrained to the closed telegram, x, or github regex alternatives."
     },
     {
@@ -30,7 +30,7 @@
       "path": "www/src/lib/site-pages.server.ts",
       "line": 25,
       "sourceLineSha256": "4cb0f9d7bab44eb930735fc796cb041772adfe23fed25c9e70afae3897136bbb",
-      "sourceFileSha256": "0ed16c3593c14ba4b6baf046b6df55e40c1a40a7de8f4eccf5901355e686fb75",
+      "sourceFileSha256": "0b2d3f2fcc3093ea498de0e04af8adcbe6741a7b5c1be5db10645973a1308bcf",
       "reason": "HTML values are drawn only from committed photo-slots raw data, not user input."
     }
   ]
