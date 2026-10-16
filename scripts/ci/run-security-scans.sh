@@ -178,6 +178,9 @@ echo 'Scanning first-party source with pinned Semgrep rules.'
       exit 2
     fi
     echo "Semgrep loaded source directories at $actual_commit ($upstream_rule_count YAML rule files)."
+    # www/public/runtime contains prebuilt, hashed vendor bundles, not source.
+    # Their minified syntax triggers parser/time-limit errors; source under
+    # www/src remains in scope, and Gitleaks still covers the generated files.
     set +e
     semgrep scan --config "$rules_dir/javascript/lang" --config "$rules_dir/typescript/lang" \
       --config "$rules_dir/javascript/react" --config "$rules_dir/typescript/react" \
@@ -185,6 +188,7 @@ echo 'Scanning first-party source with pinned Semgrep rules.'
       --metrics=off --disable-version-check --strict --error --jobs=2 --timeout=10 --json --quiet \
       --exclude node_modules --exclude contracts/lib --exclude contracts/out \
       --exclude contracts/cache --exclude dist --exclude coverage --exclude .playwright-cli \
+      --exclude www/public/runtime \
       /scan > /evidence/semgrep-report.json
     status=$?
     set -e
