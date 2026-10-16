@@ -42,7 +42,7 @@ export function sitePageResponse(url: URL): Response | undefined {
   // The export's preview host must not leak into share cards on this installation.
   const document = html
     .replaceAll("https://pingapp-connect.sleroy1312.chatgpt.site", url.origin)
-    .replace(/\/(pingapp\.js|pingapp\.css|ping-hero\.js)\?v=16/g, "/$1?v=20261014");
+    .replace(/\/(pingapp\.js|pingapp\.css|ping-hero\.js)\?v=16/g, "/$1?v=20261016");
   return new Response(document, {
     headers: { "content-type": "text/html; charset=utf-8" },
   });
