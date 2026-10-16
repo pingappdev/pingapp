@@ -14,6 +14,8 @@ const fixtureDays = [
   "20261021", "20261022", "20261023", "20261024", "20261025", "20261026",
   "20261027", "20261028", "20261029", "20261030", "20261031", "20261101",
   "20261102", "20261103", "20261104", "20261105", testRunUtcDay,
+  "20261106", "20261107", "20261108", "20261109", "20261110",
+  "20261111", "20261112", "20261113",
 ];
 
 suite("SMS budgets and delivery recovery (disposable services)", () => {
@@ -31,6 +33,7 @@ suite("SMS budgets and delivery recovery (disposable services)", () => {
   const createdEscrowIds: string[] = [];
   const createdSmsPhoneHashes: string[] = [];
   let networkFetch: ReturnType<typeof vi.fn> | undefined;
+  let sevenResponseBody: unknown;
 
   function setDate(date: string) {
     vi.setSystemTime(new Date(date));
@@ -154,8 +157,21 @@ suite("SMS budgets and delivery recovery (disposable services)", () => {
     ) {
       throw new Error("F2 integration tests require SMS_DRIVER=seven, SMS_ENABLED=true, cap=12, and lane budgets 4/4/3/1.");
     }
-    networkFetch = vi.fn(async () => {
-      throw new Error("External network access is disabled in the SMS integration suite.");
+    networkFetch = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input) !== "https://gateway.seven.io/api/sms") {
+        throw new Error("External network access is disabled in the SMS integration suite.");
+      }
+      if (sevenResponseBody === undefined) {
+        throw new Error("No fake Seven response was configured for this test.");
+      }
+      const body =
+        typeof sevenResponseBody === "string"
+          ? sevenResponseBody
+          : JSON.stringify(sevenResponseBody);
+      return new Response(body, {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
     });
     vi.stubGlobal("fetch", networkFetch);
     const counterKeys = fixtureDays.flatMap((day) => [
@@ -214,7 +230,9 @@ suite("SMS budgets and delivery recovery (disposable services)", () => {
     await redis?.del("sms:disabled", ...counterKeys).catch(() => undefined);
     await redis?.quit().catch(() => undefined);
     await sql?.end().catch(() => undefined);
-    if (networkFetch) expect(networkFetch).not.toHaveBeenCalled();
+    if (networkFetch) {
+      expect(networkFetch.mock.calls.every(([url]) => String(url) === "https://gateway.seven.io/api/sms")).toBe(true);
+    }
     vi.unstubAllGlobals();
     vi.useRealTimers();
   });
@@ -592,6 +610,63 @@ suite("SMS budgets and delivery recovery (disposable services)", () => {
     expect(row.smsStatus).toBe("provider_rejected");
     expect(row.smsAttemptCount).toBe(1);
     expect(row.smsNextAttemptAt.getTime()).toBe(Date.now() + 15 * 60_000);
+  });
+
+  it("keeps ambiguous Seven replies spent and releases only documented pre-acceptance rejections", async () => {
+    const uncertainCases: Array<{ day: string; response: unknown }> = [
+      { day: "2026-11-06", response: { success: "101" } },
+      { day: "2026-11-07", response: { success: "600" } },
+      { day: "2026-11-08", response: { success: "402" } },
+      { day: "2026-11-09", response: "{" },
+      {
+        day: "2026-11-10",
+        response: {
+          success: "100",
+          total_price: 0,
+          messages: [{ success: false, error: 202, price: 0 }],
+        },
+      },
+      {
+        day: "2026-11-11",
+        response: { success: "500", total_price: 0.01 },
+      },
+    ];
+
+    for (const { day, response } of uncertainCases) {
+      setDate(`${day}T12:00:00.000Z`);
+      sevenResponseBody = response;
+      await expect(sms.sendSms(smsInput("onboarding"))).rejects.toMatchObject({
+        outcome: "provider_unknown",
+      });
+      expect(await sms.smsSentToday()).toBe(1);
+    }
+
+    setDate("2026-11-12T12:00:00.000Z");
+    sevenResponseBody = {
+      success: "201",
+      total_price: 0,
+      messages: [{ success: false, error: 201, price: 0 }],
+    };
+    await expect(sms.sendSms(smsInput("onboarding"))).rejects.toMatchObject({
+      outcome: "provider_rejected",
+    });
+    expect(await sms.smsSentToday()).toBe(0);
+    expect(networkFetch).toHaveBeenCalledTimes(7);
+    sevenResponseBody = undefined;
+  });
+
+  it("accepts a 101 only when the sole requested message explicitly failed", async () => {
+    setDate("2026-11-13T13:00:00.000Z");
+    sevenResponseBody = {
+      success: "101",
+      total_price: 0,
+      messages: [{ success: false, error: 202, price: 0 }],
+    };
+    await expect(sms.sendSms(smsInput("onboarding"))).rejects.toMatchObject({
+      outcome: "provider_rejected",
+    });
+    expect(await sms.smsSentToday()).toBe(0);
+    sevenResponseBody = undefined;
   });
 
   it("honors the SMS kill switch before provider invocation", async () => {

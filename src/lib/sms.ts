@@ -33,7 +33,9 @@ type SevenSmsResponse = {
   success?: string | number;
   messages?: Array<{
     id?: string | number | null;
+    success?: boolean | string | number;
     error?: string | number | { code?: string | number } | null;
+    price?: string | number | null;
   }>;
   total_price?: string | number | null;
   error?: string | number | { code?: string | number } | null;
@@ -164,23 +166,6 @@ function asProviderCode(value: unknown): string | null {
   return /^[A-Za-z0-9_-]{1,32}$/.test(code) ? code : null;
 }
 
-function providerErrorCode(response: SevenSmsResponse): string {
-  const candidates = [
-    response.success,
-    response.messages?.[0]?.error,
-    response.error,
-  ];
-  for (const candidate of candidates) {
-    if (candidate !== null && typeof candidate === "object") {
-      const code = asProviderCode(candidate.code);
-      if (code) return code;
-    }
-    const code = asProviderCode(candidate);
-    if (code) return code;
-  }
-  return "provider_rejected";
-}
-
 function priceEur(value: unknown): string | null {
   if (typeof value !== "string" && typeof value !== "number") return null;
   const text = String(value);
@@ -189,6 +174,162 @@ function priceEur(value: unknown): string | null {
   if (!Number.isFinite(amount) || amount < 0 || amount > 999_999.9999)
     return null;
   return amount.toFixed(4);
+}
+
+const DEFINITE_PRE_ACCEPTANCE_CODES = new Set([
+  "201", // invalid sender
+  "202", // invalid recipient
+  "301", // missing recipient parameter
+  "305", // invalid text
+  "308", // unsupported parameter
+  "401", // text too long
+  "403", // recipient daily limit
+  "500", // insufficient account credit
+  "603", // custom domain required
+  "802", // invalid label
+  "900", // authentication failed
+  "901", // signing hash verification failed
+  "902", // API key lacks endpoint access
+  "903", // source IP is not permitted
+]);
+
+type SevenResponseClassification =
+  | { kind: "accepted"; result: ProviderResult }
+  | { kind: "rejected"; code: string; priceEur: string | null }
+  | { kind: "unknown" };
+
+function responseCode(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "object") {
+    return asProviderCode((value as { code?: unknown }).code);
+  }
+  return asProviderCode(value);
+}
+
+function classifySevenResponse(value: unknown): SevenResponseClassification {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    return { kind: "unknown" };
+
+  const response = value as SevenSmsResponse;
+  const successCode = asProviderCode(response.success);
+  if (!successCode) return { kind: "unknown" };
+  if (response.messages !== undefined && !Array.isArray(response.messages))
+    return { kind: "unknown" };
+
+  let totalPrice: string | null = null;
+  if (response.total_price !== undefined && response.total_price !== null) {
+    totalPrice = priceEur(response.total_price);
+    if (totalPrice === null) return { kind: "unknown" };
+  }
+
+  const topErrorCode = responseCode(response.error);
+  if (response.error !== undefined && response.error !== null && !topErrorCode)
+    return { kind: "unknown" };
+  if (topErrorCode && topErrorCode !== successCode)
+    return { kind: "unknown" };
+
+  const messages = response.messages ?? [];
+  let hasAcceptanceEvidence = totalPrice !== null && Number(totalPrice) > 0;
+  let hasSingleRecipientFailureEvidence = false;
+  for (const messageValue of messages) {
+    if (!messageValue || typeof messageValue !== "object" || Array.isArray(messageValue))
+      return { kind: "unknown" };
+    const message = messageValue as NonNullable<SevenSmsResponse["messages"]>[number];
+
+    if (message.id !== undefined && message.id !== null) {
+      if (
+        (typeof message.id !== "string" && typeof message.id !== "number") ||
+        String(message.id).trim() === ""
+      ) {
+        return { kind: "unknown" };
+      }
+      hasAcceptanceEvidence = true;
+    }
+
+    if (message.success !== undefined) {
+      if (
+        message.success === true ||
+        message.success === 1 ||
+        String(message.success) === "100"
+      ) {
+        hasAcceptanceEvidence = true;
+      } else if (
+        message.success !== false &&
+        message.success !== 0 &&
+        String(message.success).toLowerCase() !== "false"
+      ) {
+        return { kind: "unknown" };
+      }
+    }
+
+    if (message.price !== undefined && message.price !== null) {
+      const messagePrice = priceEur(message.price);
+      if (messagePrice === null) return { kind: "unknown" };
+      if (Number(messagePrice) > 0) hasAcceptanceEvidence = true;
+    }
+
+    const messageErrorCode = responseCode(message.error);
+    if (message.error !== undefined && message.error !== null && !messageErrorCode)
+      return { kind: "unknown" };
+    if (
+      message.success === false &&
+      messageErrorCode !== null &&
+      message.id == null &&
+      (message.price == null || priceEur(message.price) === "0.0000") &&
+      (totalPrice === null || totalPrice === "0.0000")
+    ) {
+      hasSingleRecipientFailureEvidence = true;
+    }
+  }
+
+  if (successCode === "100") {
+    // A top-level success paired with a reported failure or nonzero charge is
+    // contradictory. Preserve the budget and require reconciliation.
+    if (
+      messages.some((message) =>
+        message.error != null || message.success === false || message.success === 0,
+      )
+    ) {
+      return { kind: "unknown" };
+    }
+    return {
+      kind: "accepted",
+      result: {
+        providerMsgId:
+          messages[0]?.id == null ? null : String(messages[0].id),
+        priceEur: totalPrice,
+      },
+    };
+  }
+
+  // 402 can indicate an earlier accepted duplicate; 600 is an in-send error.
+  // Code 101 is partial/ambiguous unless the only requested recipient is
+  // explicitly marked failed with its own error and no acceptance/charge data.
+  if (hasAcceptanceEvidence) return { kind: "unknown" };
+  if (successCode === "101") {
+    if (
+      messages.length === 1 &&
+      hasSingleRecipientFailureEvidence &&
+      !messages.some((message) => message.success === true || message.success === 1)
+    ) {
+      const messageCode = responseCode(messages[0]?.error);
+      if (messageCode && DEFINITE_PRE_ACCEPTANCE_CODES.has(messageCode)) {
+        return { kind: "rejected", code: messageCode, priceEur: totalPrice };
+      }
+    }
+    return { kind: "unknown" };
+  }
+  if (successCode === "402" || successCode === "600")
+    return { kind: "unknown" };
+
+  if (!DEFINITE_PRE_ACCEPTANCE_CODES.has(successCode))
+    return { kind: "unknown" };
+
+  return {
+    kind: "rejected",
+    code: successCode,
+    priceEur: totalPrice,
+  };
 }
 
 async function writeRejectedAttempt(
@@ -271,25 +412,16 @@ async function sendWithSeven(
     throw new Error("provider_outcome_unknown");
   }
 
-  if (
-    typeof response.success !== "string" &&
-    typeof response.success !== "number"
-  ) {
+  const classification = classifySevenResponse(response);
+  if (classification.kind === "unknown")
     throw new Error("provider_outcome_unknown");
-  }
-  if (String(response.success) !== "100") {
+  if (classification.kind === "rejected") {
     throw new SmsProviderRejected(
-      providerErrorCode(response),
-      priceEur(response.total_price),
+      classification.code,
+      classification.priceEur,
     );
   }
-
-  const messageId = response.messages?.[0]?.id;
-  return {
-    providerMsgId:
-      messageId === null || messageId === undefined ? null : String(messageId),
-    priceEur: priceEur(response.total_price),
-  };
+  return classification.result;
 }
 
 export async function sendSms(
