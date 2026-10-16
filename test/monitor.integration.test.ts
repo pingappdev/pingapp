@@ -4,19 +4,30 @@ import { encodeAbiParameters, encodeEventTopics, parseAbiItem, parseAbiParameter
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 const chainState = vi.hoisted(() => ({
-  latestBlock: 12n,
-  timestamp: BigInt(Math.floor(Date.now() / 1000) + 60),
-  logs: [] as unknown[],
-  logQueries: 0,
+    latestBlock: 12n,
+    routerChainId: 46630,
+    timestamp: BigInt(Math.floor(Date.now() / 1000) + 60),
+    logs: [] as unknown[],
+    logQueries: 0,
+    signerKey: `0x${'22'.repeat(32)}` as `0x${string}`,
+    signerAddress: '' as string,
 }));
 
-vi.mock('../src/lib/viem.js', () => ({ publicClient: {
-  getBlockNumber: vi.fn(async () => chainState.latestBlock),
-  getBlock: vi.fn(async () => ({ timestamp: chainState.timestamp, hash: `0x${'11'.repeat(32)}` })),
-  getLogs: vi.fn(async () => { chainState.logQueries += 1; return chainState.logs; }),
-  getBalance: vi.fn(async () => 1_000_000_000_000_000_000n),
-  readContract: vi.fn(async () => 0n),
-} }));
+vi.mock('../src/lib/viem.js', async () => {
+  const { privateKeyToAccount } = await import('viem/accounts');
+  chainState.signerAddress = privateKeyToAccount(chainState.signerKey).address;
+  return { publicClient: {
+    getBlockNumber: vi.fn(async () => chainState.latestBlock),
+    getBlock: vi.fn(async () => ({ timestamp: chainState.timestamp, hash: `0x${'11'.repeat(32)}` })),
+    getLogs: vi.fn(async () => { chainState.logQueries += 1; return chainState.logs; }),
+    getBalance: vi.fn(async () => 1_000_000_000_000_000_000n),
+    readContract: vi.fn(async () => 0n),
+  }, routerStartupClient: {
+    getChainId: vi.fn(async () => chainState.routerChainId),
+    readContract: vi.fn(async ({ functionName }: { functionName: string }) =>
+      functionName === 'signer' ? chainState.signerAddress : 0n),
+  } };
+});
 vi.mock('../src/lib/queue.js', () => ({ enqueue: vi.fn(async () => undefined), getQueue: vi.fn() }));
 vi.mock('../src/lib/router.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../src/lib/router.js')>()),
@@ -76,6 +87,11 @@ suite('router monitoring and incident controls (disposable services)', () => {
         appUrl.username === watcherUrl.username || !process.env.PINGAPP_MONITOR_TEST_RESOURCE_PREFIX) {
       throw new Error('Monitor integration must use isolated pingapp_audit_monitor with a separate watcher database role.');
     }
+    process.env.ROUTER_NEW_AUTHORIZATIONS_ENABLED = 'true';
+    process.env.ROUTER_NEW_CLAIM_SIGNATURES_ENABLED = 'true';
+    process.env.ROUTER_RELAY_BROADCASTS_ENABLED = 'true';
+    process.env.ROUTER_SIGNER_KEY = chainState.signerKey.slice(2);
+    process.env.RELAYER_PRIVATE_KEY = '33'.repeat(32);
     const [dbClient, redisClient, schemaModule, configModule, watchRepo, serviceModule, jobsModule, routesModule] = await Promise.all([
       import('../src/db/client.js'), import('../src/lib/redis.js'), import('../src/db/schema.js'), import('../src/config.js'),
       import('../src/modules/escrows/watchRepository.js'), import('../src/modules/escrows/service.js'),
@@ -95,9 +111,18 @@ suite('router monitoring and incident controls (disposable services)', () => {
     if (config.ROUTER_ENABLED !== true || config.ROUTER_ADDRESS !== '0x0000000000000000000000000000000000000003') {
       throw new Error('Monitor integration must use ROUTER_ENABLED=true and the synthetic disposable router address.');
     }
+    if (!config.ROUTER_NEW_AUTHORIZATIONS_ENABLED || !config.ROUTER_NEW_CLAIM_SIGNATURES_ENABLED ||
+        !config.ROUTER_RELAY_BROADCASTS_ENABLED || Object.hasOwn(config, 'ROUTER_SIGNER_KEY') || Object.hasOwn(config, 'RELAYER_PRIVATE_KEY')) {
+      throw new Error('Monitor integration requires enabled operation flags with no exported private-key values.');
+    }
+    chainState.routerChainId = config.CHAIN === 'robinhood' ? 4663 : 46630;
     if (await sql`select current_database() as name`.then((rows: Array<{ name: string }>) => rows[0]?.name) !== expectedDatabase) {
       throw new Error('Monitor integration database name does not match its resource prefix.');
     }
+    const startup = await import('../src/lib/routerStartup.js');
+    await startup.initializeRouter();
+    await expect(startup.readRouterSettings()).resolves.toMatchObject({ escrowFee: 0n, signerAddress: chainState.signerAddress });
+    expect(startup.assertRouterSigningReady().address.toLowerCase()).toBe(chainState.signerAddress.toLowerCase());
     await redis.ping();
     await readOnlyRepository.verifyReadOnlyRole();
     await readOnlyRepository.getMetrics(new Date(Date.now() - 60 * 60_000), new Date(Date.now() - 10 * 60_000));
@@ -258,5 +283,5 @@ suite('router monitoring and incident controls (disposable services)', () => {
         await kvSet(routerStopKvKey(operation), false, tx);
       });
     }
-  });
+  }, 30_000);
 });

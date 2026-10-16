@@ -94,7 +94,7 @@ vi.mock('../src/lib/logger.js', () => ({ logger: { info: vi.fn(), warn: vi.fn(),
 vi.mock('../src/lib/queue.js', () => ({ enqueue: vi.fn(async () => undefined), getQueue: vi.fn() }));
 vi.mock('../src/lib/rpcPool.js', () => ({ rpc: vi.fn(async () => null) }));
 vi.mock('../src/lib/router.js', () => ({
-  getRelayerAccount: () => ({ address: '0x0000000000000000000000000000000000000009' }),
+  getRelayerAccount: vi.fn(() => ({ address: '0x0000000000000000000000000000000000000009' })),
   pingRouterAbi: [],
 }));
 vi.mock('../src/lib/viem.js', () => ({ publicClient: {
@@ -128,6 +128,7 @@ vi.mock('../src/modules/escrows/incident.js', () => ({
 
 import { db } from '../src/db/client.js';
 import { notify } from '../src/db/notify.js';
+import { getRelayerAccount } from '../src/lib/router.js';
 import { publicClient } from '../src/lib/viem.js';
 import { relayClaim } from '../src/modules/escrows/jobs.js';
 import { recipientRef } from '../src/modules/resolve/recipientRef.js';
@@ -229,5 +230,17 @@ describe('queued automatic escrow relay privacy revalidation', () => {
     expect(state.updates).toContainEqual({ status: 'deposited', claimTxHash: null });
     expect(state.kvWrites).toContainEqual([`router:self-claim:${escrowId}`, true]);
     expect(notify).toHaveBeenCalledWith(recipient.id, 'escrow_incoming', { escrowId }, expect.anything());
+  });
+
+  it('reconciles a previously broadcast claim without loading the relayer key', async () => {
+    const { job, escrow } = setup();
+    const submittedHash = `0x${'77'.repeat(32)}`;
+    state.outerSelectResults = [[{ ...escrow, claimTxHash: submittedHash }]];
+
+    await expect(relayClaim(job as never)).rejects.toThrow('receipt wait timed out');
+
+    expect(publicClient.waitForTransactionReceipt).toHaveBeenCalledWith({ hash: submittedHash, timeout: 60_000 });
+    expect(getRelayerAccount).not.toHaveBeenCalled();
+    expect(state.broadcasts).toBe(0);
   });
 });

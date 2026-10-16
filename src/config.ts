@@ -52,6 +52,7 @@ const envSchema = z.object({
   ROUTER_ENABLED: boolean(false),
   ROUTER_ADDRESS: z.union([z.string().regex(/^0x[0-9a-f]{40}$/i).refine((value) => !/^0x0{40}$/i.test(value)), z.literal('')]).default(''),
   ROUTER_DEPLOY_BLOCK: z.coerce.number().int().nonnegative().default(0),
+  ROUTER_STARTUP_RPC_TIMEOUT_MS: z.coerce.number().int().positive().max(2500).default(1500),
   ROUTER_NEW_AUTHORIZATIONS_ENABLED: boolean(true),
   ROUTER_NEW_CLAIM_SIGNATURES_ENABLED: boolean(true),
   ROUTER_RELAY_BROADCASTS_ENABLED: boolean(true),
@@ -72,11 +73,21 @@ const envSchema = z.object({
   IZIPAY_ACCOUNT_REF: z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/).default('primary'),
 }).superRefine((value, context) => {
   if (value.ROUTER_ENABLED) {
-    for (const field of ['ROUTER_ADDRESS', 'ROUTER_SIGNER_KEY', 'RELAYER_PRIVATE_KEY'] as const) {
-      if (!value[field]) context.addIssue({ code: 'custom', path: [field], message: 'required when ROUTER_ENABLED=true' });
+    if (!value.ROUTER_ADDRESS) {
+      context.addIssue({ code: 'custom', path: ['ROUTER_ADDRESS'], message: 'required when ROUTER_ENABLED=true' });
+    }
+    const signerOperationEnabled = value.ROUTER_NEW_AUTHORIZATIONS_ENABLED || value.ROUTER_NEW_CLAIM_SIGNATURES_ENABLED;
+    if (signerOperationEnabled && !value.ROUTER_SIGNER_KEY) {
+      context.addIssue({ code: 'custom', path: ['ROUTER_SIGNER_KEY'], message: 'required when new router authorizations or claim signatures are enabled' });
+    }
+    if ((value.ROUTER_NEW_CLAIM_SIGNATURES_ENABLED || value.ROUTER_RELAY_BROADCASTS_ENABLED) && !value.RELAYER_PRIVATE_KEY) {
+      context.addIssue({ code: 'custom', path: ['RELAYER_PRIVATE_KEY'], message: 'required when claim signatures or relay broadcasts are enabled' });
     }
     if (value.INTENT_TTL_DAYS > 60) {
       context.addIssue({ code: 'custom', path: ['INTENT_TTL_DAYS'], message: 'router escrow duration must be at most 60 days' });
+    }
+    if (value.ROUTER_AUTH_TTL_SECONDS > 600) {
+      context.addIssue({ code: 'custom', path: ['ROUTER_AUTH_TTL_SECONDS'], message: 'must not exceed the application signing policy limit of 600 seconds' });
     }
   }
   if (value.IZIPAY_API_KEY && !value.IZIPAY_API_KEY.startsWith(
@@ -102,8 +113,9 @@ if (!result.success) {
 }
 
 const parsed = result.data;
+const { ROUTER_SIGNER_KEY: _routerSignerKey, RELAYER_PRIVATE_KEY: _relayerPrivateKey, ...publicConfig } = parsed;
 export const config = Object.freeze({
-  ...parsed,
+  ...publicConfig,
   PUBLIC_RPC_URL: parsed.PUBLIC_RPC_URL || (parsed.CHAIN === 'robinhood'
     ? 'https://rpc.mainnet.chain.robinhood.com'
     : 'https://rpc.testnet.chain.robinhood.com'),
