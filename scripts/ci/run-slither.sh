@@ -41,7 +41,7 @@ trap 'rm -rf "$runtime"' EXIT
   --volume "$contracts_copy:/work" --workdir /work \
   --entrypoint forge "$foundry_image" build
 
-"${docker_cmd[@]}" run --rm --cpus=1 --memory=1g \
+"${docker_cmd[@]}" run --rm --cpus=1 --memory=1g --user "${uid}:${gid}" \
   --volume "$runtime:/ci-runtime" --entrypoint sh "$foundry_image" -euc \
   'cp /usr/local/bin/forge /ci-runtime/bin/forge'
 ln -sf ../.svm/0.8.28/solc-0.8.28 "$runtime/bin/solc"
