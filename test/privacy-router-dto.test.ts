@@ -1,8 +1,10 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
   queryResults: [] as unknown[][],
   transferCandidates: [] as Record<string, unknown>[],
+  grants: new Map<string, string>(),
+  indexedHashes: [] as string[],
 }));
 
 vi.mock('../src/config.js', () => ({ config: { APP_URL: 'https://app.example.test' } }));
@@ -78,7 +80,30 @@ vi.mock('../src/lib/rateLimit.js', () => ({
   consume: vi.fn(async () => undefined),
   limits: { resolveIpDay: 'resolve-ip', resolveUserDay: 'resolve-day', resolveUserMin: 'resolve-min' },
 }));
-vi.mock('../src/lib/redis.js', () => ({ redis: { eval: vi.fn(async () => 1) } }));
+vi.mock('../src/lib/redis.js', () => ({
+  redis: {
+    eval: vi.fn(async () => 1),
+    get: vi.fn(async (key: string) => state.grants.get(key) ?? null),
+    smembers: vi.fn(async () => [...state.indexedHashes]),
+    mget: vi.fn(async (...keys: string[]) => keys.map((key) => state.grants.get(key) ?? null)),
+    srem: vi.fn(async (_key: string, ...hashes: string[]) => {
+      state.indexedHashes = state.indexedHashes.filter((value) => !hashes.includes(value));
+      return hashes.length;
+    }),
+    multi: () => {
+      const commands: Array<() => void> = [];
+      const chain = {
+        set: (key: string, value: string) => { commands.push(() => state.grants.set(key, value)); return chain; },
+        sadd: (_key: string, hash: string) => { commands.push(() => {
+          if (!state.indexedHashes.includes(hash)) state.indexedHashes.push(hash);
+        }); return chain; },
+        expire: () => chain,
+        exec: async () => { commands.forEach((command) => command()); return []; },
+      };
+      return chain;
+    },
+  },
+}));
 vi.mock('../src/modules/escrows/public.js', () => ({ getEscrowClaim: vi.fn(async () => null) }));
 vi.mock('../src/modules/phone/lock.js', () => ({ lockPhoneMutation: vi.fn(async () => undefined) }));
 vi.mock('../src/modules/tokens/minimum.js', () => ({ getMinAmountRaw: vi.fn(async () => '1') }));
@@ -95,6 +120,13 @@ const recipientAddress = '0x0000000000000000000000000000000000000002';
 const linkedAt = new Date('2026-08-21T06:07:08.000Z');
 const phone = '+12025550102';
 
+beforeEach(() => {
+  state.queryResults = [];
+  state.transferCandidates = [];
+  state.grants.clear();
+  state.indexedHashes = [];
+});
+
 type Predicate = { op?: string; values?: unknown[]; column?: unknown; value?: unknown };
 function matchesTransferPredicate(expression: unknown, row: Record<string, unknown>): boolean {
   const predicate = expression as Predicate | null;
@@ -110,7 +142,7 @@ function matchesTransferPredicate(expression: unknown, row: Record<string, unkno
 async function resolveRecipientWithTransfer(candidate: Record<string, unknown>) {
   state.queryResults = [
     [{ phoneHmac: 'sender-hmac' }],
-    [{ address: recipientAddress, displayName: 'Recipient', phoneLinkedAt: linkedAt }],
+    [{ id: 'matched-user-id', address: recipientAddress, displayName: 'Recipient', phoneLinkedAt: linkedAt }],
     [],
   ];
   state.transferCandidates = [candidate];
@@ -124,7 +156,7 @@ describe('pre-payment recipient DTO privacy', () => {
     state.transferCandidates = [];
     state.queryResults = [
       [{ phoneHmac: 'sender-hmac' }],
-      [{ address: recipientAddress, displayName: 'Recipient', phoneLinkedAt: linkedAt }],
+      [{ id: 'matched-user-id', address: recipientAddress, displayName: 'Recipient', phoneLinkedAt: linkedAt }],
       [],
       [],
     ];
@@ -144,19 +176,21 @@ describe('pre-payment recipient DTO privacy', () => {
   });
 
   it('omits matched PingApp wallet and link-time data from contacts', async () => {
-    state.queryResults = [[{
-      contact: {
-        id: 'contact-id', name: 'Phone contact', phoneEnc: '+12025550102', phoneMasked: '***0102',
-        createdAt: new Date('2026-10-02T06:07:08.000Z'),
-      },
-      paId: 'matched-user-id',
-      paName: 'Recipient',
-      paAddress: recipientAddress,
-      paLinkedAt: linkedAt,
-    }]];
+    const phoneHash = phoneHmac(phone);
+    state.queryResults = [
+      [{ id: 'contact-id', userId: 'sender-id', name: 'Phone contact', phoneHmac: phoneHash,
+        phoneEnc: '+12025550102', phoneMasked: '***0102', createdAt: new Date('2026-10-02T06:07:08.000Z') }],
+      [{ phoneHmac: phoneHash, id: 'matched-user-id', address: recipientAddress,
+        displayName: 'Recipient', phoneLinkedAt: linkedAt }],
+    ];
+    state.grants.set(`resolve:grant:sender-id:${phoneHash}`, JSON.stringify({
+      version: 1, status: 'registered', recipientUserId: 'matched-user-id', phoneLinkedAt: linkedAt.toISOString(),
+    }));
+    state.indexedHashes = [phoneHash];
 
     const [contact] = await listContacts('sender-id');
 
+    expect(contact.membershipStatus).toBe('registered');
     expect(contact.onPingApp).toEqual({ displayName: 'Recipient' });
     expect(JSON.stringify(contact)).not.toContain(recipientAddress);
     expect(JSON.stringify(contact)).not.toContain(linkedAt.toISOString());

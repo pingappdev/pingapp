@@ -12,6 +12,23 @@ import { recipientRef } from './recipientRef.js';
 
 const MAX_DISTINCT_NUMBERS_PER_DAY = 60;
 const DISTINCT_NUMBERS_TTL_SEC = 2 * 24 * 60 * 60;
+const DISCOVERY_GRANT_TTL_SEC = 5 * 60;
+const DISCOVERY_GRANT_INDEX_TTL_SEC = 2 * DISCOVERY_GRANT_TTL_SEC;
+
+export type PhoneDiscoveryGrant =
+  | { version: 1; status: 'registered'; recipientUserId: string; phoneLinkedAt: string }
+  | { version: 1; status: 'not_registered' };
+
+export type PhoneMembership =
+  | { membershipStatus: 'unknown'; onPingApp: null }
+  | { membershipStatus: 'not_registered'; onPingApp: null }
+  | { membershipStatus: 'registered'; onPingApp: { displayName: string } };
+
+type CurrentRecipient = {
+  id: string;
+  displayName: string;
+  phoneLinkedAt: Date | null;
+};
 
 // Membership, capacity checking and insertion must be one Redis operation. In
 // particular, a rejected 61st number must not become a member that can retry.
@@ -36,6 +53,14 @@ function distinctNumbersKey(userId: string, now = new Date()): string {
   return `resolve:d:${userId}:${utcDay}`;
 }
 
+function grantKey(userId: string, phoneHash: string): string {
+  return `resolve:grant:${userId}:${phoneHash}`;
+}
+
+function grantIndexKey(userId: string): string {
+  return `resolve:grant-index:${userId}`;
+}
+
 function distinctLimitError(): AppError {
   return new AppError(
     'RATE_LIMITED',
@@ -58,6 +83,138 @@ async function allowDistinctPhone(userId: string, phoneHash: string): Promise<vo
   if (result < 0) throw distinctLimitError();
 }
 
+async function applyDiscoveryBudget(userId: string, phoneHash: string, ipHash: string): Promise<void> {
+  await consume(limits.resolveUserMin, userId);
+  await consume(limits.resolveUserDay, userId);
+  await consume(limits.resolveIpDay, ipHash);
+  await allowDistinctPhone(userId, phoneHash);
+}
+
+function parseGrant(value: string | null): PhoneDiscoveryGrant | null {
+  if (!value) return null;
+  try {
+    const grant = JSON.parse(value) as Record<string, unknown>;
+    if (grant.version !== 1) return null;
+    if (grant.status === 'not_registered') return { version: 1, status: 'not_registered' };
+    if (grant.status === 'registered' && typeof grant.recipientUserId === 'string' &&
+      typeof grant.phoneLinkedAt === 'string' && Number.isFinite(Date.parse(grant.phoneLinkedAt))) {
+      return {
+        version: 1,
+        status: 'registered',
+        recipientUserId: grant.recipientUserId,
+        phoneLinkedAt: new Date(grant.phoneLinkedAt).toISOString(),
+      };
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+async function readGrant(userId: string, phoneHash: string): Promise<PhoneDiscoveryGrant | null> {
+  return parseGrant(await redis.get(grantKey(userId, phoneHash)));
+}
+
+async function writeGrant(userId: string, phoneHash: string, grant: PhoneDiscoveryGrant): Promise<void> {
+  await redis.multi()
+    .set(grantKey(userId, phoneHash), JSON.stringify(grant), 'EX', DISCOVERY_GRANT_TTL_SEC)
+    .sadd(grantIndexKey(userId), phoneHash)
+    .expire(grantIndexKey(userId), DISCOVERY_GRANT_INDEX_TTL_SEC)
+    .exec();
+}
+
+function grantMatchesRecipient(
+  grant: PhoneDiscoveryGrant,
+  recipient: Pick<CurrentRecipient, 'id' | 'phoneLinkedAt'> | null,
+): boolean {
+  if (grant.status === 'not_registered') return recipient === null;
+  return Boolean(recipient?.phoneLinkedAt && recipient.id === grant.recipientUserId &&
+    recipient.phoneLinkedAt.toISOString() === grant.phoneLinkedAt);
+}
+
+function unregisteredOrUnknown(grant: PhoneDiscoveryGrant, currentRecipient: CurrentRecipient | undefined): PhoneMembership {
+  if (grant.status === 'not_registered') {
+    return currentRecipient
+      ? { membershipStatus: 'unknown', onPingApp: null }
+      : { membershipStatus: 'not_registered', onPingApp: null };
+  }
+
+  if (!currentRecipient || !grantMatchesRecipient(grant, currentRecipient)) {
+    return { membershipStatus: 'unknown', onPingApp: null };
+  }
+  return {
+    membershipStatus: 'registered',
+    onPingApp: { displayName: currentRecipient.displayName ?? '' },
+  };
+}
+
+/**
+ * Reuses only explicit, short-lived resolve grants. It queries current user
+ * bindings for granted phone hashes only, so contact listing never joins every
+ * saved number against the user directory.
+ */
+export async function phoneMembershipsForContacts(
+  userId: string,
+  contactPhoneHashes: readonly string[],
+): Promise<Map<string, PhoneMembership>> {
+  const memberships = new Map<string, PhoneMembership>();
+  const wanted = new Set(contactPhoneHashes);
+  for (const phoneHash of wanted) memberships.set(phoneHash, { membershipStatus: 'unknown', onPingApp: null });
+  if (!wanted.size) return memberships;
+
+  const indexedHashes = await redis.smembers(grantIndexKey(userId));
+  const relevantHashes = indexedHashes.filter((phoneHash) => wanted.has(phoneHash));
+  if (!relevantHashes.length) return memberships;
+
+  const rawGrants = await redis.mget(...relevantHashes.map((phoneHash) => grantKey(userId, phoneHash)));
+  const grants = new Map<string, PhoneDiscoveryGrant>();
+  const staleIndexEntries: string[] = [];
+  for (let index = 0; index < relevantHashes.length; index += 1) {
+    const phoneHash = relevantHashes[index];
+    const grant = parseGrant(rawGrants[index] ?? null);
+    if (grant) grants.set(phoneHash, grant);
+    else staleIndexEntries.push(phoneHash);
+  }
+  if (staleIndexEntries.length) await redis.srem(grantIndexKey(userId), ...staleIndexEntries);
+  if (!grants.size) return memberships;
+
+  const currentRows = await db.select({
+    phoneHmac: users.phoneHmac,
+    id: users.id,
+    displayName: users.displayName,
+    phoneLinkedAt: users.phoneLinkedAt,
+  }).from(users).where(inArray(users.phoneHmac, [...grants.keys()]));
+  const currentByHash = new Map<string, CurrentRecipient>();
+  for (const current of currentRows) {
+    if (current.phoneHmac) currentByHash.set(current.phoneHmac, current);
+  }
+  for (const [phoneHash, grant] of grants) {
+    memberships.set(phoneHash, unregisteredOrUnknown(grant, currentByHash.get(phoneHash)));
+  }
+  return memberships;
+}
+
+/** A send may reveal membership only after the same discovery budgets admit it. */
+export async function requirePhoneDiscoveryGrant(
+  userId: string,
+  phoneHash: string,
+  ipHash: string,
+): Promise<PhoneDiscoveryGrant> {
+  await applyDiscoveryBudget(userId, phoneHash, ipHash);
+  const grant = await readGrant(userId, phoneHash);
+  if (!grant) {
+    throw errors.conflict('Look up this recipient before sending.');
+  }
+  return grant;
+}
+
+export function isPhoneDiscoveryGrantCurrent(
+  grant: PhoneDiscoveryGrant,
+  recipient: Pick<CurrentRecipient, 'id' | 'phoneLinkedAt'> | null,
+): boolean {
+  return grantMatchesRecipient(grant, recipient);
+}
+
 export async function resolvePhone(user: AuthUser, rawPhone: string, ipHash: string) {
   const phone = normalizePhone(rawPhone);
   const hash = phoneHmac(phone.e164);
@@ -69,12 +226,10 @@ export async function resolvePhone(user: AuthUser, rawPhone: string, ipHash: str
   if (!currentUser) throw errors.unauthenticated();
   if (currentUser.phoneHmac === hash) throw errors.selfSend();
 
-  await consume(limits.resolveUserMin, user.id);
-  await consume(limits.resolveUserDay, user.id);
-  await consume(limits.resolveIpDay, ipHash);
-  await allowDistinctPhone(user.id, hash);
+  await applyDiscoveryBudget(user.id, hash, ipHash);
 
   const [recipient] = await db.select({
+    id: users.id,
     address: users.address,
     displayName: users.displayName,
     phoneLinkedAt: users.phoneLinkedAt,
@@ -84,6 +239,14 @@ export async function resolvePhone(user: AuthUser, rawPhone: string, ipHash: str
 
   if (recipient) {
     if (!recipient.phoneLinkedAt) throw errors.internal();
+
+    const grant: PhoneDiscoveryGrant = {
+      version: 1,
+      status: 'registered',
+      recipientUserId: recipient.id,
+      phoneLinkedAt: recipient.phoneLinkedAt.toISOString(),
+    };
+    await writeGrant(user.id, hash, grant);
 
     const [claim] = await db.select({ id: phoneClaims.id })
       .from(phoneClaims)
@@ -119,6 +282,7 @@ export async function resolvePhone(user: AuthUser, rawPhone: string, ipHash: str
     return registered;
   }
 
+  await writeGrant(user.id, hash, { version: 1, status: 'not_registered' });
   const [activeIntents] = await db.select({ total: count() })
     .from(intents)
     .where(and(

@@ -5,6 +5,7 @@ import { decrypt, encrypt, phoneHmac } from '../../lib/crypto.js';
 import { AppError, errors } from '../../lib/errors.js';
 import { normalizePhone } from '../../lib/phone.js';
 import type { DbTransaction } from '../../db/tx.js';
+import { phoneMembershipsForContacts, type PhoneMembership } from '../resolve/service.js';
 
 const MAX_CONTACTS_PER_USER = 500;
 const PHONE_UNIQUE_CONSTRAINT = 'contacts_user_phone_hmac_unique_idx';
@@ -69,59 +70,36 @@ function throwContactConflict(error: unknown): never {
   throw error;
 }
 
-function contactDto(row: ContactRow & {
-  paId?: string | null;
-  paName?: string | null;
-}) {
-  let onPingApp: null | { displayName: string } = null;
-  if (row.paId) {
-    onPingApp = {
-      displayName: row.paName ?? '',
-    };
-  }
-
+function contactDto(row: ContactRow, membership: PhoneMembership) {
   return {
     id: row.id,
     name: row.name,
     phone: decrypt(row.phoneEnc),
     phoneMasked: row.phoneMasked,
-    onPingApp,
+    membershipStatus: membership.membershipStatus,
+    onPingApp: membership.onPingApp,
     createdAt: row.createdAt.toISOString(),
   };
 }
 
 export async function list(userId: string) {
-  const rows = await db.select({
-    contact: contacts,
-    paId: users.id,
-    paName: users.displayName,
-  }).from(contacts)
-    .leftJoin(users, eq(users.phoneHmac, contacts.phoneHmac))
+  const rows = await db.select().from(contacts)
     .where(eq(contacts.userId, userId))
     .orderBy(asc(sql`lower(${contacts.name})`), asc(contacts.createdAt));
-
-  return rows.map((row) => contactDto({
-    ...row.contact,
-    paId: row.paId,
-    paName: row.paName,
-  }));
+  const memberships = await phoneMembershipsForContacts(userId, rows.map((row) => row.phoneHmac));
+  return rows.map((row) => contactDto(
+    row,
+    memberships.get(row.phoneHmac) ?? { membershipStatus: 'unknown', onPingApp: null },
+  ));
 }
 
 async function readContact(userId: string, contactId: string) {
-  const [row] = await db.select({
-    contact: contacts,
-    paId: users.id,
-    paName: users.displayName,
-  }).from(contacts)
-    .leftJoin(users, eq(users.phoneHmac, contacts.phoneHmac))
+  const [row] = await db.select().from(contacts)
     .where(and(eq(contacts.id, contactId), eq(contacts.userId, userId)))
     .limit(1);
   if (!row) throw errors.notFound('Contact not found.');
-  return contactDto({
-    ...row.contact,
-    paId: row.paId,
-    paName: row.paName,
-  });
+  const memberships = await phoneMembershipsForContacts(userId, [row.phoneHmac]);
+  return contactDto(row, memberships.get(row.phoneHmac) ?? { membershipStatus: 'unknown', onPingApp: null });
 }
 
 export async function create(userId: string, input: ContactInput) {
