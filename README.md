@@ -131,10 +131,11 @@ minimum amount, solvency, or current token checks.
 
 For stock tokens, a changed, previously known issuer unit-conversion multiplier
 blocks new escrow authorizations pending review. This is an observed metadata
-change, not proof of a rebase. Initial, missing, or previously unknown metadata
-establishes a baseline without blocking the registry; that baseline cannot
-reveal changes before it was retained and is not an independent issuer
-certification.
+change, not proof of a rebase. Missing observations retain the previous value
+and its known or unknown status. When no prior known multiplier exists, the
+first valid issuer multiplier establishes the local baseline without creating
+a change block. Changes before that first valid retained observation cannot be
+detected, and the baseline is not an independent issuer certification.
 
 Run the operator CLI inside the configured backend container. List the current
 block and retain its `reviewRevision` before clearing it:
