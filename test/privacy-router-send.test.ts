@@ -5,6 +5,12 @@ const state = vi.hoisted(() => ({
   inserted: null as Record<string, unknown> | null,
   transactionCount: 0,
   insolvent: false,
+  discoveryGrant: {
+    version: 1,
+    status: 'registered',
+    recipientUserId: 'recipient-id',
+    phoneLinkedAt: '2026-09-01T12:34:56.000Z',
+  },
 }));
 
 vi.mock('../src/config.js', () => ({ config: {
@@ -75,6 +81,16 @@ vi.mock('../src/lib/router.js', () => ({
 vi.mock('../src/modules/escrows/solvency.js', () => ({ isTokenInsolvent: vi.fn(async () => state.insolvent) }));
 vi.mock('../src/modules/intents/service.js', () => ({ cleanNote: () => null }));
 vi.mock('../src/modules/phone/lock.js', () => ({ lockPhoneMutation: vi.fn(async () => undefined) }));
+vi.mock('../src/modules/resolve/service.js', () => ({
+  requirePhoneDiscoveryGrant: vi.fn(async () => state.discoveryGrant),
+  isPhoneDiscoveryGrantCurrent: (
+    grant: { status: string; recipientUserId?: string; phoneLinkedAt?: string },
+    recipientRow: { id: string; phoneLinkedAt: Date | null } | null,
+  ) => grant.status === 'not_registered'
+    ? recipientRow === null
+    : Boolean(recipientRow?.phoneLinkedAt && recipientRow.id === grant.recipientUserId &&
+      recipientRow.phoneLinkedAt.toISOString() === grant.phoneLinkedAt),
+}));
 vi.mock('../src/modules/tokens/minimum.js', () => ({ assertMinAmount: vi.fn(async () => undefined) }));
 vi.mock('../src/modules/tokens/registry.js', () => ({ getToken: vi.fn(async () => ({
   address: '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', decimals: 6, symbol: 'USDG',
@@ -113,6 +129,12 @@ describe('private recipient escrow authorization', () => {
     vi.clearAllMocks();
     state.transactionCount = 0;
     state.insolvent = false;
+    state.discoveryGrant = {
+      version: 1,
+      status: 'registered',
+      recipientUserId: 'recipient-id',
+      phoneLinkedAt: recipient.phoneLinkedAt.toISOString(),
+    };
     setDatabase();
   });
 
@@ -179,6 +201,19 @@ describe('private recipient escrow authorization', () => {
     expect(state.inserted).toBeNull();
     expect(signEscrowAuth).not.toHaveBeenCalled();
     expect(signClaimAuth).not.toHaveBeenCalled();
+  });
+
+  it('requires a fresh lookup when the phone binding changed after the grant', async () => {
+    state.discoveryGrant = { ...state.discoveryGrant, phoneLinkedAt: '2026-08-01T12:34:56.000Z' };
+    await expect(authorizeSend(user, {
+      phone,
+      tokenAddress,
+      amount: '1',
+      expectedSenderAddress: sender.address,
+      expectedRecipientRef: null,
+    }, 'ip-hash')).rejects.toMatchObject({ code: 'CONFLICT' });
+    expect(state.inserted).toBeNull();
+    expect(signEscrowAuth).not.toHaveBeenCalled();
   });
 
   it('binds opaque recipient references to both the sender and target phone', () => {

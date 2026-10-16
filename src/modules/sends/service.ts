@@ -20,6 +20,7 @@ import { isTokenInsolvent } from '../escrows/solvency.js';
 import { cleanNote } from '../intents/service.js';
 import { lockPhoneMutation } from '../phone/lock.js';
 import { recipientRef } from '../resolve/recipientRef.js';
+import { isPhoneDiscoveryGrantCurrent, requirePhoneDiscoveryGrant } from '../resolve/service.js';
 import { assertMinAmount } from '../tokens/minimum.js';
 import { getToken } from '../tokens/registry.js';
 
@@ -48,6 +49,7 @@ export async function authorizeSend(user: AuthUser, input: AuthorizeSendInput, i
   }
   const phone = normalizePhone(input.phone);
   const targetHmac = phoneHmac(phone.e164);
+  const discoveryGrant = await requirePhoneDiscoveryGrant(user.id, targetHmac, ipHash);
   const token = await getToken(input.tokenAddress);
   if (!token) throw errors.unknownToken();
   if (await isTokenInsolvent(token.address)) {
@@ -82,6 +84,9 @@ export async function authorizeSend(user: AuthUser, input: AuthorizeSendInput, i
     const now = Math.floor(Date.now() / 1000);
     const deadline = BigInt(now + config.ROUTER_AUTH_TTL_SECONDS);
     const id = newRouterId();
+    if (!isPhoneDiscoveryGrantCurrent(discoveryGrant, recipient ?? null)) {
+      throw errors.conflict('Look up this recipient again before sending.');
+    }
     const binding = recipient ? recipientRef(sender.address, targetHmac, recipient) : null;
     if (input.expectedRecipientRef !== binding) {
       throw errors.conflict('The recipient changed. Review the phone number again before sending.');
