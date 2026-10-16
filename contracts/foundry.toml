@@ -16,11 +16,16 @@ runs = 256
 depth = 64
 fail_on_revert = true
 
-# CI runs a deeper, deterministic invariant campaign for reviewable builds.
+# CI records a deeper, seeded campaign with sequence IDs; exact traces vary between runs.
 [profile.ci.invariant]
 runs = 1024
 depth = 128
 fail_on_revert = true
+failure_persist_dir = "/ci-runtime/cache/invariant/failures"
+
+[[profile.ci.fs_permissions]]
+access = "read-write"
+path = "/ci-runtime/evidence"
 
 [rpc_endpoints]
 robinhood = "${ROBINHOOD_RPC_URL}"
