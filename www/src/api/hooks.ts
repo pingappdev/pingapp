@@ -265,7 +265,13 @@ export function useUpdateMe() {
 }
 
 export function useRequestOtp() {
-  return useMutation({ mutationFn: (phone: string) => endpoints.phone.requestOtp(phone) });
+  return useMutation({
+    mutationFn: (input: { phone: string; claimCode?: string }) =>
+      endpoints.phone.requestOtp(
+        input.phone,
+        input.claimCode ? { claimCode: input.claimCode } : {},
+      ),
+  });
 }
 
 export function useVerifyOtp() {

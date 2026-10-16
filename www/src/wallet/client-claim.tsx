@@ -427,7 +427,7 @@ function ClaimSignedIn({
           If the linked number is different, use “Change number” below to verify the invite number.
         </p>
       )}
-      <PhoneLinkFlow compact onLinked={refreshAfterLink} />
+      <PhoneLinkFlow compact claimCode={code} onLinked={refreshAfterLink} />
       {claim.kind === "escrow" && (
         <div className="claim-state">
           {incoming.isPending && <p role="status">Checking your claimable escrows…</p>}

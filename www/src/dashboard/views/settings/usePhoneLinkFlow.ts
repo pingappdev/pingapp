@@ -14,7 +14,10 @@ import { countdown, retrySeconds, type WebOtpCredential } from "./phoneLinkUtils
 
 type Step = "phone" | "code";
 
-export function usePhoneLinkFlow(onLinked?: (res: { readyIntents: number }) => void) {
+export function usePhoneLinkFlow(
+  onLinked?: (res: { readyIntents: number }) => void,
+  claimCode?: string,
+) {
   const { me, withReauth } = useAuth();
   const queryClient = useQueryClient();
   const requestOtp = useRequestOtp();
@@ -188,7 +191,12 @@ export function usePhoneLinkFlow(onLinked?: (res: { readyIntents: number }) => v
     attemptedCodes.current.clear();
     abortWebOtp();
     try {
-      const response = await withReauth(() => requestOtp.mutateAsync(phone));
+      const response = await withReauth(() =>
+        requestOtp.mutateAsync({
+          phone,
+          ...(claimCode && /^[A-Za-z0-9]{10}$/.test(claimCode) ? { claimCode } : {}),
+        }),
+      );
       setPhoneDraft(phone);
       setPhoneForCode(phone);
       setMaskedPhone(response.phoneMasked);

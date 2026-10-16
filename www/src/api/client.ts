@@ -216,10 +216,10 @@ export const endpoints = {
     delete: mutation<void>("/v1/me", "DELETE"),
   },
   phone: {
-    requestOtp: (phone: string, options?: ApiRequestOptions) =>
+    requestOtp: (phone: string, input: { claimCode?: string } = {}, options?: ApiRequestOptions) =>
       api<{ phoneMasked: string; expiresAt: string; resendAfterSec: number }>("/v1/phone/otp", {
         method: "POST",
-        body: { phone },
+        body: { phone, ...(input.claimCode ? { claimCode: input.claimCode } : {}) },
         ...options,
       }),
     verify: (phone: string, code: string, options?: ApiRequestOptions) =>

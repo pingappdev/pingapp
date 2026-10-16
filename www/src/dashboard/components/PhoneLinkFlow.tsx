@@ -24,11 +24,13 @@ function linkedDate(value: string): string {
 export default function PhoneLinkFlow({
   onLinked,
   compact = false,
+  claimCode,
 }: {
   onLinked?: (res: { readyIntents: number }) => void;
   compact?: boolean;
+  claimCode?: string;
 }) {
-  const flow = usePhoneLinkFlow(onLinked);
+  const flow = usePhoneLinkFlow(onLinked, claimCode);
   const {
     me,
     step,
