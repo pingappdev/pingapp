@@ -258,7 +258,13 @@ export type Escrow = {
   id: Address;
   code: string;
   status: "authorized" | "deposited" | "claiming" | "claimed" | "refunded" | "void";
-  smsStatus: Intent["smsStatus"] | "not_required";
+  smsStatus:
+    | Intent["smsStatus"]
+    | "not_required"
+    | "deferred_budget"
+    | "deferred_rate_limit"
+    | "provider_rejected"
+    | "provider_unknown";
   deliveryMode: "automatic" | "claim";
   recipientPhoneMasked: string | null;
   sender: { address: Address; displayName: string };

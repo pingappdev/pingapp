@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { Copy } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatEther, parseEventLogs } from "viem";
 import { getAccount, getPublicClient } from "wagmi/actions";
@@ -15,7 +16,7 @@ import TokenIcon from "../../components/TokenIcon";
 import { errorMessage } from "../send/errors";
 import { QueryMessage } from "./IntentRows";
 import OwedRefund from "./OwedRefund";
-import { owedRefundKey } from "./utils";
+import { copyInvite, owedRefundKey } from "./utils";
 
 const labels: Record<Escrow["status"], string> = {
   authorized: "Awaiting deposit",
@@ -25,6 +26,37 @@ const labels: Record<Escrow["status"], string> = {
   refunded: "Refunded",
   void: "Not deposited",
 };
+
+function escrowSmsMessage(status: Escrow["smsStatus"]): string | null {
+  switch (status) {
+    case "sent":
+      return "SMS request accepted; carrier delivery is not confirmed.";
+    case "not_required":
+      return null;
+    case "deferred_budget":
+      return "SMS is delayed. You can share the invite link.";
+    case "deferred_rate_limit":
+      return "SMS is delayed. You can share the invite link.";
+    case "provider_rejected":
+      return "SMS was not accepted. You can share the invite link.";
+    case "provider_unknown":
+      return "SMS delivery is unconfirmed; the invite may already have reached the recipient. You can share the invite link.";
+    case "disabled":
+      return "SMS is unavailable. You can share the invite link.";
+    case "skipped_rate_limit":
+      return "SMS was skipped. You can share the invite link.";
+    case "failed":
+      return "SMS was not confirmed. You can share the invite link.";
+  }
+}
+
+function canShareEscrowInvite(status: Escrow["smsStatus"]): boolean {
+  return status !== "sent" && status !== "not_required";
+}
+
+function isActiveFundedClaim(row: Escrow): boolean {
+  return (row.status === "deposited" || row.status === "claiming") && !row.refundable;
+}
 
 export default function EscrowLists() {
   const config = useConfig();
@@ -191,6 +223,12 @@ export default function EscrowLists() {
                         {formatEther(BigInt(row.claimTipWei))} ETH
                       </small>
                     )}
+                    {role === "sent" &&
+                      row.deliveryMode === "claim" &&
+                      isActiveFundedClaim(row) &&
+                      escrowSmsMessage(row.smsStatus) && (
+                        <small role="status">{escrowSmsMessage(row.smsStatus)}</small>
+                      )}
                   </div>
                 </div>
                 <div className="request-intent-actions">
@@ -206,6 +244,18 @@ export default function EscrowLists() {
                             ? "Delivery pending"
                             : labels[row.status]}
                   </span>
+                  {role === "sent" &&
+                    row.deliveryMode === "claim" &&
+                    isActiveFundedClaim(row) &&
+                    canShareEscrowInvite(row.smsStatus) && (
+                      <button
+                        className="text-link"
+                        type="button"
+                        onClick={() => void copyInvite(row.claimUrl)}
+                      >
+                        <Copy size={13} /> Copy invite link
+                      </button>
+                    )}
                   {role === "incoming" &&
                     row.deliveryMode === "claim" &&
                     !row.selfClaim &&
