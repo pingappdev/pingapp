@@ -55,7 +55,11 @@ function canShareEscrowInvite(status: Escrow["smsStatus"]): boolean {
 }
 
 function isActiveFundedClaim(row: Escrow): boolean {
-  return (row.status === "deposited" || row.status === "claiming") && !row.refundable;
+  return (
+    (row.status === "deposited" || row.status === "claiming") &&
+    !row.refundable &&
+    Date.parse(row.expiresAt) > Date.now()
+  );
 }
 
 export default function EscrowLists() {
