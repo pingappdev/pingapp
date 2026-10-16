@@ -95,7 +95,10 @@ export async function indexEscrows(): Promise<void> {
   const pending = await db.select().from(escrows).where(inArray(escrows.status, ['deposited', 'claiming']));
   for (const row of pending) {
     if (row.deliveryMode === 'automatic' && row.status === 'deposited') await claimRegisteredEscrow(row.id);
-    if (row.smsStatus === 'failed') await sendEscrowInvite(row.id);
+    if (row.deliveryMode === 'claim' && row.smsNextAttemptAt && row.smsNextAttemptAt <= new Date() &&
+        ['deferred_budget', 'deferred_rate_limit', 'provider_rejected', 'disabled'].includes(row.smsStatus)) {
+      await sendEscrowInvite(row.id);
+    }
     if (row.status === 'claiming') {
       const job = await kvGet<ClaimJob>(claimJobKey(row.id));
       if (job) await enqueueClaim(job, `-recover-${Math.floor(Date.now() / MINUTE)}`);

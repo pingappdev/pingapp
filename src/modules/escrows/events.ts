@@ -1,21 +1,20 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, gt, inArray, lte, lt } from 'drizzle-orm';
 import { decodeEventLog, type Log } from 'viem';
 import { config } from '../../config.js';
 import { db } from '../../db/client.js';
-import { kvGet, kvSet } from '../../db/kv.js';
 import { notify } from '../../db/notify.js';
 import { escrows, tokens, transfers, users } from '../../db/schema.js';
 import type { DbTransaction } from '../../db/tx.js';
 import { normAddress } from '../../lib/chain.js';
 import { decrypt } from '../../lib/crypto.js';
-import { AppError } from '../../lib/errors.js';
+import { errors } from '../../lib/errors.js';
 import { logger } from '../../lib/logger.js';
 import { formatAmount } from '../../lib/money.js';
 import { normalizePhone } from '../../lib/phone.js';
-import { consume, limits } from '../../lib/rateLimit.js';
+import { consume, limits, peek } from '../../lib/rateLimit.js';
 import { pingRouterAbi } from '../../lib/router.js';
-import { sendSms } from '../../lib/sms.js';
-import { smsAmount, smsName } from '../intents/service.js';
+import { sendSms, SmsDeliveryError, type SmsOutcome, type SmsProvider } from '../../lib/sms.js';
+import { smsAmount } from '../intents/service.js';
 import { lockPhoneMutation } from '../phone/lock.js';
 import { markEscrowsClaimable } from './ready.js';
 
@@ -35,7 +34,8 @@ export async function applyRouterLog(tx: DbTransaction, log: Log, minedAt: Date)
         a.expiresAt * 1000n !== BigInt(row.expiresAt.getTime()) || a.amount <= 0n) return null;
     if (!['authorized', 'void'].includes(row.status)) return null;
     await tx.update(escrows).set({ status: 'deposited', amountRaw: a.amount.toString(), depositTxHash: hash,
-      depositedAt: minedAt }).where(eq(escrows.id, row.id));
+      depositedAt: minedAt, smsStatus: row.deliveryMode === 'claim' ? 'deferred_budget' : 'not_required',
+      smsNextAttemptAt: row.deliveryMode === 'claim' ? minedAt : null }).where(eq(escrows.id, row.id));
     const [recipient] = await tx.select({ id: users.id }).from(users).where(eq(users.phoneHmac, row.recipientPhoneHmac)).limit(1);
     if (recipient) await markEscrowsClaimable(tx, row.recipientPhoneHmac, recipient.id);
     return row.id;
@@ -65,30 +65,94 @@ export async function applyRouterLog(tx: DbTransaction, log: Log, minedAt: Date)
   return null;
 }
 
-export async function sendEscrowInvite(id: string): Promise<void> {
+export async function sendEscrowInvite(id: string, provider?: SmsProvider): Promise<void> {
   const row = await db.transaction(async (tx) => {
     await lockPhoneMutation(tx);
-    const [joined] = await tx.select({ escrow: escrows, token: tokens, name: users.displayName }).from(escrows)
-      .innerJoin(tokens, eq(tokens.address, escrows.tokenAddress)).leftJoin(users, eq(users.id, escrows.senderUserId))
-      .where(and(eq(escrows.id, id), eq(escrows.deliveryMode, 'claim'),
-        inArray(escrows.status, ['deposited', 'claiming']), eq(escrows.smsStatus, 'failed'))).limit(1);
-    if (!joined || await kvGet<boolean>(`router:sms-attempted:${id}`, tx)) return null;
-    // Never duplicate an SMS whose provider outcome became uncertain after a crash.
-    await kvSet(`router:sms-attempted:${id}`, true, tx);
-    return joined;
+    const now = new Date();
+    const [candidate] = await tx.select({ escrow: escrows, token: tokens }).from(escrows)
+      .innerJoin(tokens, eq(tokens.address, escrows.tokenAddress))
+      .where(and(eq(escrows.id, id), eq(escrows.deliveryMode, 'claim'), eq(escrows.status, 'deposited'),
+        gt(escrows.expiresAt, now), inArray(escrows.smsStatus,
+          ['deferred_budget', 'deferred_rate_limit', 'provider_rejected', 'disabled']),
+        lte(escrows.smsNextAttemptAt, now), lt(escrows.smsAttemptCount, MAX_PROVIDER_ATTEMPTS)))
+      .limit(1);
+    if (!candidate) return null;
+    const phone = normalizePhone(decrypt(candidate.escrow.recipientPhoneEnc));
+    const text = `PingApp: You received ${smsAmount(formatAmount(candidate.escrow.amountRaw, candidate.token.decimals))} ${candidate.token.symbol}. Claim it by linking a wallet: ${config.APP_URL.replace(/\/$/, '')}/claim/${candidate.escrow.code}`;
+    const [claimed] = await tx.update(escrows).set({ smsStatus: 'provider_unknown', smsNextAttemptAt: null })
+      .where(and(eq(escrows.id, id), eq(escrows.deliveryMode, 'claim'), eq(escrows.status, 'deposited'),
+        gt(escrows.expiresAt, now), inArray(escrows.smsStatus,
+          ['deferred_budget', 'deferred_rate_limit', 'provider_rejected', 'disabled']),
+        lte(escrows.smsNextAttemptAt, now), lt(escrows.smsAttemptCount, MAX_PROVIDER_ATTEMPTS)))
+      .returning({ id: escrows.id });
+    if (!claimed) return null;
+    return { ...candidate, phone, text };
   });
   if (!row) return;
-  let smsStatus = 'sent';
+
+  let outcome: SmsOutcome = 'provider_unknown';
+  let retryAfterMs: number | undefined;
   try {
-    await consume(limits.intentPhoneSmsDay, row.escrow.recipientPhoneHmac);
-    await consume(limits.intentPhoneSms30d, row.escrow.recipientPhoneHmac);
-    const phone = normalizePhone(decrypt(row.escrow.recipientPhoneEnc));
-    await sendSms({ purpose: 'intent', toE164: phone.e164, phoneHmac: row.escrow.recipientPhoneHmac, country: phone.country,
-      text: `PingApp: ${smsName(row.name || '')} sent you ${smsAmount(formatAmount(row.escrow.amountRaw, row.token.decimals))} ${row.token.symbol}. Claim it by linking a wallet: ${config.APP_URL.replace(/\/$/, '')}/claim/${row.escrow.code}` });
+    await sendSms({ purpose: 'intent', budgetLane: 'funded_invite', toE164: row.phone.e164,
+      phoneHmac: row.escrow.recipientPhoneHmac, country: row.phone.country, text: row.text }, {
+      provider,
+      beforeProvider: async () => {
+        const [eligible] = await db.select({ id: escrows.id }).from(escrows).where(and(
+          eq(escrows.id, id), eq(escrows.deliveryMode, 'claim'), eq(escrows.status, 'deposited'),
+          gt(escrows.expiresAt, new Date()),
+        )).limit(1);
+        if (!eligible) throw new SmsDeliveryError('not_required');
+        await reserveInvitePhoneLimits(row.escrow.recipientPhoneHmac);
+      },
+    });
+    outcome = 'sent';
   } catch (error) {
-    smsStatus = error instanceof AppError && error.code === 'RATE_LIMITED' ? 'skipped_rate_limit'
-      : error instanceof AppError && error.details?.smsReason === 'disabled' ? 'disabled' : 'failed';
-    logger.warn({ escrowId: id, smsStatus }, 'escrow invite SMS failed; funds remain available');
+    if (error instanceof SmsDeliveryError) {
+      outcome = error.outcome;
+      retryAfterMs = error.retryAfterMs;
+    } else {
+      // An unexpected exception after the attempt was claimed is ambiguous; never auto-send it again.
+      outcome = 'provider_unknown';
+    }
+    logger.warn({ escrowId: id, outcome }, 'escrow invite SMS did not complete; funds remain available');
   }
-  await db.update(escrows).set({ smsStatus }).where(eq(escrows.id, id));
+
+  const now = new Date();
+  const nextAttemptCount = row.escrow.smsAttemptCount +
+    (outcome === 'sent' || outcome === 'provider_rejected' || outcome === 'provider_unknown' ? 1 : 0);
+  let smsStatus: string;
+  let smsNextAttemptAt: Date | null = null;
+  if (outcome === 'sent') {
+    smsStatus = 'sent';
+  } else if (outcome === 'provider_rejected') {
+    smsStatus = outcome;
+    const delay = REJECTED_BACKOFF_MS[nextAttemptCount - 1];
+    if (delay !== undefined && nextAttemptCount < MAX_PROVIDER_ATTEMPTS) smsNextAttemptAt = new Date(now.getTime() + delay);
+  } else if (outcome === 'provider_unknown') {
+    smsStatus = outcome;
+  } else if (outcome === 'not_required') {
+    smsStatus = 'not_required';
+  } else if (outcome === 'disabled') {
+    smsStatus = outcome;
+    smsNextAttemptAt = new Date(now.getTime() + (retryAfterMs ?? PRE_PROVIDER_RETRY_MS));
+  } else {
+    smsStatus = outcome;
+    smsNextAttemptAt = new Date(now.getTime() + (retryAfterMs ?? PRE_PROVIDER_RETRY_MS));
+  }
+  await db.update(escrows).set({ smsStatus, smsAttemptCount: nextAttemptCount, smsNextAttemptAt })
+    .where(and(eq(escrows.id, id), eq(escrows.smsStatus, 'provider_unknown')));
+}
+
+const MAX_PROVIDER_ATTEMPTS = 3;
+const REJECTED_BACKOFF_MS = [15 * 60_000, 60 * 60_000];
+const PRE_PROVIDER_RETRY_MS = 5 * 60_000;
+
+async function reserveInvitePhoneLimits(phoneHash: string): Promise<void> {
+  const [daily, rolling] = await Promise.all([
+    peek(limits.intentPhoneSmsDay, phoneHash), peek(limits.intentPhoneSms30d, phoneHash),
+  ]);
+  const exhausted = [daily, rolling].filter((bucket) => bucket.remaining <= 0);
+  if (exhausted.length) throw errors.rateLimited(Math.max(...exhausted.map((bucket) => bucket.resetSec)));
+  await consume(limits.intentPhoneSmsDay, phoneHash);
+  await consume(limits.intentPhoneSms30d, phoneHash);
 }
