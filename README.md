@@ -198,10 +198,18 @@ ROUTER_RELAY_BROADCASTS_ENABLED=false
 
 This keeps chain reads, indexing, reconciliation, and refund visibility
 available without new signing or relay broadcasts. `ROUTER_ENABLED=false` is a
-coarse switch that can hide router UI and refund eligibility. The keyless
-configuration path has unit coverage; a full keyless recovery/indexer flow is
-still awaiting independent verification. Existing signed authorizations cannot
-be revoked by either environment flags or application stops.
+coarse switch that can hide router UI and refund eligibility. A disposable
+local integration test launches the API and worker with all three operation
+flags false and no signer keys, checks health and router visibility, and
+confirms a real local Anvil receipt plus indexed deposit event. It verifies
+that escrow signing, claim signing, and relay broadcast operations are
+rejected; it does not attempt a relay submission. The same test exercises
+indexer crash/restart recovery with a fake SMS provider: a deferred message is
+sent exactly once after restart, while an uncertain provider result is not
+retried after a crash. See
+[`indexer-recovery.integration.test.ts`](test/indexer-recovery.integration.test.ts).
+Existing signed authorizations cannot be revoked by either environment flags
+or application stops.
 
 ## Configuration and local development
 
@@ -335,6 +343,7 @@ The main contract and backend test areas are:
 | Native and token balance conservation, owed ETH, and IDs remaining consumed across stateful sequences | [`RouterInvariant.t.sol`](contracts/test/invariant/RouterInvariant.t.sol) |
 | Network-specific ETH, USDG, WETH, and restricted stock-token behavior (manual archive-RPC test; outside hosted CI) | [`PingRouterFork.t.sol`](contracts/test/fork/PingRouterFork.t.sol) |
 | Phone discovery, recipient privacy, and concurrent binding behavior | [`phone-discovery.test.ts`](test/phone-discovery.test.ts), [`f1-discovery.integration.test.ts`](test/f1-discovery.integration.test.ts) |
+| Trusted IPv4/IPv6 proxy identity, forged-header rejection, and matching logger/limiter client hashes over HTTP | [`aud09-identity.integration.test.ts`](test/aud09-identity.integration.test.ts) |
 | Escrow claims, relaying, solvency, and worker recovery | [`privacy-router-claims.test.ts`](test/privacy-router-claims.test.ts), [`privacy-router-relay.test.ts`](test/privacy-router-relay.test.ts), [`router-solvency.test.ts`](test/router-solvency.test.ts), [`router-watcher.test.ts`](test/router-watcher.test.ts) |
 | SMS limits and OTP behavior | [`sms-budget.integration.test.ts`](test/sms-budget.integration.test.ts), [`otp.test.ts`](test/otp.test.ts) |
 | Mocked deployment verifier success, unavailable-RPC, and deliberate mismatch cases | [`deployment-proof.test.ts`](test/deployment-proof.test.ts) |
@@ -411,10 +420,10 @@ This release-identity note is separate from the router/API security review.
 ## Security status and license
 
 An AI-assisted security review informed remediation. It was not an independent
-third-party audit or certification, and no new rubric score is claimed here.
-Independent verification remains in progress; deployment configuration and
-release activation are separate operational responsibilities. Read
-[SECURITY.md](SECURITY.md) before reporting a vulnerability.
+third-party audit or certification. The local automated checks above cover
+their named scopes; hosted CI, production activation, and reassessment by an
+independent external auditor remain pending. No score or production status is
+claimed here. Read [SECURITY.md](SECURITY.md) before reporting a vulnerability.
 
 First-party PingApp code is licensed under the [MIT License](LICENSE). Vendored
 dependencies and other third-party components retain their own license terms;
