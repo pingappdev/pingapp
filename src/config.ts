@@ -8,6 +8,7 @@ export function canIssueNativeToken(origin: unknown, settings: { NATIVE_APP_ORIG
 }
 const boolean = (defaultValue: boolean) => z.enum(['true', 'false']).default(String(defaultValue) as 'true' | 'false').transform((value) => value === 'true');
 const positiveInt = (defaultValue: number) => z.coerce.number().int().positive().default(defaultValue);
+const nonnegativeInt = (defaultValue: number) => z.coerce.number().int().nonnegative().default(defaultValue);
 const decimal = (defaultValue: string) => z.string().regex(/^\d+(\.\d+)?$/).default(defaultValue);
 const hexKey = z.string().regex(/^[0-9a-f]{64}$/i);
 
@@ -39,6 +40,11 @@ const envSchema = z.object({
   SEVEN_API_KEY: z.string().default(''),
   SEVEN_SENDER: z.string().regex(/^[A-Za-z0-9]{1,11}$/).default('PingApp'),
   SMS_DAILY_CAP: positiveInt(300),
+  // Allocations add to 300 by default; the global cap remains the hard ceiling.
+  SMS_FUNDED_INVITE_DAILY_BUDGET: nonnegativeInt(100),
+  SMS_CLAIM_OTP_DAILY_BUDGET: nonnegativeInt(100),
+  SMS_ONBOARDING_DAILY_BUDGET: nonnegativeInt(80),
+  SMS_ADMIN_DAILY_BUDGET: nonnegativeInt(20),
   RECENTLY_LINKED_DAYS: positiveInt(7),
   INTENT_TTL_DAYS: positiveInt(14),
   MIN_SEND_USD: decimal('2'),
@@ -77,6 +83,11 @@ const envSchema = z.object({
   }
   if (value.SMS_DRIVER === 'seven' && !value.SEVEN_API_KEY) {
     context.addIssue({ code: 'custom', path: ['SEVEN_API_KEY'], message: 'required when SMS_DRIVER=seven' });
+  }
+  const smsLaneBudget = value.SMS_FUNDED_INVITE_DAILY_BUDGET + value.SMS_CLAIM_OTP_DAILY_BUDGET +
+    value.SMS_ONBOARDING_DAILY_BUDGET + value.SMS_ADMIN_DAILY_BUDGET;
+  if (smsLaneBudget > value.SMS_DAILY_CAP) {
+    context.addIssue({ code: 'custom', path: ['SMS_DAILY_CAP'], message: 'SMS lane budgets must sum to no more than SMS_DAILY_CAP; lower the lane budgets when setting a cap below their defaults' });
   }
 });
 
