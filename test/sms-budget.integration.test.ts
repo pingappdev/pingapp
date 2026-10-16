@@ -15,7 +15,7 @@ const fixtureDays = [
   "20261027", "20261028", "20261029", "20261030", "20261031", "20261101",
   "20261102", "20261103", "20261104", "20261105", testRunUtcDay,
   "20261106", "20261107", "20261108", "20261109", "20261110",
-  "20261111", "20261112", "20261113",
+  "20261111", "20261112", "20261113", "20261114",
 ];
 
 suite("SMS budgets and delivery recovery (disposable services)", () => {
@@ -666,6 +666,22 @@ suite("SMS budgets and delivery recovery (disposable services)", () => {
       outcome: "provider_rejected",
     });
     expect(await sms.smsSentToday()).toBe(0);
+    sevenResponseBody = undefined;
+  });
+
+  it("records Seven's documented accepted response as sent", async () => {
+    setDate("2026-11-14T12:00:00.000Z");
+    sevenResponseBody = {
+      success: "100",
+      total_price: 0.075,
+      messages: [{ id: "fake-seven-message", success: true, error: null, price: 0.075 }],
+    };
+    await expect(sms.sendSms(smsInput("onboarding"))).resolves.toMatchObject({
+      ok: true,
+      outcome: "sent",
+      providerMsgId: "fake-seven-message",
+    });
+    expect(await sms.smsSentToday()).toBe(1);
     sevenResponseBody = undefined;
   });
 

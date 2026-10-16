@@ -283,7 +283,7 @@ function classifySevenResponse(value: unknown): SevenResponseClassification {
   }
 
   if (successCode === "100") {
-    // A top-level success paired with a reported failure or nonzero charge is
+    // A top-level success paired with a reported message-level failure is
     // contradictory. Preserve the budget and require reconciliation.
     if (
       messages.some((message) =>
