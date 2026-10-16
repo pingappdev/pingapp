@@ -4,12 +4,13 @@ import { requireAuth, requireFreshAuth } from '../../plugins/auth.js';
 import { cancelClaim, requestOtp, unlinkPhone, verifyOtp } from './service.js';
 
 const phoneSchema = z.object({ phone: z.string().max(32) }).strict();
+const otpRequestSchema = phoneSchema.extend({ claimCode: z.string().max(16).optional() });
 const verifySchema = phoneSchema.extend({ code: z.string().regex(/^\d{6}$/) });
 
 const routes: FastifyPluginAsync = async (app) => {
-  app.post('/phone/otp', { preHandler: requireAuth, schema: { body: phoneSchema } }, async (request) => {
-    const { phone } = request.body as z.infer<typeof phoneSchema>;
-    return requestOtp(request.user!.id, request.session!.id, phone, request.ipHash);
+  app.post('/phone/otp', { preHandler: requireAuth, schema: { body: otpRequestSchema } }, async (request) => {
+    const { phone, claimCode } = request.body as z.infer<typeof otpRequestSchema>;
+    return requestOtp(request.user!.id, request.session!.id, phone, request.ipHash, claimCode);
   });
   app.post('/phone/verify', { preHandler: requireAuth, schema: { body: verifySchema } }, async (request) => {
     const { phone, code } = request.body as z.infer<typeof verifySchema>;

@@ -35,6 +35,9 @@ export async function peek(l: RateLimiterRedis, key: string): Promise<{ remainin
 export const limits = {
   otpPhoneBurst: limiter('otp_phone_burst', 1, 60),
   otpPhoneDay: limiter('otp_phone_day', 5, 86400),
+  claimOtpPhoneBurst: limiter('claim_otp_phone_burst', 1, 60),
+  claimOtpPhoneDay: limiter('claim_otp_phone_day', 5, 86400),
+  claimOtpDepositDay: limiter('claim_otp_deposit_day', 2, 86400),
   otpUserDay: limiter('otp_user_day', 8, 86400),
   otpIpDay: limiter('otp_ip_day', 20, 86400),
   otpVerifyUserHour: limiter('otp_verify_user_h', 20, 3600),

@@ -5,6 +5,7 @@ export type OtpState = {
   codeHash: string;
   attempts: number;
   createdAt: number;
+  generation?: number;
 };
 
 export type OtpCheck = { result: 'ok' | 'invalid' | 'expired'; state: OtpState | null };

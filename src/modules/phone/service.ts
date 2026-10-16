@@ -1,16 +1,17 @@
-import { and, eq, gt } from 'drizzle-orm';
+import { randomUUID } from 'node:crypto';
+import { and, eq, gt, inArray, isNotNull } from 'drizzle-orm';
 import { config } from '../../config.js';
 import { audit } from '../../db/audit.js';
 import { db } from '../../db/client.js';
 import { notify } from '../../db/notify.js';
-import { intents, phoneClaims, sessions, users } from '../../db/schema.js';
+import { escrows, intents, phoneClaims, sessions, users } from '../../db/schema.js';
 import type { DbTransaction } from '../../db/tx.js';
 import { encrypt, phoneHmac, randomOtp, sha256Hex } from '../../lib/crypto.js';
 import { AppError, errors } from '../../lib/errors.js';
 import { normalizePhone, type NormalizedPhone } from '../../lib/phone.js';
 import { consume, limits } from '../../lib/rateLimit.js';
 import { redis } from '../../lib/redis.js';
-import { sendSms } from '../../lib/sms.js';
+import { sendSms, type SmsProvider } from '../../lib/sms.js';
 import { markIntentsReady } from '../intents/ready.js';
 import { clearEscrowRecipient, markEscrowsClaimable } from '../escrows/ready.js';
 import { serializeMe } from '../me/serialize.js';
@@ -21,6 +22,47 @@ export { lockPhoneMutation } from './lock.js';
 
 const OTP_TTL_SEC = 600;
 const otpKey = (userId: string) => `otp:${userId}`;
+const otpSequenceKey = (userId: string) => `otp:sequence:${userId}`;
+const otpAcceptedKey = (userId: string) => `otp:accepted:${userId}`;
+// Keep generations alive longer than accepted markers and the full pending-code/provider window.
+const OTP_SEQUENCE_TTL_SEC = 49 * 60 * 60;
+const OTP_ACCEPTED_TTL_SEC = 48 * 60 * 60;
+const otpPendingKey = (userId: string, requestId: string) => `otp:pending:${userId}:${requestId}`;
+
+const NEXT_OTP_SEQUENCE_SCRIPT = `
+local next = redis.call('INCR', KEYS[1])
+redis.call('EXPIRE', KEYS[1], ARGV[1])
+return next
+`;
+
+const PROMOTE_PENDING_OTP_SCRIPT = `
+local generation = tonumber(ARGV[2])
+local current = redis.call('GET', KEYS[1])
+local accepted = tonumber(redis.call('GET', KEYS[3]) or '0')
+local currentGeneration = 0
+if current then
+  local ok, parsed = pcall(cjson.decode, current)
+  if ok then currentGeneration = tonumber(parsed.generation or 0) end
+end
+local latestAccepted = math.max(accepted, currentGeneration)
+if latestAccepted > generation then
+  redis.call('DEL', KEYS[2])
+  return 0
+end
+if redis.call('GET', KEYS[2]) ~= ARGV[1] then
+  if currentGeneration == generation and accepted == generation then return 1 end
+  return 0
+end
+redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[3])
+redis.call('SET', KEYS[3], tostring(generation), 'EX', ARGV[4])
+redis.call('DEL', KEYS[2])
+return 1
+`;
+
+const DELETE_PENDING_OTP_SCRIPT = `
+if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end
+return 0
+`;
 
 function otpExpired(message = 'This code has expired. Request a new one.'): AppError {
   return new AppError('OTP_EXPIRED', 400, message);
@@ -49,9 +91,26 @@ async function currentUser(userId: string) {
   return user;
 }
 
-export async function requestOtp(userId: string, sessionId: string, rawPhone: string, ipHash: string) {
+async function matchingFundedClaim(phoneHash: string, claimCode: string | undefined): Promise<string | null> {
+  if (!claimCode || !/^[A-Za-z0-9]{10}$/.test(claimCode)) return null;
+  const [row] = await db.select({ id: escrows.id }).from(escrows).where(and(
+    eq(escrows.code, claimCode), eq(escrows.recipientPhoneHmac, phoneHash),
+    inArray(escrows.status, ['deposited', 'claiming']), gt(escrows.expiresAt, new Date()),
+    isNotNull(escrows.depositTxHash), gt(escrows.amountRaw, '0'),
+  )).limit(1);
+  return row?.id ?? null;
+}
+
+export async function requestOtp(
+  userId: string, sessionId: string, rawPhone: string, ipHash: string,
+  claimCode?: string, provider?: SmsProvider,
+) {
   const p = normalizePhone(rawPhone);
   const h = phoneHmac(p.e164);
+  // A bearer claim code and the exact normalized recipient phone are both needed
+  // before an OTP can use the protected, funded-claim allocation.
+  const depositId = await matchingFundedClaim(h, claimCode);
+  const budgetLane = depositId ? 'claim_otp' : 'onboarding';
   const user = await currentUser(userId);
   if (user.phoneHmac === h) throw errors.conflict('This number is already linked to your wallet.');
   const [pending] = await db.select({ id: phoneClaims.id }).from(phoneClaims)
@@ -60,29 +119,45 @@ export async function requestOtp(userId: string, sessionId: string, rawPhone: st
   if (pending) throw new AppError('CLAIM_PENDING', 409, 'Your request to link this number is under review.');
   if (user.phoneHmac) await ensureFresh(sessionId, userId);
 
-  await consume(limits.otpPhoneBurst, h);
-  await consume(limits.otpUserDay, userId);
-  await consume(limits.otpIpDay, ipHash);
-  await consume(limits.otpPhoneDay, h);
-
   const code = randomOtp();
   const now = Date.now();
+  const requestId = randomUUID();
+  const generation = Number(await redis.eval(NEXT_OTP_SEQUENCE_SCRIPT, 1, otpSequenceKey(userId), String(OTP_SEQUENCE_TTL_SEC)));
+  if (!Number.isSafeInteger(generation) || generation < 1) throw new Error('OTP generation reservation failed.');
   const state: OtpState = {
     phoneHmac: h,
     codeHash: sha256Hex(`${code}:${h}:${userId}`),
     attempts: 0,
     createdAt: now,
+    generation,
   };
   const serialized = JSON.stringify(state);
-  await redis.set(otpKey(userId), serialized, 'EX', OTP_TTL_SEC);
+  const pendingKey = otpPendingKey(userId, requestId);
+  await redis.set(pendingKey, serialized, 'EX', OTP_TTL_SEC);
   try {
     await sendSms({
-      purpose: 'otp', toE164: p.e164, phoneHmac: h, country: p.country,
+      purpose: 'otp', budgetLane, toE164: p.e164, phoneHmac: h, country: p.country,
       text: `Your PingApp code is ${code}. It expires in 10 minutes. Never share it with anyone.\n\n@${new URL(config.APP_URL).host} #${code}`,
+    }, {
+      provider,
+      beforeProvider: async () => {
+        await consume(limits.otpUserDay, userId);
+        await consume(limits.otpIpDay, ipHash);
+        if (depositId) {
+          await consume(limits.claimOtpPhoneBurst, h);
+          await consume(limits.claimOtpPhoneDay, h);
+          await consume(limits.claimOtpDepositDay, `${depositId}:${h}`);
+        } else {
+          await consume(limits.otpPhoneBurst, h);
+          await consume(limits.otpPhoneDay, h);
+        }
+      },
     });
+    await redis.eval(PROMOTE_PENDING_OTP_SCRIPT, 3, otpKey(userId), pendingKey, otpAcceptedKey(userId),
+      serialized, String(generation), String(OTP_TTL_SEC), String(OTP_ACCEPTED_TTL_SEC));
   } catch (error) {
-    // A later request can replace this user's OTP while the SMS request is in flight.
-    await redis.eval("if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end return 0", 1, otpKey(userId), serialized);
+    // Keep the previous current code on failure and remove only this request's staged code.
+    await redis.eval(DELETE_PENDING_OTP_SCRIPT, 1, pendingKey, serialized);
     throw error;
   }
   await audit('otp_requested', { userId, data: { phoneMasked: p.masked, country: p.country }, ipHash });
