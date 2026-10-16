@@ -47,4 +47,5 @@ export const limits = {
   claimsIpHour: limiter('claims_ip_h', 60, 3600),
   balancesRefresh: limiter('balances_refresh', 1, 10),
   general: limiter('general', 120, 60),
+  generalIp: limiter('general_ip', 600, 60),
 } as const;

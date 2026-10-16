@@ -6,6 +6,7 @@ import { db } from '../db/client.js';
 import { sessions, users } from '../db/schema.js';
 import { sha256Hex } from '../lib/crypto.js';
 import { AppError } from '../lib/errors.js';
+import { consume, limits } from '../lib/rateLimit.js';
 
 const SESSION_SECONDS = 30 * 24 * 60 * 60;
 const SEEN_INTERVAL_MS = 5 * 60 * 1000;
@@ -57,6 +58,11 @@ const auth: FastifyPluginAsync = async (app) => {
     request.sessionVia = via;
 
     const path = request.url.split('?', 1)[0];
+    // Authenticated requests share one budget across cookie and bearer
+    // sessions. The RPC relay keeps its separate verified-session budget.
+    if (path !== '/health' && !(request.method === 'POST' && path === '/v1/rpc')) {
+      await consume(limits.general, row.user.id);
+    }
     if (row.session.lastSeenAt.getTime() < now.getTime() - SEEN_INTERVAL_MS &&
         path !== '/v1/auth/logout' && path !== '/v1/auth/verify') {
       const [renewed] = await db.update(sessions).set({

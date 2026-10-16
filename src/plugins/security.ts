@@ -4,7 +4,6 @@ import type { FastifyPluginAsync } from 'fastify';
 import { allowedOrigins, config } from '../config.js';
 import { errors } from '../lib/errors.js';
 import { consume, limiter, limits } from '../lib/rateLimit.js';
-import { readSessionToken } from './auth.js';
 
 // Security runs before auth and parsing. This request budget also counts bad
 // JSON/oversize bodies; verified-session and batch-entry budgets run in relay.
@@ -32,13 +31,9 @@ const security: FastifyPluginAsync = async (app) => {
     }
     // The RPC relay applies its own per-session and per-IP limits.
     if (path !== '/health' && !(request.method === 'POST' && path === '/v1/rpc')) {
-      // An invalid Authorization header cannot authenticate via cookies, but the
-      // general limiter still counts its cookie identity before falling back to IP.
-      const session = readSessionToken(request)?.token ?? request.cookies?.pa_session;
-      const identity = session
-        ? createHash('sha256').update(session).digest('hex')
-        : request.ipHash;
-      await consume(limits.general, identity);
+      // This pre-auth budget protects parsing and session lookup. A supplied
+      // cookie or bearer token never creates a fresh anonymous bucket.
+      await consume(limits.generalIp, request.ipHash);
     }
 
     if (['GET', 'HEAD', 'OPTIONS'].includes(request.method)) return;
