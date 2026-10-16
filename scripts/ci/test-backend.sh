@@ -151,6 +151,7 @@ fi
     test -f test/worker-shutdown.integration.test.ts || { echo "Required worker shutdown integration test is missing." >&2; exit 1; }
     test -f test/token-eligibility.integration.test.ts || { echo "Required AUD-09 token eligibility integration test is missing." >&2; exit 1; }
     test -f test/aud09.integration.test.ts || { echo "Required AUD-09 RPC/webhook integration test is missing." >&2; exit 1; }
+    test -f test/aud09-identity.integration.test.ts || { echo "Required AUD-09 trusted identity integration test is missing." >&2; exit 1; }
     test -f test/otp.test.ts || { echo "Required OTP regression test is missing." >&2; exit 1; }
     test -f tooling/scripts/deployment/rebuild-proof.mjs || { echo "Required deployment build proof is missing." >&2; exit 1; }
     test -f tooling/scripts/deployment/post-deploy-check.mjs || { echo "Required read-only deployment check is missing." >&2; exit 1; }
@@ -160,6 +161,7 @@ fi
       --exclude test/monitor.integration.test.ts --exclude test/deployment-proof.test.ts \
       --exclude test/worker-shutdown.integration.test.ts \
       --exclude test/token-eligibility.integration.test.ts --exclude test/aud09.integration.test.ts \
+      --exclude test/aud09-identity.integration.test.ts \
       --exclude test/indexer-recovery.integration.test.ts \
       --reporter=json --outputFile=/evidence/vitest-general.json; then :; else
       test_status=$?
@@ -222,6 +224,14 @@ fi
       --expect-file=test/token-eligibility.integration.test.ts --expect-file=test/aud09.integration.test.ts \
       --expect-suite-count=test/token-eligibility.integration.test.ts=2 \
       --expect-suite-count=test/aud09.integration.test.ts=3
+    AUD09_IDENTITY_INTEGRATION=1 PINGAPP_AUD09_IDENTITY_RESOURCE_PREFIX="$CI_PREFIX" \
+      PINGAPP_AUD09_IDENTITY_REDIS_PORT="$REDIS_PORT" \
+      TRUSTED_PROXY_IPS=127.0.0.1,::1 IP_HASH_SALT=synthetic-aud09-identity-salt LOG_LEVEL=info \
+      npm test -- test/aud09-identity.integration.test.ts \
+        --reporter=json --outputFile=/evidence/vitest-aud09-identity.json
+    node scripts/ci/assert-vitest-results.mjs /evidence/vitest-aud09-identity.json --no-anvil \
+      --expect-file=test/aud09-identity.integration.test.ts \
+      --expect-suite-count=test/aud09-identity.integration.test.ts=2
     node tooling/scripts/deployment/rebuild-proof.mjs
   '
 
