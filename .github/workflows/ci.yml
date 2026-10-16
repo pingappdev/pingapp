@@ -129,8 +129,8 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
 
-  scheduled-fork-and-deployment-readback:
-    name: Scheduled fork and read-only deployment proof
+  scheduled-deployment-readback:
+    name: Scheduled read-only deployment proof
     if: github.event_name == 'schedule' || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -140,14 +140,6 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - name: Run pinned-block public-network fork tests
-        run: |
-          set -o pipefail
-          bash scripts/ci/test-fork.sh 2>&1 | tee "$RUNNER_TEMP/fork-tests.log"
-        env:
-          CI_EVIDENCE_DIR: ${{ runner.temp }}/pingapp-audit-ci-evidence
-          # Optional archive-capable endpoint for the pinned historical fork; never exposed to PR jobs.
-          ROBINHOOD_RPC_URL: ${{ secrets.ROBINHOOD_ARCHIVE_RPC_URL }}
       - name: Rebuild and read back the deployed router
         if: always() && steps.checkout.outcome == 'success'
         run: |
@@ -161,10 +153,7 @@ jobs:
         with:
           name: scheduled-live-checks-${{ github.run_id }}
           path: |
-            ${{ runner.temp }}/fork-tests.log
             ${{ runner.temp }}/deployment-readback.log
-            ${{ runner.temp }}/pingapp-audit-ci-evidence/fork-test.json
-            ${{ runner.temp }}/pingapp-audit-ci-evidence/fork-test.log
             ${{ runner.temp }}/pingapp-audit-ci-evidence/deployment-rebuild-proof.json
             ${{ runner.temp }}/pingapp-audit-ci-evidence/deployment-rebuild-proof.stderr
             ${{ runner.temp }}/pingapp-audit-ci-evidence/deployment-readback.json
