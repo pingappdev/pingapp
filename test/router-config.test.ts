@@ -50,7 +50,7 @@ describe('router incident recovery configuration', () => {
     expect(result.stderr).toContain('RELAYER_PRIVATE_KEY');
   });
 
-  it('rejects authorization lifetimes beyond the router contract window', () => {
+  it('rejects authorization lifetimes beyond the application signing policy', () => {
     const result = parseConfig({ ROUTER_AUTH_TTL_SECONDS: '601' });
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain('ROUTER_AUTH_TTL_SECONDS');

@@ -147,6 +147,7 @@ fi
     test -f test/f1-discovery.integration.test.ts || { echo "Required F1 integration test is missing." >&2; exit 1; }
     test -f test/sms-budget.integration.test.ts || { echo "Required F2 integration test is missing." >&2; exit 1; }
     test -f test/monitor.integration.test.ts || { echo "Required AUD-05 monitor integration test is missing." >&2; exit 1; }
+    test -f test/worker-shutdown.integration.test.ts || { echo "Required worker shutdown integration test is missing." >&2; exit 1; }
     test -f test/otp.test.ts || { echo "Required OTP regression test is missing." >&2; exit 1; }
     test -f tooling/scripts/deployment/rebuild-proof.mjs || { echo "Required deployment build proof is missing." >&2; exit 1; }
     test -f tooling/scripts/deployment/post-deploy-check.mjs || { echo "Required read-only deployment check is missing." >&2; exit 1; }
@@ -154,6 +155,7 @@ fi
     if npm test -- --exclude test/f1-discovery.integration.test.ts \
       --exclude test/sms-budget.integration.test.ts --exclude test/otp.test.ts \
       --exclude test/monitor.integration.test.ts --exclude test/deployment-proof.test.ts \
+      --exclude test/worker-shutdown.integration.test.ts \
       --reporter=json --outputFile=/evidence/vitest-general.json; then :; else
       test_status=$?
       node scripts/ci/print-vitest-failures.mjs /evidence/vitest-general.json
@@ -193,4 +195,20 @@ fi
     node scripts/ci/assert-vitest-results.mjs /evidence/vitest-monitor.json --no-anvil \
       --expect-file=test/monitor.integration.test.ts --expect-suite-count=test/monitor.integration.test.ts=2
     node tooling/scripts/deployment/rebuild-proof.mjs
+  '
+
+# This suite checks shutdown while Redis is unavailable, so stop only this runner's disposable Redis.
+"${docker_cmd[@]}" stop "$redis_name" >/dev/null
+"${docker_cmd[@]}" run --rm --cpus=2 --memory=3g --network host --user "${uid}:${gid}" \
+  --env HOME=/tmp --env PINGAPP_WORKER_SHUTDOWN_TEST_RESOURCE_PREFIX=pingapp-audit-signer \
+  --env "PINGAPP_WORKER_SHUTDOWN_TEST_REDIS_PORT=$redis_port" \
+  --volume "$evidence_dir:/evidence" --volume "$repo_root:/work" \
+  --volume "$test_contracts:/work/contracts:ro" --workdir /work "$node_image" sh -euc '
+    test "$(node --version)" = "v24.21.0"
+    npm ci
+    npm test -- test/worker-shutdown.integration.test.ts --reporter=json \
+      --outputFile=/evidence/vitest-worker-shutdown.json
+    node scripts/ci/assert-vitest-results.mjs /evidence/vitest-worker-shutdown.json --no-anvil \
+      --expect-file=test/worker-shutdown.integration.test.ts \
+      --expect-suite-count=test/worker-shutdown.integration.test.ts=1
   '
