@@ -27,7 +27,7 @@ const features = [
   { label: "Private balances", text: "Shielded USDC and ETH balances, non-custodial by design." },
   {
     label: "Wallet control",
-    text: "Your keys stay with you — approve every transfer from the app.",
+    text: "Your keys stay private, you approve every transfer from the app.",
   },
   {
     label: "Requests & splits",
