@@ -27,9 +27,9 @@ export async function applyRouterLog(tx: DbTransaction, log: Log, minedAt: Date)
   const [row] = await tx.select().from(escrows).where(eq(escrows.id, event.args.id)).limit(1).for('update');
   if (!row) return null; // Only PingApp's persisted phone/id mappings are recognized.
   const hash = log.transactionHash.toLowerCase();
-  if (event.args.token.toLowerCase() !== row.tokenAddress || event.args.claimTip !== BigInt(row.claimTipWei)) return null;
   if (event.eventName === 'Escrowed') {
     const a = event.args;
+    if (a.token.toLowerCase() !== row.tokenAddress || a.claimTip !== BigInt(row.claimTipWei)) return null;
     if (a.sender.toLowerCase() !== row.senderAddress || a.fee !== BigInt(row.feeWei) ||
         a.expiresAt * 1000n !== BigInt(row.expiresAt.getTime()) || a.amount <= 0n) return null;
     if (!['authorized', 'void'].includes(row.status)) return null;
@@ -40,25 +40,33 @@ export async function applyRouterLog(tx: DbTransaction, log: Log, minedAt: Date)
     if (recipient) await markEscrowsClaimable(tx, row.recipientPhoneHmac, recipient.id);
     return row.id;
   }
-  if (event.args.amount !== BigInt(row.amountRaw)) return null;
   if (event.eventName === 'Claimed') {
     if (row.status === 'claimed' || row.status === 'refunded') return null;
+    const recipientAddress = normAddress(event.args.recipient);
+    const tokenAddress = normAddress(event.args.token);
     await tx.update(escrows).set({ status: 'claimed', claimTxHash: hash,
-      claimedToAddress: normAddress(event.args.recipient), claimedAt: minedAt }).where(eq(escrows.id, row.id));
-    const [actualRecipient] = await tx.select({ id: users.id }).from(users)
-      .where(eq(users.address, normAddress(event.args.recipient))).limit(1);
-    await tx.insert(transfers).values({
-      senderUserId: row.senderUserId, senderAddress: row.senderAddress,
-      recipientUserId: actualRecipient?.id ?? null, recipientAddress: normAddress(event.args.recipient),
-      recipientPhoneHmac: row.recipientPhoneHmac, recipientPhoneMasked: row.recipientPhoneMasked,
-      tokenAddress: row.tokenAddress, amountRaw: event.args.amount.toString(), routerId: row.id,
-      contactName: row.contactName, txHash: hash, status: 'confirmed', blockNumber: log.blockNumber,
-      confirmedAt: minedAt,
-    }).onConflictDoNothing();
+      claimedToAddress: recipientAddress, claimedAt: minedAt }).where(eq(escrows.id, row.id));
+    const [actualRecipient] = await tx.select({ id: users.id, phoneHmac: users.phoneHmac }).from(users)
+      .where(eq(users.address, recipientAddress)).limit(1);
+    const [knownToken] = await tx.select({ address: tokens.address }).from(tokens)
+      .where(eq(tokens.address, tokenAddress)).limit(1);
+    if (knownToken) {
+      const matchesCurrentRecipient = actualRecipient?.id === row.recipientUserId &&
+        actualRecipient?.phoneHmac === row.recipientPhoneHmac;
+      await tx.insert(transfers).values({
+        senderUserId: row.senderUserId, senderAddress: row.senderAddress,
+        recipientUserId: actualRecipient?.id ?? null, recipientAddress,
+        recipientPhoneHmac: matchesCurrentRecipient ? row.recipientPhoneHmac : null,
+        recipientPhoneMasked: matchesCurrentRecipient ? row.recipientPhoneMasked : null,
+        tokenAddress, amountRaw: event.args.amount.toString(), routerId: row.id,
+        contactName: row.contactName, txHash: hash, status: 'confirmed', blockNumber: log.blockNumber,
+        confirmedAt: minedAt,
+      }).onConflictDoNothing();
+    }
     if (row.senderUserId) await notify(row.senderUserId, 'escrow_claimed', { escrowId: row.id }, tx);
     if (actualRecipient) await notify(actualRecipient.id, 'escrow_received', { escrowId: row.id }, tx);
   } else {
-    if (event.args.sender.toLowerCase() !== row.senderAddress || ['claimed', 'refunded'].includes(row.status)) return null;
+    if (['claimed', 'refunded'].includes(row.status)) return null;
     await tx.update(escrows).set({ status: 'refunded', refundTxHash: hash, refundedAt: minedAt }).where(eq(escrows.id, row.id));
     if (row.senderUserId) await notify(row.senderUserId, 'escrow_refunded', { escrowId: row.id }, tx);
   }

@@ -1,17 +1,18 @@
 import { and, desc, eq, inArray } from 'drizzle-orm';
+import { randomUUID } from 'node:crypto';
 import type { Hex } from 'viem';
 import { config } from '../../config.js';
 import { audit } from '../../db/audit.js';
 import { db } from '../../db/client.js';
 import { kvGet, kvSet } from '../../db/kv.js';
-import { escrows, phoneClaims, tokens, users } from '../../db/schema.js';
+import { claimAuthorizations, escrows, phoneClaims, tokens, users } from '../../db/schema.js';
 import type { DbTransaction } from '../../db/tx.js';
 import { checksum, normAddress } from '../../lib/chain.js';
 import { errors } from '../../lib/errors.js';
 import { logger } from '../../lib/logger.js';
 import { formatAmount } from '../../lib/money.js';
 import { enqueue } from '../../lib/queue.js';
-import { getRelayerAccount, serializeRouterAuth, signClaimAuth, type ClaimAuth } from '../../lib/router.js';
+import { getRelayerAccount, hashClaimAuth, routerDomain, serializeRouterAuth, signClaimAuth, type ClaimAuth } from '../../lib/router.js';
 import { publicClient } from '../../lib/viem.js';
 import type { AuthUser } from '../../plugins/auth.js';
 import { lockPhoneMutation } from '../phone/lock.js';
@@ -19,8 +20,10 @@ import { getMinAmountRaw } from '../tokens/minimum.js';
 import { getPrices } from '../tokens/prices.js';
 import { toTokenDto } from '../tokens/routes.js';
 import { matchesEscrowRecipient } from './ready.js';
+import { assertRouterOperationEnabled, isRouterIncidentStop } from './incident.js';
 
 export type ClaimJob = {
+  requestId?: string;
   auth: { id: Hex; recipient: Hex; relayer: Hex; deadline: string };
   signature: Hex;
 };
@@ -29,7 +32,7 @@ export const claimJobKey = (id: string) => `router:claim:${id}`;
 export const selfClaimKey = (id: string) => `router:self-claim:${id}`;
 
 export async function submittedEscrow(user: AuthUser, id: string, txHash: string) {
-  if (!config.ROUTER_ENABLED) throw errors.conflict('Router sends are not enabled.');
+  if (!config.ROUTER_ADDRESS) throw errors.conflict('Router is not configured.');
   const row = await db.transaction(async (tx) => {
     await lockPhoneMutation(tx);
     const [escrow] = await tx.select().from(escrows).where(eq(escrows.id, id)).limit(1).for('update');
@@ -43,7 +46,9 @@ export async function submittedEscrow(user: AuthUser, id: string, txHash: string
 }
 
 export async function enqueueClaim(job: ClaimJob, suffix = ''): Promise<void> {
-  await enqueue('escrows', 'relay', job, { jobId: `relay-${job.auth.id}-${job.auth.deadline}${suffix}` });
+  await enqueue('escrows', 'relay', job, {
+    jobId: `relay-${job.requestId ?? `${job.auth.id}-${job.auth.deadline}`}${suffix}`,
+  });
 }
 
 /** Only callers holding the phone lock with a verified deposit may sign a payout. */
@@ -57,13 +62,37 @@ function claimAuthFor(escrow: typeof escrows.$inferSelect, recipient: typeof use
 
 async function prepareClaim(tx: DbTransaction, escrow: typeof escrows.$inferSelect, recipient: typeof users.$inferSelect,
   ipHash?: string): Promise<ClaimJob> {
+  await assertRouterOperationEnabled('claim-signatures', tx);
+  if (!recipient.phoneHmac) throw errors.conflict('This recipient is no longer bound to the escrow phone.');
   const auth = claimAuthFor(escrow, recipient, getRelayerAccount().address);
-  const job: ClaimJob = { auth: serializeRouterAuth(auth), signature: await signClaimAuth(auth) };
+  const requestId = randomUUID();
+  const signedAt = new Date();
+  await tx.insert(claimAuthorizations).values({
+    requestId,
+    escrowId: auth.id,
+    kind: 'relayed',
+    recipientUserId: recipient.id,
+    recipientAddress: auth.recipient,
+    relayerAddress: auth.relayer,
+    recipientPhoneHmac: recipient.phoneHmac,
+    phoneLinkedAt: recipient.phoneLinkedAt,
+    deadline: new Date(Number(auth.deadline) * 1000),
+    domainName: routerDomain.name,
+    domainVersion: routerDomain.version,
+    domainChainId: BigInt(routerDomain.chainId),
+    domainVerifyingContract: routerDomain.verifyingContract,
+    typedDataDigest: hashClaimAuth(auth),
+    signedAt,
+  });
+  // Check again after DB writes and immediately before asking the signer.
+  await assertRouterOperationEnabled('claim-signatures', tx);
+  const signature = await signClaimAuth(auth);
+  const job: ClaimJob = { requestId, auth: serializeRouterAuth(auth), signature };
   await tx.update(escrows).set({ status: 'claiming', claimTxHash: null, recipientUserId: recipient.id })
     .where(eq(escrows.id, escrow.id));
   // Durable outbox closes the DB-commit/BullMQ-enqueue crash window.
   await kvSet(claimJobKey(escrow.id), job, tx);
-  await audit('escrow_claim_requested', { userId: recipient.id, data: { escrowId: escrow.id }, ipHash }, tx);
+  await audit('escrow_claim_requested', { userId: recipient.id, data: { escrowId: escrow.id, requestId }, ipHash }, tx);
   return job;
 }
 
@@ -75,20 +104,29 @@ async function dispatchClaim(job: ClaimJob): Promise<void> {
 
 /** Runs after deposit commit and during index recovery; never returns a claim signature to a caller. */
 export async function claimRegisteredEscrow(id: string): Promise<void> {
-  if (!config.ROUTER_ENABLED) return;
-  const job = await db.transaction(async (tx) => {
-    await lockPhoneMutation(tx);
-    const [escrow] = await tx.select().from(escrows).where(eq(escrows.id, id)).limit(1).for('update');
-    if (!escrow || escrow.deliveryMode !== 'automatic' || escrow.status !== 'deposited' ||
-        !escrow.depositedAt || !escrow.depositTxHash || escrow.expiresAt.getTime() <= Date.now() + 300_000) return null;
-    const [recipient] = await tx.select().from(users).where(eq(users.phoneHmac, escrow.recipientPhoneHmac)).limit(1);
-    if (!recipient || !matchesEscrowRecipient(escrow, recipient)) return null;
-    const [dispute] = await tx.select({ id: phoneClaims.id }).from(phoneClaims).where(and(
-      eq(phoneClaims.phoneHmac, escrow.recipientPhoneHmac), eq(phoneClaims.status, 'pending_review'),
-    )).limit(1);
-    if (dispute || await kvGet<boolean>(selfClaimKey(escrow.id), tx)) return null;
-    return prepareClaim(tx, escrow, recipient);
-  });
+  try { await assertRouterOperationEnabled('claim-signatures'); } catch (error) {
+    if (isRouterIncidentStop(error)) return;
+    throw error;
+  }
+  let job: ClaimJob | null;
+  try {
+    job = await db.transaction(async (tx) => {
+      await lockPhoneMutation(tx);
+      const [escrow] = await tx.select().from(escrows).where(eq(escrows.id, id)).limit(1).for('update');
+      if (!escrow || escrow.deliveryMode !== 'automatic' || escrow.status !== 'deposited' ||
+          !escrow.depositedAt || !escrow.depositTxHash || escrow.expiresAt.getTime() <= Date.now() + 300_000) return null;
+      const [recipient] = await tx.select().from(users).where(eq(users.phoneHmac, escrow.recipientPhoneHmac)).limit(1);
+      if (!recipient || !matchesEscrowRecipient(escrow, recipient)) return null;
+      const [dispute] = await tx.select({ id: phoneClaims.id }).from(phoneClaims).where(and(
+        eq(phoneClaims.phoneHmac, escrow.recipientPhoneHmac), eq(phoneClaims.status, 'pending_review'),
+      )).limit(1);
+      if (dispute || await kvGet<boolean>(selfClaimKey(escrow.id), tx)) return null;
+      return prepareClaim(tx, escrow, recipient);
+    });
+  } catch (error) {
+    if (isRouterIncidentStop(error)) return;
+    throw error;
+  }
   if (job) await dispatchClaim(job);
 }
 
@@ -112,7 +150,7 @@ async function lockClaimableEscrow(tx: DbTransaction, user: AuthUser, id: string
 }
 
 export async function claimEscrow(user: AuthUser, id: string, ipHash: string) {
-  if (!config.ROUTER_ENABLED) throw errors.conflict('Escrow claiming is not enabled.');
+  await assertRouterOperationEnabled('claim-signatures');
   const job = await db.transaction(async (tx) => {
     await lockPhoneMutation(tx);
     const { escrow, me } = await lockClaimableEscrow(tx, user, id);
@@ -131,16 +169,42 @@ export async function claimEscrow(user: AuthUser, id: string, ipHash: string) {
  * only pay the caller's own bound wallet and expires within ten minutes.
  */
 export async function selfClaimEscrow(user: AuthUser, id: string, ipHash: string) {
-  if (!config.ROUTER_ENABLED) throw errors.conflict('Escrow claiming is not enabled.');
+  await assertRouterOperationEnabled('claim-signatures');
   return db.transaction(async (tx) => {
     await lockPhoneMutation(tx);
     const { escrow, me } = await lockClaimableEscrow(tx, user, id);
     if (!await kvGet<boolean>(selfClaimKey(escrow.id), tx)) {
       throw errors.conflict('This payout is delivered by the relayer.');
     }
+    if (!me.phoneHmac) throw errors.conflict('This recipient is no longer bound to the escrow phone.');
     const auth = claimAuthFor(escrow, me, normAddress(me.address));
-    await audit('escrow_self_claim_signed', { userId: me.id, data: { escrowId: escrow.id }, ipHash }, tx);
-    return { router: normAddress(config.ROUTER_ADDRESS), auth: serializeRouterAuth(auth), signature: await signClaimAuth(auth) };
+    const requestId = randomUUID();
+    const signedAt = new Date();
+    await tx.insert(claimAuthorizations).values({
+      requestId,
+      escrowId: auth.id,
+      kind: 'self',
+      recipientUserId: me.id,
+      recipientAddress: auth.recipient,
+      relayerAddress: auth.relayer,
+      recipientPhoneHmac: me.phoneHmac,
+      phoneLinkedAt: me.phoneLinkedAt,
+      deadline: new Date(Number(auth.deadline) * 1000),
+      domainName: routerDomain.name,
+      domainVersion: routerDomain.version,
+      domainChainId: BigInt(routerDomain.chainId),
+      domainVerifyingContract: routerDomain.verifyingContract,
+      typedDataDigest: hashClaimAuth(auth),
+      signedAt,
+    });
+    await audit('escrow_self_claim_signed', {
+      userId: me.id,
+      data: { escrowId: escrow.id, requestId },
+      ipHash,
+    }, tx);
+    await assertRouterOperationEnabled('claim-signatures', tx);
+    const signature = await signClaimAuth(auth);
+    return { router: normAddress(config.ROUTER_ADDRESS), auth: serializeRouterAuth(auth), signature };
   });
 }
 
@@ -153,7 +217,7 @@ export async function listEscrows(userId: string, role: 'sent' | 'incoming') {
     .orderBy(desc(escrows.createdAt)).limit(100);
   const prices = rows.length ? await getPrices() : new Map<string, string | null>();
   // Refund eligibility follows chain time, including local fork time travel.
-  const chainTime = config.ROUTER_ENABLED && rows.length ? Number((await publicClient.getBlock()).timestamp) * 1000 : Date.now();
+  const chainTime = config.ROUTER_ADDRESS && rows.length ? Number((await publicClient.getBlock()).timestamp) * 1000 : Date.now();
   return Promise.all(rows.map(async ({ escrow: row, token, senderName }) => {
     const price = prices.get(token.address) ?? null;
     return {

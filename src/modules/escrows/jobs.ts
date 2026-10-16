@@ -4,7 +4,7 @@ import { config } from '../../config.js';
 import { db } from '../../db/client.js';
 import { kvGet, kvSet } from '../../db/kv.js';
 import { notify } from '../../db/notify.js';
-import { escrows, phoneClaims, users } from '../../db/schema.js';
+import { escrows, kv, phoneClaims, users } from '../../db/schema.js';
 import { normAddress, viemChain } from '../../lib/chain.js';
 import { invalidate } from '../../lib/cache.js';
 import { logger } from '../../lib/logger.js';
@@ -18,6 +18,7 @@ import { applyRouterLog, sendEscrowInvite } from './events.js';
 import { markEscrowsClaimable, matchesEscrowRecipient } from './ready.js';
 import { checkSolvency } from './solvency.js';
 import { claimJobKey, claimRegisteredEscrow, enqueueClaim, selfClaimKey, type ClaimJob } from './service.js';
+import { assertRouterOperationEnabled, isRouterIncidentStop } from './incident.js';
 
 const MINUTE = 60_000;
 
@@ -27,7 +28,7 @@ async function afterDeposit(id: string): Promise<void> {
 }
 
 export async function confirmEscrow(id: string, attempt: number): Promise<void> {
-  if (!config.ROUTER_ENABLED) return;
+  if (!config.ROUTER_ADDRESS) return;
   const [row] = await db.select().from(escrows).where(eq(escrows.id, id)).limit(1);
   if (!row?.depositTxHash || !['authorized', 'void'].includes(row.status)) return;
   let receipt;
@@ -60,7 +61,7 @@ export async function confirmEscrow(id: string, attempt: number): Promise<void> 
 }
 
 export async function indexEscrows(): Promise<void> {
-  if (!config.ROUTER_ENABLED) return;
+  if (!config.ROUTER_ADDRESS) return;
   const address = normAddress(config.ROUTER_ADDRESS);
   const scope = `${viemChain.id}:${address}`;
   const sameScope = await kvGet<string>('router:scope') === scope;
@@ -106,33 +107,40 @@ export async function indexEscrows(): Promise<void> {
   }
 }
 
-async function resetClaim(id: string): Promise<void> {
+async function resetClaim(id: string, signature: Hex): Promise<void> {
   await db.transaction(async (tx) => {
     await lockPhoneMutation(tx);
+    const current = await kvGet<ClaimJob>(claimJobKey(id), tx);
+    if (current?.signature !== signature) return;
     const [row] = await tx.update(escrows).set({ status: 'deposited', claimTxHash: null, recipientUserId: null })
       .where(and(eq(escrows.id, id), eq(escrows.status, 'claiming'))).returning();
     if (row) {
       const [recipient] = await tx.select({ id: users.id }).from(users).where(eq(users.phoneHmac, row.recipientPhoneHmac)).limit(1);
       if (recipient) await markEscrowsClaimable(tx, row.recipientPhoneHmac, recipient.id);
     }
+    if (row) await tx.delete(kv).where(eq(kv.key, claimJobKey(id)));
   });
 }
 
 export async function relayClaim(job: ClaimJob): Promise<void> {
-  if (!config.ROUTER_ENABLED) return;
+  if (!config.ROUTER_ADDRESS) return;
   const [row] = await db.select().from(escrows).where(eq(escrows.id, job.auth.id)).limit(1);
   if (!row || row.status !== 'claiming') return;
   const current = await kvGet<ClaimJob>(claimJobKey(row.id));
   if (current?.signature !== job.signature) return; // An old retry must not reset or submit a newer claim.
-  const account = getRelayerAccount();
-  const balance = await publicClient.getBalance({ address: account.address });
-  logger.info({ balanceWei: balance.toString() }, 'escrow relayer balance');
-  if (balance < 10000000000000000n) logger.warn({ balanceWei: balance.toString() }, 'escrow relayer balance below 0.01 ETH');
   let hash = row.claimTxHash as Hex | null;
   try {
     if (!hash) {
       const block = await publicClient.getBlock();
-      if (block.timestamp > BigInt(job.auth.deadline)) { await resetClaim(row.id); return; }
+      if (block.timestamp > BigInt(job.auth.deadline)) { await resetClaim(row.id, job.signature); return; }
+      try { await assertRouterOperationEnabled('relay-broadcasts'); } catch (error) {
+        if (isRouterIncidentStop(error)) return;
+        throw error;
+      }
+      const account = getRelayerAccount();
+      const balance = await publicClient.getBalance({ address: account.address });
+      logger.info({ balanceWei: balance.toString() }, 'escrow relayer balance');
+      if (balance < 10000000000000000n) logger.warn({ balanceWei: balance.toString() }, 'escrow relayer balance below 0.01 ETH');
       const wallet = createWalletClient({ account, chain: viemChain,
         transport: custom({ request: ({ method, params }) => rpc(method, params ?? []) }) });
       const auth = { ...job.auth, deadline: BigInt(job.auth.deadline) };
@@ -163,10 +171,25 @@ export async function relayClaim(job: ClaimJob): Promise<void> {
         const gas = await publicClient.estimateContractGas(request);
         if (gas > BigInt(config.RELAY_CLAIM_MAX_GAS)) {
           await tx.update(escrows).set({ status: 'deposited', claimTxHash: null }).where(eq(escrows.id, fresh.id));
+          await tx.delete(kv).where(eq(kv.key, claimJobKey(fresh.id)));
           await kvSet(selfClaimKey(fresh.id), true, tx);
           await notify(recipient.id, 'escrow_incoming', { escrowId: fresh.id }, tx);
           logger.warn({ escrowId: fresh.id, gas: gas.toString() }, 'claim gas above relay ceiling; recipient must self-claim');
           return null;
+        }
+        const latestBlock = await publicClient.getBlock();
+        if (latestBlock.timestamp > BigInt(job.auth.deadline)) {
+          await tx.update(escrows).set({ status: 'deposited', claimTxHash: null, recipientUserId: null })
+            .where(eq(escrows.id, fresh.id));
+          await tx.delete(kv).where(eq(kv.key, claimJobKey(fresh.id)));
+          await markEscrowsClaimable(tx, fresh.recipientPhoneHmac, recipient.id);
+          return null;
+        }
+        // This is the last awaited operation before broadcast; an incident stop
+        // leaves the durable outbox untouched for later recovery or expiry.
+        try { await assertRouterOperationEnabled('relay-broadcasts', tx); } catch (error) {
+          if (isRouterIncidentStop(error)) return null;
+          throw error;
         }
         const submitted = await wallet.writeContract({ ...request, gas: gas + gas / 5n });
         await tx.update(escrows).set({ claimTxHash: submitted }).where(eq(escrows.id, fresh.id));
@@ -175,18 +198,18 @@ export async function relayClaim(job: ClaimJob): Promise<void> {
       if (!hash) return;
     }
     const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
-    if (receipt.status === 'reverted') { await resetClaim(row.id); return; }
+    if (receipt.status === 'reverted') { await resetClaim(row.id, job.signature); return; }
     // Only indexed router events finalize the database status and notifications.
     await indexEscrows();
     await Promise.all([invalidate(`bal:${row.senderAddress}`), invalidate(`bal:${job.auth.recipient.toLowerCase()}`)]);
   } catch (error) {
     const reverted = error instanceof BaseError && error.walk((cause) => cause instanceof ContractFunctionRevertedError) instanceof ContractFunctionRevertedError;
-    if (reverted) { await resetClaim(row.id); return; }
+    if (reverted) { await resetClaim(row.id, job.signature); return; }
     const block = await publicClient.getBlock();
     if (block.timestamp > BigInt(job.auth.deadline)) {
       // Reconcile first: a receipt timeout can follow a successful mined claim.
       await indexEscrows();
-      await resetClaim(row.id);
+      await resetClaim(row.id, job.signature);
       return;
     }
     // A timeout may follow a broadcast. Keep claiming/hash for receipt recovery.
@@ -195,7 +218,7 @@ export async function relayClaim(job: ClaimJob): Promise<void> {
 }
 
 export default async function registerJobs(ctx: WorkerCtx): Promise<void> {
-  if (!config.ROUTER_ENABLED) return;
+  if (!config.ROUTER_ADDRESS) return;
   await getQueue('escrows').setGlobalConcurrency(1);
   ctx.process('escrows', 'confirm', async (job) => {
     const data = job.data as { escrowId?: unknown; attempt?: unknown };

@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import type { Address, Hex } from 'viem';
+import { hashTypedData, type Address, type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { config } from '../config.js';
 import { chain, NATIVE_TOKEN, normAddress } from './chain.js';
@@ -47,6 +47,9 @@ export function signEscrowAuth(auth: EscrowAuth, domain = routerDomain): Promise
 }
 export function signClaimAuth(auth: ClaimAuth, domain = routerDomain): Promise<Hex> {
   return signerAccount().signTypedData({ domain, types: claimAuthTypes, primaryType: 'ClaimAuth', message: auth });
+}
+export function hashClaimAuth(auth: ClaimAuth, domain = routerDomain): Hex {
+  return hashTypedData({ domain, types: claimAuthTypes, primaryType: 'ClaimAuth', message: auth });
 }
 export function getRelayerAccount() {
   if (!config.RELAYER_PRIVATE_KEY) throw new Error('Router relayer is not configured.');

@@ -52,6 +52,9 @@ const envSchema = z.object({
   ROUTER_ENABLED: boolean(false),
   ROUTER_ADDRESS: z.union([z.string().regex(/^0x[0-9a-f]{40}$/i).refine((value) => !/^0x0{40}$/i.test(value)), z.literal('')]).default(''),
   ROUTER_DEPLOY_BLOCK: z.coerce.number().int().nonnegative().default(0),
+  ROUTER_NEW_AUTHORIZATIONS_ENABLED: boolean(true),
+  ROUTER_NEW_CLAIM_SIGNATURES_ENABLED: boolean(true),
+  ROUTER_RELAY_BROADCASTS_ENABLED: boolean(true),
   ROUTER_SIGNER_KEY: z.union([hexKey, z.literal('')]).default(''),
   RELAYER_PRIVATE_KEY: z.union([hexKey, z.literal('')]).default(''),
   ESCROW_CLAIM_TIP_WEI: z.string().regex(/^\d+$/).default('20000000000000')

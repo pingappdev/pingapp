@@ -21,7 +21,7 @@ vi.mock('../src/config.js', () => ({ config: {
   ROUTER_DEPLOY_BLOCK: 1,
   RELAY_CLAIM_MAX_GAS: 300_000,
 } }));
-vi.mock('../src/db/schema.js', () => ({ escrows: 'escrows', phoneClaims: 'phoneClaims', users: 'users' }));
+vi.mock('../src/db/schema.js', () => ({ escrows: 'escrows', kv: { key: 'key' }, phoneClaims: 'phoneClaims', users: 'users' }));
 vi.mock('../src/db/client.js', () => {
   const query = (result: () => unknown[]) => {
     const chain: Record<string, unknown> = {};
@@ -40,6 +40,7 @@ vi.mock('../src/db/client.js', () => {
       state.trace.push('update');
       return { where: async () => undefined };
     } }),
+    delete: () => ({ where: async () => undefined }),
   };
   return { db: {
     select: vi.fn(() => ({ from: () => query(() => state.outerSelectResults.shift() ?? []) })),
@@ -119,6 +120,10 @@ vi.mock('../src/modules/escrows/service.js', () => ({
   claimRegisteredEscrow: vi.fn(async () => undefined),
   selfClaimKey: (id: string) => `router:self-claim:${id}`,
   enqueueClaim: vi.fn(async () => undefined),
+}));
+vi.mock('../src/modules/escrows/incident.js', () => ({
+  assertRouterOperationEnabled: vi.fn(async () => undefined),
+  isRouterIncidentStop: (error: unknown) => Boolean((error as { code?: string } | null)?.code === 'CONFLICT'),
 }));
 
 import { db } from '../src/db/client.js';

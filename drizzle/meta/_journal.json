@@ -57,6 +57,13 @@
       "when": 1792151243506,
       "tag": "0007_sms_retry_budgets",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792155138584,
+      "tag": "0008_claim_authorization_monitoring",
+      "breakpoints": true
     }
   ]
 }

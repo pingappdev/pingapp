@@ -17,6 +17,7 @@ import {
 } from '../../lib/router.js';
 import type { AuthUser } from '../../plugins/auth.js';
 import { isTokenInsolvent } from '../escrows/solvency.js';
+import { assertRouterOperationEnabled } from '../escrows/incident.js';
 import { cleanNote } from '../intents/service.js';
 import { lockPhoneMutation } from '../phone/lock.js';
 import { recipientRef } from '../resolve/recipientRef.js';
@@ -42,7 +43,7 @@ async function insertEscrowWithUniqueCode(tx: DbTransaction, values: Omit<typeof
 }
 
 export async function authorizeSend(user: AuthUser, input: AuthorizeSendInput, ipHash: string) {
-  if (!config.ROUTER_ENABLED) throw errors.conflict('Router sends are not enabled.');
+  await assertRouterOperationEnabled('authorizations');
   if (!isAddress(input.expectedSenderAddress)) throw errors.invalidAddress('Enter the sending wallet address again.');
   if (normAddress(input.expectedSenderAddress) !== normAddress(user.address)) {
     throw errors.conflict('Your PingApp session changed. Reconnect the original sending wallet and sign in.');
@@ -107,6 +108,7 @@ export async function authorizeSend(user: AuthUser, input: AuthorizeSendInput, i
       expiresAt: new Date(Number(expiresAt) * 1000), authDeadline: new Date(Number(deadline) * 1000), note,
       status: 'authorized', smsStatus: recipient ? 'not_required' : 'failed',
     });
+    await assertRouterOperationEnabled('authorizations', tx);
     const signature = await signEscrowAuth(auth);
     await audit('send_authorized', { userId: sender.id, data: { routerId: id, mode: 'escrow' }, ipHash }, tx);
     return { mode: 'escrow' as const, deliveryMode, escrowId: escrow.id, router, auth: serializeRouterAuth(auth), signature,

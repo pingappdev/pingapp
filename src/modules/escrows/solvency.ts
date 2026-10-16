@@ -26,7 +26,7 @@ export async function isTokenInsolvent(token: string): Promise<boolean> {
  * cannot cause false alarms.
  */
 export async function checkSolvency(): Promise<void> {
-  if (!config.ROUTER_ENABLED) return;
+  if (!config.ROUTER_ADDRESS) return;
   const router = normAddress(config.ROUTER_ADDRESS);
   try {
     const rows = await db.select({ id: escrows.id }).from(escrows)

@@ -4,11 +4,14 @@ const state = vi.hoisted(() => ({
   selectResults: [] as unknown[][],
   selectCount: 0,
   updates: [] as Record<string, unknown>[],
+  authorizations: [] as Record<string, unknown>[],
+  trace: [] as string[],
+  failCommit: false,
   selfClaim: false,
 }));
 
 vi.mock('../src/config.js', () => ({ config: { ROUTER_ENABLED: true, ROUTER_ADDRESS: '0x0000000000000000000000000000000000000003' } }));
-vi.mock('../src/db/schema.js', () => ({ escrows: 'escrows', phoneClaims: 'phoneClaims', users: 'users' }));
+vi.mock('../src/db/schema.js', () => ({ claimAuthorizations: 'claimAuthorizations', escrows: 'escrows', phoneClaims: 'phoneClaims', users: 'users' }));
 vi.mock('../src/db/client.js', () => {
   const query = () => {
     const chain: Record<string, unknown> = {};
@@ -19,16 +22,26 @@ vi.mock('../src/db/client.js', () => {
   };
   const tx = {
     select: () => ({ from: () => query() }),
+    insert: () => ({ values: async (values: Record<string, unknown>) => {
+      state.authorizations.push(values);
+      state.trace.push('authorization-insert');
+    } }),
     update: () => ({ set: (values: Record<string, unknown>) => {
       state.updates.push(values);
       const chain = { where: async () => undefined };
       return chain;
     } }),
   };
-  return { db: { transaction: vi.fn(async (callback: (tx: unknown) => unknown) => callback(tx)) } };
+  return { db: { transaction: vi.fn(async (callback: (tx: unknown) => unknown) => {
+    state.trace.push('transaction-start');
+    const result = await callback(tx);
+    state.trace.push('transaction-commit');
+    if (state.failCommit) throw new Error('synthetic database commit failure');
+    return result;
+  }) } };
 });
 vi.mock('drizzle-orm', () => ({ and: (...values: unknown[]) => values, eq: (...values: unknown[]) => values }));
-vi.mock('../src/db/audit.js', () => ({ audit: vi.fn(async () => undefined) }));
+vi.mock('../src/db/audit.js', () => ({ audit: vi.fn(async () => { state.trace.push('audit'); }) }));
 vi.mock('../src/db/kv.js', () => ({
   kvGet: vi.fn(async (key: string) => (key.startsWith('router:self-claim:') && state.selfClaim ? true : undefined)),
   kvSet: vi.fn(async () => undefined),
@@ -43,8 +56,14 @@ vi.mock('../src/lib/crypto.js', async () => {
 vi.mock('../src/lib/queue.js', () => ({ enqueue: vi.fn(async () => undefined) }));
 vi.mock('../src/lib/router.js', () => ({
   getRelayerAccount: () => ({ address: '0x0000000000000000000000000000000000000009' }),
+  hashClaimAuth: vi.fn(() => `0x${'cd'.repeat(32)}`),
+  routerDomain: { name: 'PingRouter', version: '1', chainId: 4663, verifyingContract: '0x0000000000000000000000000000000000000003' },
   serializeRouterAuth: (auth: unknown) => auth,
-  signClaimAuth: vi.fn(async () => `0x${'ab'.repeat(65)}`),
+  signClaimAuth: vi.fn(async () => { state.trace.push('sign'); return `0x${'ab'.repeat(65)}`; }),
+}));
+vi.mock('../src/modules/escrows/incident.js', () => ({
+  assertRouterOperationEnabled: vi.fn(async () => undefined),
+  isRouterIncidentStop: (error: unknown) => Boolean((error as { code?: string } | null)?.code === 'CONFLICT'),
 }));
 vi.mock('../src/lib/viem.js', () => ({ publicClient: {} }));
 vi.mock('../src/modules/phone/lock.js', () => ({ lockPhoneMutation: vi.fn(async () => undefined) }));
@@ -91,6 +110,9 @@ function setup(results: unknown[][]) {
   state.selectResults = results;
   state.selectCount = 0;
   state.updates = [];
+  state.authorizations = [];
+  state.trace = [];
+  state.failCommit = false;
   state.selfClaim = false;
 }
 
@@ -177,8 +199,30 @@ describe('self-claim after the relay gas ceiling', () => {
 
     expect(result.auth).toMatchObject({ id, recipient: recipient.address, relayer: recipient.address });
     expect(signClaimAuth).toHaveBeenCalledOnce();
+    expect(state.authorizations[0]).toMatchObject({
+      escrowId: id, kind: 'self', recipientUserId: recipient.id, recipientAddress: recipient.address,
+      relayerAddress: recipient.address, recipientPhoneHmac: phoneHmacValue,
+      domainName: 'PingRouter', domainVersion: '1', domainChainId: 4663n,
+      domainVerifyingContract: '0x0000000000000000000000000000000000000003',
+      typedDataDigest: `0x${'cd'.repeat(32)}`,
+    });
+    expect(state.authorizations[0].requestId).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(state.authorizations[0].deadline).toBeInstanceOf(Date);
+    expect(state.trace.indexOf('authorization-insert')).toBeLessThan(state.trace.indexOf('sign'));
+    expect(state.trace.indexOf('sign')).toBeLessThan(state.trace.indexOf('transaction-commit'));
     expect(state.updates).toEqual([]);
     expect(enqueue).not.toHaveBeenCalled();
+  });
+
+  it('does not release a self-claim signature when its evidence transaction fails to commit', async () => {
+    setup([[escrow({ recipientUserId: recipient.id })], [recipient], []]);
+    state.selfClaim = true;
+    state.failCommit = true;
+
+    await expect(selfClaimEscrow(user, id, 'ip')).rejects.toThrow('synthetic database commit failure');
+
+    expect(state.authorizations).toHaveLength(1);
+    expect(signClaimAuth).toHaveBeenCalledOnce();
   });
 
   it('does not sign a self-claim while the relayer still delivers the escrow', async () => {

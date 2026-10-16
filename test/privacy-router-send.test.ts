@@ -79,6 +79,9 @@ vi.mock('../src/lib/router.js', () => ({
   signClaimAuth: vi.fn(async () => `0x${'56'.repeat(65)}`),
 }));
 vi.mock('../src/modules/escrows/solvency.js', () => ({ isTokenInsolvent: vi.fn(async () => state.insolvent) }));
+vi.mock('../src/modules/escrows/incident.js', () => ({
+  assertRouterOperationEnabled: vi.fn(async () => undefined),
+}));
 vi.mock('../src/modules/intents/service.js', () => ({ cleanNote: () => null }));
 vi.mock('../src/modules/phone/lock.js', () => ({ lockPhoneMutation: vi.fn(async () => undefined) }));
 vi.mock('../src/modules/resolve/service.js', () => ({

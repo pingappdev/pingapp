@@ -120,6 +120,35 @@ export const routerAuths = pgTable('router_auths', {
   check('router_auths_id_format_check', sql`${table.id} ~ '^0x[0-9a-f]{64}$'`),
 ]);
 
+/** Durable sign-time bindings for relayed and self-submitted claim signatures. */
+export const claimAuthorizations = pgTable('claim_authorizations', {
+  requestId: uuid('request_id').primaryKey(),
+  escrowId: text('escrow_id').notNull(),
+  kind: text('kind').notNull(),
+  recipientUserId: uuid('recipient_user_id'),
+  recipientAddress: text('recipient_address').notNull(),
+  relayerAddress: text('relayer_address').notNull(),
+  recipientPhoneHmac: text('recipient_phone_hmac').notNull(),
+  phoneLinkedAt: timestamp('phone_linked_at', { withTimezone: true }),
+  deadline: timestamp('deadline', { withTimezone: true }).notNull(),
+  domainName: text('domain_name').notNull(),
+  domainVersion: text('domain_version').notNull(),
+  domainChainId: bigint('domain_chain_id', { mode: 'bigint' }).notNull(),
+  domainVerifyingContract: text('domain_verifying_contract').notNull(),
+  typedDataDigest: text('typed_data_digest').notNull(),
+  signedAt: timestamp('signed_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  check('claim_authorizations_id_format_check', sql`${table.escrowId} ~ '^0x[0-9a-f]{64}$'`),
+  check('claim_authorizations_kind_check', sql`${table.kind} in ('relayed', 'self')`),
+  check('claim_authorizations_recipient_format_check', sql`${table.recipientAddress} ~ '^0x[0-9a-f]{40}$'`),
+  check('claim_authorizations_relayer_format_check', sql`${table.relayerAddress} ~ '^0x[0-9a-f]{40}$'`),
+  check('claim_authorizations_phone_hmac_format_check', sql`${table.recipientPhoneHmac} ~ '^[0-9a-f]{64}$'`),
+  check('claim_authorizations_domain_contract_format_check', sql`${table.domainVerifyingContract} ~ '^0x[0-9a-f]{40}$'`),
+  check('claim_authorizations_digest_format_check', sql`${table.typedDataDigest} ~ '^0x[0-9a-f]{64}$'`),
+  index('claim_authorizations_escrow_signed_idx').on(table.escrowId, table.signedAt),
+  index('claim_authorizations_deadline_idx').on(table.deadline),
+]);
+
 export const escrows = pgTable('escrows', {
   id: text('id').primaryKey(),
   code: text('code').notNull().unique(),
@@ -282,6 +311,7 @@ export type Intent = typeof intents.$inferSelect;
 export type NewIntent = typeof intents.$inferInsert;
 export type Escrow = typeof escrows.$inferSelect;
 export type RouterAuth = typeof routerAuths.$inferSelect;
+export type ClaimAuthorization = typeof claimAuthorizations.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type NewNotification = typeof notifications.$inferInsert;
 export type SmsLogEntry = typeof smsLog.$inferSelect;
