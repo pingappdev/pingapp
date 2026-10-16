@@ -1,0 +1,48 @@
+name: CI and security
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  schedule:
+    - cron: '23 5 * * 1'
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend and local-chain integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Run backend checks with disposable services
+        run: bash scripts/ci/test-backend.sh
+        env:
+          CI_PREFIX: pingapp-audit-ci
+          REQUIRE_AUDIT_INTEGRATION_TESTS: '1'
+
+  contracts:
+    name: Contracts, fuzz, invariant, and coverage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Run offline contract checks
+        run: bash scripts/ci/test-contracts.sh
+        env:
+          REQUIRE_CI_PROFILE: '1'

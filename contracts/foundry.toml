@@ -16,5 +16,11 @@ runs = 256
 depth = 64
 fail_on_revert = true
 
+# CI runs a deeper, deterministic invariant campaign for reviewable builds.
+[profile.ci.invariant]
+runs = 1024
+depth = 128
+fail_on_revert = true
+
 [rpc_endpoints]
 robinhood = "${ROBINHOOD_RPC_URL}"
