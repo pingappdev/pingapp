@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-prefix="${CI_PREFIX:-pingapp-ci}"
+prefix="${CI_PREFIX:-pingapp-audit-ci}"
 database_name="${prefix//-/_}"
 node_image="node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20"
 postgres_image="postgres:17.11-alpine3.24@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24"
@@ -11,8 +11,8 @@ foundry_image="ghcr.io/foundry-rs/foundry:v1.5.1@sha256:3a70bfa9bd2c732a767bb60d
 docker_spec="${DOCKER:-docker}"
 read -r -a docker_cmd <<< "$docker_spec"
 
-if [[ ! "$prefix" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,39}$ ]]; then
-  echo "CI_PREFIX must be 1-40 safe Docker name characters." >&2
+if [[ ! "$prefix" =~ ^pingapp-audit-[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+  echo "CI_PREFIX must match ^pingapp-audit-[a-z0-9]+(-[a-z0-9]+)*$ so every gated integration suite accepts the isolated resources." >&2
   exit 2
 fi
 if [[ "${#docker_cmd[@]}" -eq 0 ]]; then
