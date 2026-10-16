@@ -127,6 +127,7 @@ fi
   --volume "$repo_root:/work" --workdir /work "$node_image" sh -euc '
     test "$(node --version)" = "v24.21.0"
     npm ci
+    npx drizzle-kit check
     if npm audit --audit-level=moderate --json > /evidence/npm-audit.json; then
       node scripts/ci/summarize-npm-audit.mjs /evidence/npm-audit.json
     else
