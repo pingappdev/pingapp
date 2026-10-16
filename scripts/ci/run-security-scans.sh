@@ -134,12 +134,15 @@ EOF
 import hashlib, json
 from pathlib import Path
 source = Path("/fixture/waiver/source.js")
-line_hash = hashlib.sha256(source.read_bytes().splitlines(keepends=True)[1]).hexdigest()
+source_bytes = source.read_bytes()
+line_hash = hashlib.sha256(source_bytes.splitlines(keepends=True)[1]).hexdigest()
+file_hash = hashlib.sha256(source_bytes).hexdigest()
 allowlist = {"schema": 1, "waivers": [{
     "ruleId": "ci.pingapp.security.direct-eval",
     "path": "source.js",
     "line": 2,
     "sourceLineSha256": line_hash,
+    "sourceFileSha256": file_hash,
     "reason": "Synthetic self-test waiver.",
 }]}
 report = {
@@ -159,19 +162,31 @@ PY
       python3 /repo/scripts/ci/assert-semgrep-report.py --minimum-scanned-files=1 \
         --allowlist /fixture/waiver/allowlist.json --source-root /fixture/waiver \
         --sanitized-output /fixture/waiver/safe-report.json /fixture/waiver/report.json
+      printf "%s\\n%s\\n" "const supplied = changedInput;" "eval(supplied);" > /fixture/waiver/source.js
+      set +e
+      python3 /repo/scripts/ci/assert-semgrep-report.py --minimum-scanned-files=1 \
+        --allowlist /fixture/waiver/allowlist.json --source-root /fixture/waiver \
+        --sanitized-output /fixture/waiver/stale-context-report.json /fixture/waiver/report.json \
+        > /tmp/semgrep-stale-context.stdout 2> /tmp/semgrep-stale-context.stderr
+      stale_context_status=$?
+      set -e
+      if [ "$stale_context_status" -ne 2 ] || ! grep -q "matched 0 times" /tmp/semgrep-stale-context.stderr; then
+        echo "The Semgrep stale-context self-test did not fail closed." >&2
+        exit 1
+      fi
       printf "%s\\n%s\\n" "const supplied = input;" "eval(changed);" > /fixture/waiver/source.js
       set +e
       python3 /repo/scripts/ci/assert-semgrep-report.py --minimum-scanned-files=1 \
         --allowlist /fixture/waiver/allowlist.json --source-root /fixture/waiver \
-        --sanitized-output /fixture/waiver/stale-report.json /fixture/waiver/report.json \
-        > /tmp/semgrep-stale.stdout 2> /tmp/semgrep-stale.stderr
-      stale_status=$?
+        --sanitized-output /fixture/waiver/stale-line-report.json /fixture/waiver/report.json \
+        > /tmp/semgrep-stale-line.stdout 2> /tmp/semgrep-stale-line.stderr
+      stale_line_status=$?
       set -e
-      if [ "$stale_status" -ne 2 ] || ! grep -q "matched 0 times" /tmp/semgrep-stale.stderr; then
-        echo "The Semgrep stale-waiver self-test did not fail closed." >&2
+      if [ "$stale_line_status" -ne 2 ] || ! grep -q "matched 0 times" /tmp/semgrep-stale-line.stderr; then
+        echo "The Semgrep stale-line self-test did not fail closed." >&2
         exit 1
       fi
-      echo "Semgrep source-anchored waiver acceptance and stale-anchor failure controls passed."
+      echo "Semgrep source-anchored waiver acceptance, stale-context, and stale-line controls passed."
     '; then
     :
   else

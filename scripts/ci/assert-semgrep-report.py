@@ -80,8 +80,10 @@ if args.allowlist:
             raise ValueError("expected schema 1 and a waivers array")
         allowlist = waiver_document["waivers"]
         for waiver in allowlist:
-            if not all(waiver.get(field) for field in ("ruleId", "path", "line", "sourceLineSha256", "reason")):
-                raise ValueError("each waiver needs ruleId, path, line, sourceLineSha256, and reason")
+            if not all(waiver.get(field) for field in (
+                "ruleId", "path", "line", "sourceLineSha256", "sourceFileSha256", "reason"
+            )):
+                raise ValueError("each waiver needs ruleId, path, line, sourceLineSha256, sourceFileSha256, and reason")
     except (OSError, json.JSONDecodeError, ValueError) as error:
         print(f"Could not parse Semgrep waiver file: {error}", file=sys.stderr)
         raise SystemExit(2)
@@ -105,6 +107,9 @@ for result in raw_results:
             raise ValueError("path escapes the source root")
         relative_path = resolved_path.relative_to(source_root).as_posix() if source_root else raw_path
         source_line_hash = None
+        source_file_hash = None
+        if source_root:
+            source_file_hash = hashlib.sha256(resolved_path.read_bytes()).hexdigest()
         if source_root and isinstance(line_number, int) and line_number > 0:
             source_lines = resolved_path.read_bytes().splitlines(keepends=True)
             if line_number <= len(source_lines):
@@ -120,6 +125,7 @@ for result in raw_results:
         and waiver.get("path") == relative_path
         and waiver.get("line") == line_number
         and waiver.get("sourceLineSha256") == source_line_hash
+        and waiver.get("sourceFileSha256") == source_file_hash
     ]
     waived = len(matching_waivers) == 1
     if waived:
@@ -136,6 +142,7 @@ for result in raw_results:
         "endLine": result.get("end", {}).get("line"),
         "severity": result.get("extra", {}).get("severity"),
         "sourceLineSha256": source_line_hash,
+        "sourceFileSha256": source_file_hash,
         "waived": waived,
         "waiverReason": waiver_reason,
     })
@@ -149,6 +156,7 @@ for index, waiver in enumerate(allowlist):
         "path": waiver["path"],
         "line": waiver["line"],
         "sourceLineSha256": waiver["sourceLineSha256"],
+        "sourceFileSha256": waiver["sourceFileSha256"],
         "reason": waiver["reason"],
         "matchedExactlyOnce": matched,
     })

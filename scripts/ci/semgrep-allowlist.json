@@ -6,6 +6,7 @@
       "path": "contracts/script/deploy-fork.mjs",
       "line": 45,
       "sourceLineSha256": "a39f7872fd3d6dd6fe402520b5a4b744c465c58e5b41aa0bc9a5512e4872bc1e",
+      "sourceFileSha256": "6f49049d8d7fceb39d4afcca0200f2ce0491c03171babe9d9d9673465d275c90",
       "reason": "Object.assign receives only fixed literal keys; no attacker-controlled property names are used."
     },
     {
@@ -13,6 +14,7 @@
       "path": "src/cli/admin.ts",
       "line": 635,
       "sourceLineSha256": "197bfa40ce3f20798370f2cbb48998de99d88c2525ea0fafe734c04a1037e4b9",
+      "sourceFileSha256": "e0c42cb3b774c4d0678b5b883fdf33c7ec55c2977c3dd2c511e7a9a408e652c8",
       "reason": "This template is CLI prompt text and is not rendered as HTML."
     },
     {
@@ -20,6 +22,7 @@
       "path": "www/public/pingapp.js",
       "line": 80,
       "sourceLineSha256": "367951a3870829cd5f4a1ccc573cb8ab8ad1c7b50123b0559ff96d13828327f6",
+      "sourceFileSha256": "7de7a554f04aab590b52ed4ba5c597f858aa3fc76a70b3a8db3b546e3b5b303e",
       "reason": "The platform value is constrained to the closed telegram, x, or github regex alternatives."
     },
     {
@@ -27,6 +30,7 @@
       "path": "www/src/lib/site-pages.server.ts",
       "line": 25,
       "sourceLineSha256": "4cb0f9d7bab44eb930735fc796cb041772adfe23fed25c9e70afae3897136bbb",
+      "sourceFileSha256": "0ed16c3593c14ba4b6baf046b6df55e40c1a40a7de8f4eccf5901355e686fb75",
       "reason": "HTML values are drawn only from committed photo-slots raw data, not user input."
     }
   ]
