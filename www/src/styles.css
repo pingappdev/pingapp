@@ -1235,9 +1235,11 @@ html.ping-native [data-slot="dialog-content"], html.ping-native [data-slot="aler
 }
 .download-hero,
 .download-features,
-.download-steps { max-width: 960px; margin: 0 auto; }
+.download-steps,
+.download-integrity { max-width: 960px; margin: 0 auto; }
 .download-features,
-.download-steps { margin-top: 96px; }
+.download-steps,
+.download-integrity { margin-top: 96px; }
 .download-eyebrow {
   font-size: 12px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.6; margin: 0 0 20px;
 }
@@ -1308,3 +1310,21 @@ html.ping-native [data-slot="dialog-content"], html.ping-native [data-slot="aler
 }
 .download-steps strong { display: block; font-size: 16px; font-weight: 600; margin-bottom: 4px; }
 .download-steps span { font-size: 14px; line-height: 1.55; opacity: 0.72; }
+.download-integrity {
+  padding: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.035);
+}
+.download-integrity-lede { max-width: 700px; }
+.download-integrity p { font-size: 14px; line-height: 1.6; opacity: 0.76; }
+.download-integrity dl { display: grid; gap: 14px; margin: 24px 0; }
+.download-integrity dl > div { display: grid; grid-template-columns: minmax(150px, 0.32fr) 1fr; gap: 16px; }
+.download-integrity dt { font-size: 13px; opacity: 0.65; }
+.download-integrity dd { min-width: 0; margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+.download-integrity a { color: #d5b5ff; text-decoration: underline; text-underline-offset: 3px; }
+.download-integrity code { font: 12px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .download-integrity { padding: 20px; }
+  .download-integrity dl > div { grid-template-columns: 1fr; gap: 4px; }
+}

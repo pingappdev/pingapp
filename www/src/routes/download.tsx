@@ -80,6 +80,56 @@ function Download() {
         </div>
       </section>
 
+      <section className="download-integrity" aria-labelledby="download-integrity-title">
+        <p className="download-eyebrow">Release integrity</p>
+        <h2 id="download-integrity-title">Checks for the pinned 0.1.0 release</h2>
+        <p className="download-integrity-lede">
+          These identifiers apply only to the versioned file below. The download button above
+          continues to point to GitHub&apos;s changing latest release.
+        </p>
+        <dl>
+          <div>
+            <dt>Version-specific APK</dt>
+            <dd>
+              <a
+                href="https://github.com/pingappdev/pingapp/releases/download/0.1.0/pingapp.apk"
+                target="_blank"
+                rel="noreferrer"
+              >
+                pingapp.apk · release 0.1.0
+              </a>
+            </dd>
+          </div>
+          <div>
+            <dt>Release tag source</dt>
+            <dd>
+              <code>3791ec74d06c56750a63c1eb54b232c030a55edf</code>
+            </dd>
+          </div>
+          <div>
+            <dt>File size</dt>
+            <dd>8,884,986 bytes</dd>
+          </div>
+          <div>
+            <dt>SHA-256</dt>
+            <dd>
+              <code>7a3d60d1639778319c1378248525fba54cede72966f324f3ad3befed4ceaaec6</code>
+            </dd>
+          </div>
+          <div>
+            <dt>Signing certificate SHA-256</dt>
+            <dd>
+              <code>ae2151813f4a06189870dacd737c686a98e0f63c5ddedfd966603a5994acc965</code>
+            </dd>
+          </div>
+        </dl>
+        <p>
+          The tag identifies a source revision; no published build attestation verifies that this
+          APK was built from it. The SHA-256 and certificate identify the APK bytes and signer only.{" "}
+          <a href="/android-releases/0.1.0.json">Machine-readable record</a>.
+        </p>
+      </section>
+
       <section className="download-features">
         <p className="download-eyebrow">What's inside</p>
         <h2>Everything the dashboard does</h2>

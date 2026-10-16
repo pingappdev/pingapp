@@ -1,0 +1,18 @@
+{
+  "releaseTag": "0.1.0",
+  "asset": {
+    "name": "pingapp.apk",
+    "url": "https://github.com/pingappdev/pingapp/releases/download/0.1.0/pingapp.apk",
+    "sizeBytes": 8884986,
+    "sha256": "7a3d60d1639778319c1378248525fba54cede72966f324f3ad3befed4ceaaec6"
+  },
+  "signing": {
+    "verifiedScheme": "APK Signature Scheme v2",
+    "certificateSha256": "ae2151813f4a06189870dacd737c686a98e0f63c5ddedfd966603a5994acc965"
+  },
+  "sourceContext": {
+    "tagCommit": "3791ec74d06c56750a63c1eb54b232c030a55edf",
+    "buildProvenanceVerified": false,
+    "note": "The tag resolves to this source revision, but no published build attestation verifies that the APK was built from it."
+  }
+}
