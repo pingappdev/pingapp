@@ -9,7 +9,6 @@ postgres_image="postgres:17.11-alpine3.24@sha256:b0f9560a2de083e2cc7382e75f808c7
 redis_image="redis:7.4.11-alpine3.21@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499"
 foundry_image="ghcr.io/foundry-rs/foundry:v1.5.1@sha256:3a70bfa9bd2c732a767bb60d12c8770b40e8f9b6cca28efc4b12b1be81c7f28e"
 docker_spec="${DOCKER:-docker}"
-require_integrations="${REQUIRE_AUDIT_INTEGRATION_TESTS:-0}"
 read -r -a docker_cmd <<< "$docker_spec"
 
 if [[ ! "$prefix" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,39}$ ]]; then
@@ -24,11 +23,17 @@ fi
 postgres_name="${prefix}-postgres"
 redis_name="${prefix}-redis"
 anvil_name="${prefix}-anvil"
+evidence_dir="${CI_EVIDENCE_DIR:-${RUNNER_TEMP:-${TMPDIR:-/tmp}}/pingapp-audit-ci-evidence}"
+mkdir -p "$evidence_dir"
+runtime="$(mktemp -d -t pingapp-audit-ci.XXXXXX)"
+chmod 755 "$runtime"
+mkdir -p "$runtime/bin"
 containers=()
 cleanup() {
   if [[ "${#containers[@]}" -gt 0 ]]; then
     "${docker_cmd[@]}" rm --force "${containers[@]}" >/dev/null 2>&1 || true
   fi
+  rm -rf -- "$runtime"
 }
 trap cleanup EXIT
 
@@ -72,7 +77,7 @@ wait_for() {
   "${docker_cmd[@]}" logs "$name" >&2 || true
   return 1
 }
-wait_for PostgreSQL "$postgres_name" 'pg_isready -U pingapp -d pingapp'
+wait_for PostgreSQL "$postgres_name" "pg_isready -U pingapp -d $database_name"
 wait_for Redis "$redis_name" 'redis-cli ping | grep -qx PONG'
 
 for attempt in $(seq 1 60); do
@@ -92,14 +97,19 @@ done
 
 uid="$(id -u)"
 gid="$(id -g)"
-"${docker_cmd[@]}" run --rm --cpus=2 --memory=4g --user "${uid}:${gid}" --env HOME=/tmp \
-  --volume "${repo_root}/contracts:/work" --workdir /work \
+"${docker_cmd[@]}" run --rm --cpus=2 --memory=4g --user "${uid}:${gid}" --env HOME=/ci-runtime \
+  --volume "$runtime:/ci-runtime" --volume "${repo_root}/contracts:/work" --workdir /work \
   --entrypoint forge "$foundry_image" build
+ln -s ../.svm/0.8.28/solc-0.8.28 "$runtime/bin/solc"
+if [[ ! -x "$runtime/bin/solc" ]]; then
+  echo 'Pinned Solidity 0.8.28 compiler is required for the offline deployment proof.' >&2
+  exit 2
+fi
 
 "${docker_cmd[@]}" run --rm --cpus=2 --memory=3g --network host --user "${uid}:${gid}" \
-  --env HOME=/tmp --env NODE_ENV=test --env PORT=7410 --env CI_PREFIX="$prefix" \
+  --env HOME=/tmp --env PATH=/ci-runtime/bin:/usr/local/bin:/usr/bin:/bin \
+  --env NODE_ENV=test --env PORT=7410 --env CI_PREFIX="$prefix" \
   --env PG_PORT="$postgres_port" --env REDIS_PORT="$redis_port" \
-  --env REQUIRE_AUDIT_INTEGRATION_TESTS="$require_integrations" \
   --env DATABASE_URL="postgres://pingapp:ci-only-not-secret@127.0.0.1:${postgres_port}/${database_name}" \
   --env POSTGRES_PASSWORD=ci-only-not-secret \
   --env REDIS_URL="redis://127.0.0.1:${redis_port}/0" \
@@ -109,44 +119,54 @@ gid="$(id -g)"
   --env PHONE_ENC_KEY=1111111111111111111111111111111111111111111111111111111111111111 \
   --env IP_HASH_SALT=synthetic-ci-salt --env APP_URL=http://127.0.0.1:7400 \
   --env SMS_DRIVER=log --env SMS_ENABLED=false --env CARDS_ENABLED=false \
+  --volume "$runtime:/ci-runtime:ro" \
+  --volume "$evidence_dir:/evidence" \
   --volume "$repo_root:/work" --workdir /work "$node_image" sh -euc '
     test "$(node --version)" = "v24.21.0"
     npm ci
-    npm audit --audit-level=high
+    if npm audit --audit-level=moderate --json > /evidence/npm-audit.json; then
+      node scripts/ci/summarize-npm-audit.mjs /evidence/npm-audit.json
+    else
+      audit_status=$?
+      node scripts/ci/summarize-npm-audit.mjs /evidence/npm-audit.json || true
+      exit "$audit_status"
+    fi
     npm run typecheck
     npm run build
     npm run migrate
-    if [ "$REQUIRE_AUDIT_INTEGRATION_TESTS" = 1 ]; then
-      test -f test/f1-discovery.integration.test.ts || { echo "Required F1 integration test is missing." >&2; exit 1; }
-      test -f test/sms-budget.integration.test.ts || { echo "Required F2 integration test is missing." >&2; exit 1; }
-      test -f test/otp.test.ts || { echo "Required OTP regression test is missing." >&2; exit 1; }
-    fi
+    test -f test/f1-discovery.integration.test.ts || { echo "Required F1 integration test is missing." >&2; exit 1; }
+    test -f test/sms-budget.integration.test.ts || { echo "Required F2 integration test is missing." >&2; exit 1; }
+    test -f test/otp.test.ts || { echo "Required OTP regression test is missing." >&2; exit 1; }
+    test -f tooling/scripts/deployment/rebuild-proof.mjs || { echo "Required deployment build proof is missing." >&2; exit 1; }
+    test -f tooling/scripts/deployment/post-deploy-check.mjs || { echo "Required read-only deployment check is missing." >&2; exit 1; }
+    test -f test/deployment-proof.test.ts || { echo "Required deployment proof test is missing." >&2; exit 1; }
     if npm test -- --exclude test/f1-discovery.integration.test.ts \
-      --exclude test/sms-budget.integration.test.ts --reporter=json --outputFile=/tmp/vitest-results.json; then :; else
+      --exclude test/sms-budget.integration.test.ts --exclude test/otp.test.ts \
+      --exclude test/deployment-proof.test.ts --reporter=json --outputFile=/evidence/vitest-general.json; then :; else
       test_status=$?
-      node scripts/ci/print-vitest-failures.mjs /tmp/vitest-results.json
+      node scripts/ci/print-vitest-failures.mjs /evidence/vitest-general.json
       exit "$test_status"
     fi
-    node scripts/ci/assert-vitest-results.mjs /tmp/vitest-results.json
-    if [ -f test/f1-discovery.integration.test.ts ]; then
-      F1_INTEGRATION=1 npm test -- test/f1-discovery.integration.test.ts --reporter=json --outputFile=/tmp/vitest-f1-results.json
-      node scripts/ci/assert-vitest-results.mjs /tmp/vitest-f1-results.json --no-anvil \
-        --expect-file=test/f1-discovery.integration.test.ts --expect-count=3
-    else
-      echo "F1 discovery integration file is not present in this source checkout; its strict hook will run when added."
-    fi
-    if [ -f test/sms-budget.integration.test.ts ]; then
-      PINGAPP_SMS_TEST_RESOURCE_PREFIX="$CI_PREFIX" \
-        PINGAPP_SMS_TEST_POSTGRES_PORT="$PG_PORT" PINGAPP_SMS_TEST_REDIS_PORT="$REDIS_PORT" \
-        SMS_DRIVER=seven SEVEN_API_KEY=fake-provider-key \
-        SMS_ENABLED=true SMS_DAILY_CAP=12 SMS_FUNDED_INVITE_DAILY_BUDGET=4 \
-        SMS_CLAIM_OTP_DAILY_BUDGET=4 SMS_ONBOARDING_DAILY_BUDGET=3 SMS_ADMIN_DAILY_BUDGET=1 \
-        npm test -- test/sms-budget.integration.test.ts test/otp.test.ts \
-          --reporter=json --outputFile=/tmp/vitest-f2-results.json
-      node scripts/ci/assert-vitest-results.mjs /tmp/vitest-f2-results.json --no-anvil \
-        --expect-file=test/sms-budget.integration.test.ts --expect-file=test/otp.test.ts \
-        --expect-suite-count=test/sms-budget.integration.test.ts=11
-    else
-      echo "F2 SMS budget integration file is not present in this source checkout; its strict hook will run when added."
-    fi
+    node scripts/ci/assert-vitest-results.mjs /evidence/vitest-general.json
+    F1_INTEGRATION=1 npm test -- test/f1-discovery.integration.test.ts \
+      --reporter=json --outputFile=/evidence/vitest-f1.json
+    node scripts/ci/assert-vitest-results.mjs /evidence/vitest-f1.json --no-anvil \
+      --expect-file=test/f1-discovery.integration.test.ts --expect-count=3
+    PINGAPP_SMS_TEST_RESOURCE_PREFIX="$CI_PREFIX" \
+      PINGAPP_SMS_TEST_POSTGRES_PORT="$PG_PORT" PINGAPP_SMS_TEST_REDIS_PORT="$REDIS_PORT" \
+      SMS_DRIVER=seven SEVEN_API_KEY=fake-provider-key \
+      SMS_ENABLED=true SMS_DAILY_CAP=12 SMS_FUNDED_INVITE_DAILY_BUDGET=4 \
+      SMS_CLAIM_OTP_DAILY_BUDGET=4 SMS_ONBOARDING_DAILY_BUDGET=3 SMS_ADMIN_DAILY_BUDGET=1 \
+      npm test -- test/sms-budget.integration.test.ts test/otp.test.ts \
+        --reporter=json --outputFile=/evidence/vitest-f2.json
+    node scripts/ci/assert-vitest-results.mjs /evidence/vitest-f2.json --no-anvil \
+      --expect-file=test/sms-budget.integration.test.ts --expect-file=test/otp.test.ts \
+      --expect-suite-count=test/sms-budget.integration.test.ts=14 \
+      --expect-suite-count=test/otp.test.ts=3
+    npm test -- test/deployment-proof.test.ts --reporter=json \
+      --outputFile=/evidence/vitest-deployment-proof.json
+    node scripts/ci/assert-vitest-results.mjs /evidence/vitest-deployment-proof.json --no-anvil \
+      --expect-file=test/deployment-proof.test.ts \
+      --expect-suite-count=test/deployment-proof.test.ts=14
+    node tooling/scripts/deployment/rebuild-proof.mjs
   '
