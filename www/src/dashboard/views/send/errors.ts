@@ -22,7 +22,21 @@ const routerErrors: Record<string, string> = {
 };
 
 export function errorMessage(error: unknown): string {
-  if (error instanceof ApiError) return error.message;
+  if (error instanceof ApiError) {
+    if (error.code === "CONFLICT" && error.message === "Look up this recipient before sending.")
+      return "The recipient check expired. Return to the phone field and check this number again before starting a new review.";
+    if (
+      error.code === "CONFLICT" &&
+      error.message === "Look up this recipient again before sending."
+    )
+      return "This number's current recipient changed after lookup. Check it again and confirm the recipient before sending.";
+    if (
+      error.code === "CONFLICT" &&
+      error.message === "The recipient changed. Review the phone number again before sending."
+    )
+      return "This number's recipient changed after lookup. Check it again and review the transfer before sending.";
+    return error.message;
+  }
   if (error instanceof BaseError) {
     const reverted = error.walk((cause) => cause instanceof ContractFunctionRevertedError);
     if (reverted instanceof ContractFunctionRevertedError && reverted.data?.errorName) {

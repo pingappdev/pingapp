@@ -4,6 +4,7 @@ import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { useContacts } from "../../api/hooks";
 import type { Contact } from "../../api/types";
 import Empty from "../components/Empty";
+import { contactMembershipLabel, contactMembershipStatus } from "../contactMembership";
 
 function international(phone: string): string {
   try {
@@ -66,6 +67,7 @@ export default function Contacts({
       ) : filtered.length ? (
         <div className="contact-grid">
           {filtered.map((contact) => {
+            const membership = contactMembershipStatus(contact);
             return (
               <section className="card contact-card" key={contact.id}>
                 <div className="panel-heading">
@@ -91,10 +93,8 @@ export default function Contacts({
                 </div>
                 <h2>{contact.name}</h2>
                 <p>{international(contact.phone)}</p>
-                <span className={`pill${contact.onPingApp ? " accent" : ""}`}>
-                  {contact.onPingApp
-                    ? `On PingApp · ${contact.onPingApp.displayName || "PingApp user"}`
-                    : "Not on PingApp"}
+                <span className={`pill${membership === "registered" ? " accent" : ""}`}>
+                  {contactMembershipLabel(contact)}
                 </span>
                 <a
                   href={`/dashboard/send?contact=${encodeURIComponent(contact.id)}`}
@@ -125,7 +125,8 @@ export default function Contacts({
       )}
       <p className="panel-footnote">
         Your contacts are private to your account. &quot;On PingApp&quot; means the number is
-        verified and linked to a wallet.
+        verified and linked to a wallet. &quot;Check when sending&quot; means no recent lookup is
+        available; PingApp checks after you choose the contact for a send.
       </p>
     </>
   );

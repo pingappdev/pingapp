@@ -1,16 +1,17 @@
 import { ArrowUpRight, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useContacts } from "../../../api/hooks";
+import { contactMembershipLabel, contactMembershipStatus } from "../../contactMembership";
 
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : "Saved recipients are unavailable.";
 }
 
-function PingAppIndicator() {
+function PingAppIndicator({ label }: { label: string }) {
   return (
     <span className="pill" title="On PingApp">
       <span className="pill-dot" aria-hidden="true" />
-      On PingApp
+      {label}
     </span>
   );
 }
@@ -57,7 +58,11 @@ export default function SavedRecipients() {
               <span>
                 <strong>{contact.name}</strong>
                 <small>{contact.phoneMasked}</small>
-                {contact.onPingApp && <PingAppIndicator />}
+                {contactMembershipStatus(contact) === "registered" ? (
+                  <PingAppIndicator label={contactMembershipLabel(contact)} />
+                ) : (
+                  <small>{contactMembershipLabel(contact)}</small>
+                )}
               </span>
               <ArrowUpRight size={17} />
             </a>

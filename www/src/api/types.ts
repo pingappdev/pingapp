@@ -81,6 +81,8 @@ export type Intent = {
   completedAt: string | null;
 };
 
+export type ContactMembershipStatus = "unknown" | "registered" | "not_registered";
+
 export type IncomingIntent = {
   id: string;
   status: "ready" | "completed";
@@ -96,6 +98,8 @@ export type Contact = {
   name: string;
   phone: string;
   phoneMasked: string;
+  /** Missing only when talking to an older API deployment. */
+  membershipStatus?: ContactMembershipStatus;
   onPingApp: null | { displayName: string };
   createdAt: string;
 };
