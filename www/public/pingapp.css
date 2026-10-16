@@ -188,3 +188,16 @@ nav .ping-social-chip:hover{background:#ffffff30!important}
 nav .ping-social-chip:focus-visible{outline:2px solid #fff;outline-offset:4px}
 nav .ping-social-chip svg{width:16px;height:16px;display:block}
 nav .framer-11mrcg8-container{display:none!important}
+nav .ping-mobile-pages{display:none}
+@media(max-width:809px){
+  nav.framer-hQjsc{height:auto!important}
+  section[data-framer-name="Hero"] .framer-xn59sx{padding-top:98px!important}
+  nav .framer-1u193f{display:flex!important}
+  nav .framer-44lp3r{width:100%!important;flex-wrap:wrap!important;gap:8px!important}
+  nav .ping-mobile-pages{display:flex;flex-basis:100%;gap:8px}
+  nav .ping-mobile-pages a{display:inline-flex;flex:1;align-items:center;justify-content:center;height:34px;border:1px solid #ffffff70;border-radius:6px;background:#ffffff16;color:#fff;font:600 13px/1.2 Inter,Arial,sans-serif;text-decoration:none}
+  nav .ping-mobile-pages a:hover{background:#ffffff30}
+  nav .ping-mobile-pages a:focus-visible{outline:2px solid #fff;outline-offset:4px}
+  nav .ping-open-app,nav .ping-download-app{flex:1!important;width:auto!important;min-width:0!important;padding:0 8px!important}
+  nav .ping-social-chip{width:34px!important;min-width:34px!important}
+}

@@ -50,12 +50,22 @@
     // Native links leave the standalone marketing runtime and load the existing app.
     document.querySelectorAll('nav [data-framer-name="Menu Wrapper"]').forEach(wrapper => {
       if (wrapper.querySelector('.ping-open-app')) return;
+      const pages = document.createElement('div');
+      pages.className = 'ping-mobile-pages';
+      for (const [href, label] of [['/', 'Home'], ['/features', 'Features'], ['/protocol', 'Protocol']]) {
+        const page = document.createElement('a');
+        page.href = href;
+        page.textContent = label;
+        page.dataset.nativeNavigation = 'true';
+        pages.append(page);
+      }
+      wrapper.prepend(pages);
       const link = document.createElement('a');
       link.className = 'ping-open-app';
       link.href = '/dashboard';
       link.textContent = 'App';
       link.dataset.nativeNavigation = 'true';
-      wrapper.prepend(link);
+      pages.insertAdjacentElement('afterend', link);
       const dl = document.createElement('a');
       dl.className = 'ping-download-app';
       dl.href = '/download';
