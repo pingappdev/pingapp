@@ -45,7 +45,7 @@ function Download() {
     <main className="download-page">
       <section className="download-hero">
         <p className="download-eyebrow">Android · APK</p>
-        <h1>Download PingApp</h1>
+        <h1>Download</h1>
         <p className="download-lede">
           Every PingApp dashboard feature, in your pocket. Install the Android build and send crypto
           like a text, with the wallet you control.
