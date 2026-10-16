@@ -23,6 +23,7 @@ fi
 postgres_name="${prefix}-postgres"
 redis_name="${prefix}-redis"
 anvil_name="${prefix}-anvil"
+monitor_database_name="pingapp_audit_monitor"
 evidence_dir="${CI_EVIDENCE_DIR:-${RUNNER_TEMP:-${TMPDIR:-/tmp}}/pingapp-audit-ci-evidence}"
 mkdir -p "$evidence_dir"
 runtime="$(mktemp -d -t pingapp-audit-ci.XXXXXX)"
@@ -79,6 +80,7 @@ wait_for() {
 }
 wait_for PostgreSQL "$postgres_name" "pg_isready -U pingapp -d $database_name"
 wait_for Redis "$redis_name" 'redis-cli ping | grep -qx PONG'
+"${docker_cmd[@]}" exec "$postgres_name" createdb -U pingapp "$monitor_database_name"
 
 for attempt in $(seq 1 60); do
   if curl --silent --fail --max-time 1 "http://127.0.0.1:${anvil_port}" \
@@ -99,7 +101,7 @@ uid="$(id -u)"
 gid="$(id -g)"
 "${docker_cmd[@]}" run --rm --cpus=2 --memory=4g --user "${uid}:${gid}" --env HOME=/ci-runtime \
   --volume "$runtime:/ci-runtime" --volume "${repo_root}/contracts:/work" --workdir /work \
-  --entrypoint forge "$foundry_image" build
+  --entrypoint forge "$foundry_image" build --out /ci-runtime/contracts-out --cache-path /ci-runtime/contracts-cache
 ln -s ../.svm/0.8.28/solc-0.8.28 "$runtime/bin/solc"
 if [[ ! -x "$runtime/bin/solc" ]]; then
   echo 'Pinned Solidity 0.8.28 compiler is required for the offline deployment proof.' >&2
@@ -108,8 +110,9 @@ fi
 
 "${docker_cmd[@]}" run --rm --cpus=2 --memory=3g --network host --user "${uid}:${gid}" \
   --env HOME=/tmp --env PATH=/ci-runtime/bin:/usr/local/bin:/usr/bin:/bin \
-  --env NODE_ENV=test --env PORT=7410 --env CI_PREFIX="$prefix" \
+  --env NODE_ENV=test --env LOG_LEVEL=silent --env PORT=7410 --env CI_PREFIX="$prefix" \
   --env PG_PORT="$postgres_port" --env REDIS_PORT="$redis_port" \
+  --env MONITOR_DATABASE_URL="postgres://pingapp:ci-only-not-secret@127.0.0.1:${postgres_port}/${monitor_database_name}" \
   --env DATABASE_URL="postgres://pingapp:ci-only-not-secret@127.0.0.1:${postgres_port}/${database_name}" \
   --env POSTGRES_PASSWORD=ci-only-not-secret \
   --env REDIS_URL="redis://127.0.0.1:${redis_port}/0" \
@@ -136,13 +139,15 @@ fi
     npm run migrate
     test -f test/f1-discovery.integration.test.ts || { echo "Required F1 integration test is missing." >&2; exit 1; }
     test -f test/sms-budget.integration.test.ts || { echo "Required F2 integration test is missing." >&2; exit 1; }
+    test -f test/monitor.integration.test.ts || { echo "Required AUD-05 monitor integration test is missing." >&2; exit 1; }
     test -f test/otp.test.ts || { echo "Required OTP regression test is missing." >&2; exit 1; }
     test -f tooling/scripts/deployment/rebuild-proof.mjs || { echo "Required deployment build proof is missing." >&2; exit 1; }
     test -f tooling/scripts/deployment/post-deploy-check.mjs || { echo "Required read-only deployment check is missing." >&2; exit 1; }
     test -f test/deployment-proof.test.ts || { echo "Required deployment proof test is missing." >&2; exit 1; }
     if npm test -- --exclude test/f1-discovery.integration.test.ts \
       --exclude test/sms-budget.integration.test.ts --exclude test/otp.test.ts \
-      --exclude test/deployment-proof.test.ts --reporter=json --outputFile=/evidence/vitest-general.json; then :; else
+      --exclude test/monitor.integration.test.ts --exclude test/deployment-proof.test.ts \
+      --reporter=json --outputFile=/evidence/vitest-general.json; then :; else
       test_status=$?
       node scripts/ci/print-vitest-failures.mjs /evidence/vitest-general.json
       exit "$test_status"
@@ -168,5 +173,17 @@ fi
     node scripts/ci/assert-vitest-results.mjs /evidence/vitest-deployment-proof.json --no-anvil \
       --expect-file=test/deployment-proof.test.ts \
       --expect-suite-count=test/deployment-proof.test.ts=14
+    DATABASE_URL="$MONITOR_DATABASE_URL" npm run migrate
+    DATABASE_URL="$MONITOR_DATABASE_URL" node scripts/ci/create-monitor-reader.mjs
+    PINGAPP_MONITOR_TEST_RESOURCE_PREFIX=pingapp-audit-monitor \
+      PINGAPP_MONITOR_TEST_POSTGRES_PORT="$PG_PORT" PINGAPP_MONITOR_TEST_REDIS_PORT="$REDIS_PORT" \
+      DATABASE_URL="$MONITOR_DATABASE_URL" \
+      ROUTER_WATCH_DATABASE_URL="postgres://pingapp_watch_ci:ci-monitor-readonly@127.0.0.1:${PG_PORT}/pingapp_audit_monitor" \
+      ROUTER_ENABLED=true ROUTER_ADDRESS=0x0000000000000000000000000000000000000003 ROUTER_DEPLOY_BLOCK=0 \
+      ROUTER_SIGNER_KEY=2222222222222222222222222222222222222222222222222222222222222222 \
+      RELAYER_PRIVATE_KEY=3333333333333333333333333333333333333333333333333333333333333333 \
+      npm test -- test/monitor.integration.test.ts --reporter=json --outputFile=/evidence/vitest-monitor.json
+    node scripts/ci/assert-vitest-results.mjs /evidence/vitest-monitor.json --no-anvil \
+      --expect-file=test/monitor.integration.test.ts --expect-suite-count=test/monitor.integration.test.ts=2
     node tooling/scripts/deployment/rebuild-proof.mjs
   '

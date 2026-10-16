@@ -42,7 +42,9 @@ if "${docker_cmd[@]}" run --rm --cpus=2 --memory=5g --user "${uid}:${gid}" \
   --env NO_COLOR=1 --env ROBINHOOD_RPC_URL --volume "$runtime:/ci-runtime" \
   --volume "$contracts_dir:/work" --workdir /work \
   --entrypoint sh "$foundry_image" -euc \
-  'forge build && forge test --match-path test/fork/PingRouterFork.t.sol' \
+  'forge build --out /ci-runtime/contracts-out --cache-path /ci-runtime/contracts-cache \
+    && forge test --match-path test/fork/PingRouterFork.t.sol \
+      --out /ci-runtime/contracts-out --cache-path /ci-runtime/contracts-cache' \
   >"$raw_output" 2>&1; then
   :
 else

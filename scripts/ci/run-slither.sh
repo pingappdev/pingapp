@@ -20,6 +20,16 @@ fi
 runtime="$(mktemp -d -t pingapp-ci-slither.XXXXXX)"
 chmod 755 "$runtime"
 mkdir -p "$runtime/bin"
+contracts_copy="$runtime/contracts"
+mkdir -p "$contracts_copy"
+while IFS= read -r -d '' relative; do
+  source_file="$repo_root/$relative"
+  destination="$contracts_copy/${relative#contracts/}"
+  if [[ -f "$source_file" || -L "$source_file" ]]; then
+    mkdir -p "$(dirname "$destination")"
+    cp -a -- "$source_file" "$destination"
+  fi
+done < <(git -C "$repo_root" ls-files --cached --others --exclude-standard -z -- contracts)
 trap 'rm -rf "$runtime"' EXIT
 
 "${docker_cmd[@]}" run --rm --cpus=1 --memory=1g --user "${uid}:${gid}" \
@@ -28,7 +38,7 @@ trap 'rm -rf "$runtime"' EXIT
 
 "${docker_cmd[@]}" run --rm --cpus=2 --memory=4g --user "${uid}:${gid}" \
   --env HOME=/ci-runtime --volume "$runtime:/ci-runtime" \
-  --volume "$contracts_dir:/work" --workdir /work \
+  --volume "$contracts_copy:/work" --workdir /work \
   --entrypoint forge "$foundry_image" build
 
 "${docker_cmd[@]}" run --rm --cpus=1 --memory=1g \
@@ -41,11 +51,11 @@ if [[ ! -x "$runtime/bin/forge" || ! -x "$runtime/bin/solc" ]]; then
 fi
 
 "${docker_cmd[@]}" run --rm --cpus=2 --memory=5g --user "${uid}:${gid}" \
-  --env HOME=/tmp \
+  --env HOME=/ci-runtime \
   --env PATH=/ci-runtime/bin:/app/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
-  --volume "$runtime:/ci-runtime:ro" --volume "$repo_root:/repo:ro" \
+  --volume "$runtime:/ci-runtime" --volume "$repo_root:/repo:ro" \
   --volume "$evidence_dir:/evidence" \
-  --volume "$contracts_dir:/work" --workdir /work \
+  --volume "$contracts_copy:/work" --workdir /work \
   --entrypoint sh "$slither_image" -euc '
     set +e
     slither . --filter-paths "lib/|test/|script/" --fail-none --json /evidence/slither.json

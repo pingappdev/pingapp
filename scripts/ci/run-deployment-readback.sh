@@ -31,7 +31,7 @@ echo 'Preparing the pinned Solidity 0.8.28 compiler in an isolated Foundry cache
 "${docker_cmd[@]}" run --rm --cpus=2 --memory=4g --user "${uid}:${gid}" \
   --env HOME=/ci-runtime --volume "$runtime:/ci-runtime" \
   --volume "$contracts_dir:/work" --workdir /work \
-  --entrypoint forge "$foundry_image" build
+  --entrypoint forge "$foundry_image" build --out /ci-runtime/contracts-out --cache-path /ci-runtime/contracts-cache
 ln -sf ../.svm/0.8.28/solc-0.8.28 "$runtime/bin/solc"
 if [[ ! -x "$runtime/bin/solc" ]]; then
   echo 'Pinned Solidity 0.8.28 compiler is required for the read-only deployment proof.' >&2
