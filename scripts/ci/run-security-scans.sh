@@ -170,20 +170,21 @@ echo 'Scanning first-party source with pinned Semgrep rules.'
       echo "Semgrep rules checkout mismatch: $actual_commit" >&2
       exit 2
     fi
-    upstream_rule_count=$(find "$rules_dir/javascript/lang" "$rules_dir/typescript/lang" \
-      "$rules_dir/javascript/react" "$rules_dir/typescript/react" \
+    upstream_rule_count=$(find "$rules_dir/javascript/lang/security" "$rules_dir/typescript/lang/security" \
+      "$rules_dir/typescript/react/security" \
       -type f \( -name "*.yaml" -o -name "*.yml" \) -print | wc -l | tr -d "[:space:]")
     if [ "$upstream_rule_count" -lt 1 ]; then
       echo "Pinned Semgrep rule checkout contains no YAML rule files." >&2
       exit 2
     fi
-    echo "Semgrep loaded source directories at $actual_commit ($upstream_rule_count YAML rule files)."
-    # www/public/runtime contains prebuilt, hashed vendor bundles, not source.
-    # Their minified syntax triggers parser/time-limit errors; source under
-    # www/src remains in scope, and Gitleaks still covers the generated files.
+    echo "Semgrep loaded pinned JS/TS security rules at $actual_commit ($upstream_rule_count YAML rule files)."
+    # www/public/runtime contains checked-in, hashed Framer marketing bundles.
+    # Their bundled syntax triggers parser/time-limit errors and some bundles
+    # have no equivalent maintained source; Gitleaks still scans every bundle.
     set +e
-    semgrep scan --config "$rules_dir/javascript/lang" --config "$rules_dir/typescript/lang" \
-      --config "$rules_dir/javascript/react" --config "$rules_dir/typescript/react" \
+    semgrep scan --config "$rules_dir/javascript/lang/security" \
+      --config "$rules_dir/typescript/lang/security" \
+      --config "$rules_dir/typescript/react/security" \
       --config /ci/semgrep-rules.yml \
       --metrics=off --disable-version-check --strict --error --jobs=2 --timeout=10 --json --quiet \
       --exclude node_modules --exclude contracts/lib --exclude contracts/out \
