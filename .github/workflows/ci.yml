@@ -58,12 +58,21 @@ jobs:
         run: |
           set -o pipefail
           bash scripts/ci/test-contracts.sh 2>&1 | tee "$RUNNER_TEMP/contracts-ci.log"
+        env:
+          CI_EVIDENCE_DIR: ${{ runner.temp }}/pingapp-contracts-evidence
       - name: Save contract gate evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: contracts-ci-${{ github.run_id }}
-          path: ${{ runner.temp }}/contracts-ci.log
+          path: |
+            ${{ runner.temp }}/contracts-ci.log
+            ${{ runner.temp }}/pingapp-contracts-evidence/invariant-sequences.jsonl
+            ${{ runner.temp }}/pingapp-contracts-evidence/invariant-campaign-summary.json
+            ${{ runner.temp }}/pingapp-contracts-evidence/foundry-test.log
+            ${{ runner.temp }}/pingapp-contracts-evidence/coverage.log
+            ${{ runner.temp }}/pingapp-contracts-evidence/mutation-report.json
+            ${{ runner.temp }}/pingapp-contracts-evidence/mutation-logs/*.log
           if-no-files-found: warn
           retention-days: 90
 
