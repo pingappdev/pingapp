@@ -199,10 +199,18 @@ PY
 run_gitleaks_self_test
 run_semgrep_self_test
 
-echo 'Scanning the public working tree with Gitleaks.'
+# Keep the Gitleaks history exceptions exact. In .gitleaksignore, source commit
+# 28126690adf08a14e1ca3dc9dc5f1341015c59b2 maps to exported commit
+# 58c5c858dd2c8140f51d34c26875358e92fbab12; its 151 entries cover only
+# verified generic-api-key matches in OpenZeppelin test assertions and public
+# test vectors. The two .env fingerprints for 2dafaee62dc4e64047d18e0a754b652a41f0ee56
+# are only sb_publishable_* values, which Supabase classifies as safe to expose:
+# https://supabase.com/docs/guides/getting-started/api-keys
+# No vendor or .env path is broadly excluded; every other finding stays fatal.
+echo 'Scanning the checked-out working tree with Gitleaks.'
 gitleaks_run "$scan_tree" dir --redact --no-banner --verbose /scan
 
-echo 'Scanning the exporter-selected public history with Gitleaks.'
+echo "Scanning the selected repository's full history with Gitleaks."
 "${docker_cmd[@]}" run --rm --cpus=2 --memory=2g --user "${uid}:${gid}" \
   --env HOME=/tmp --volume "$history_repo:/repo:ro" \
   --volume "$repo_root/.gitleaksignore:/ci/.gitleaksignore:ro" \

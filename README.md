@@ -378,10 +378,11 @@ bash scripts/ci/run-security-scans.sh
 bash scripts/ci/run-slither.sh
 ```
 
-The security scan covers the public source tree and history. GitHub branch
-protection is configured separately from workflow files; this README does not
-claim a hosted workflow result or a branch-protection setting. Hosted live
-readback and archive-fork checks are not required and do not run in CI.
+The security scan covers the checked-out repository tree and full history.
+GitHub branch protection is configured separately from workflow files; this
+README does not claim a hosted workflow result or a branch-protection setting.
+Hosted live readback and archive-fork checks are not required and do not run in
+CI.
 
 The archive fork and live deployment readback remain optional manual tools,
 outside hosted CI. Before running either script, an operator must confirm that
