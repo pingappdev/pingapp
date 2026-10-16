@@ -137,6 +137,8 @@ jobs:
           bash scripts/ci/test-fork.sh 2>&1 | tee "$RUNNER_TEMP/fork-tests.log"
         env:
           CI_EVIDENCE_DIR: ${{ runner.temp }}/pingapp-audit-ci-evidence
+          # Optional archive-capable endpoint for the pinned historical fork; never exposed to PR jobs.
+          ROBINHOOD_RPC_URL: ${{ secrets.ROBINHOOD_ARCHIVE_RPC_URL }}
       - name: Rebuild and read back the deployed router
         if: always() && steps.checkout.outcome == 'success'
         run: |

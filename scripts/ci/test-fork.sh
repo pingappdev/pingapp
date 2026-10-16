@@ -39,7 +39,7 @@ gid="$(id -g)"
 echo "Running the focused mainnet fork suite at block $fork_block."
 if "${docker_cmd[@]}" run --rm --cpus=2 --memory=5g --user "${uid}:${gid}" \
   --env HOME=/ci-runtime --env FOUNDRY_PROFILE=ci --env FORK_BLOCK="$fork_block" \
-  --env NO_COLOR=1 --env ROBINHOOD_RPC_URL --volume "$runtime:/ci-runtime" \
+  --env NO_COLOR=1 --env "ROBINHOOD_RPC_URL=$fork_rpc_url" --volume "$runtime:/ci-runtime" \
   --volume "$contracts_dir:/work" --workdir /work \
   --entrypoint sh "$foundry_image" -euc \
   'forge build --out /ci-runtime/contracts-out --cache-path /ci-runtime/contracts-cache \
