@@ -28,7 +28,8 @@ evidence_dir="${CI_EVIDENCE_DIR:-${RUNNER_TEMP:-${TMPDIR:-/tmp}}/pingapp-audit-c
 mkdir -p "$evidence_dir"
 runtime="$(mktemp -d -t pingapp-audit-ci.XXXXXX)"
 chmod 755 "$runtime"
-mkdir -p "$runtime/bin"
+mkdir -p "$runtime/bin" "$runtime/contracts-for-node"
+test_contracts="$runtime/contracts-for-node"
 containers=()
 cleanup() {
   if [[ "${#containers[@]}" -gt 0 ]]; then
@@ -102,6 +103,10 @@ gid="$(id -g)"
 "${docker_cmd[@]}" run --rm --cpus=2 --memory=4g --user "${uid}:${gid}" --env HOME=/ci-runtime \
   --volume "$runtime:/ci-runtime" --volume "${repo_root}/contracts:/work" --workdir /work \
   --entrypoint forge "$foundry_image" build --out /ci-runtime/contracts-out --cache-path /ci-runtime/contracts-cache
+cp -a "$repo_root/contracts/." "$test_contracts/"
+rm -rf -- "$test_contracts/out" "$test_contracts/cache"
+mkdir -p "$test_contracts/out"
+cp -a "$runtime/contracts-out/." "$test_contracts/out/"
 ln -s ../.svm/0.8.28/solc-0.8.28 "$runtime/bin/solc"
 if [[ ! -x "$runtime/bin/solc" ]]; then
   echo 'Pinned Solidity 0.8.28 compiler is required for the offline deployment proof.' >&2
@@ -124,7 +129,8 @@ fi
   --env SMS_DRIVER=log --env SMS_ENABLED=false --env CARDS_ENABLED=false \
   --volume "$runtime:/ci-runtime:ro" \
   --volume "$evidence_dir:/evidence" \
-  --volume "$repo_root:/work" --workdir /work "$node_image" sh -euc '
+  --volume "$repo_root:/work" --volume "$test_contracts:/work/contracts:ro" \
+  --workdir /work "$node_image" sh -euc '
     test "$(node --version)" = "v24.21.0"
     npm ci
     npx drizzle-kit check
